@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; total: number; currency: string; description: string; receiptUrl: string; owner: string };
 type Deposit = { id: string; date: string; house: string; houseId: string; owner: string; currency: string; amount: number; notes: string; month: string };
+type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
 type ReportStatus = { pending: number; reviewed: number; sent: number; total: number; month: string };
 
@@ -72,7 +73,22 @@ export default function AdminDashboard() {
   const [depSubmitting, setDepSubmitting] = useState(false);
   const [depSuccess, setDepSuccess] = useState(false);
 
+  const [reports, setReports] = useState<Report[]>([]);
+  const [repLoading, setRepLoading] = useState(false);
+  const [repMonth, setRepMonth] = useState(new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }));
+  const [repUpdating, setRepUpdating] = useState<string | null>(null);
+
   const monthOptions = getMonthOptions();
+
+  const repMonthOptions = (() => {
+    const o: string[] = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      o.push(d.toLocaleDateString("en-US", { month: "long", year: "numeric" }));
+    }
+    return o;
+  })();
 
   useEffect(() => { fetch("/api/properties").then(r => r.json()).then(d => { setProperties(d.properties || []); setLoading(false); }).catch(() => setLoading(false)); }, []);
 
@@ -90,6 +106,27 @@ export default function AdminDashboard() {
       fetch("/api/balances").then(r => r.json()).then(d => { setBalances(d.balances || []); if (d.reportStatus) setReportStatus(d.reportStatus); });
     }
   }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "reports") {
+      setRepLoading(true);
+      fetch(`/api/reports?month=${encodeURIComponent(repMonth)}`)
+        .then(r => r.json())
+        .then(d => { setReports(d.reports || []); setRepLoading(false); })
+        .catch(() => setRepLoading(false));
+    }
+  }, [activePage, repMonth]);
+
+  async function updateReports(action: string, ids: string[]) {
+    setRepUpdating(action);
+    try {
+      const res = await fetch("/api/reports", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, recordIds: ids }) });
+      if (res.ok) {
+        fetch(`/api/reports?month=${encodeURIComponent(repMonth)}`).then(r => r.json()).then(d => setReports(d.reports || []));
+      }
+    } catch (e) { console.error(e); }
+    setRepUpdating(null);
+  }
 
   const active = properties.filter(p => p.status === "Active");
   const filteredExpenses = monthFilter === "all" ? expenses : expenses.filter(e => e.date && e.date.startsWith(monthFilter));
@@ -142,7 +179,7 @@ export default function AdminDashboard() {
           ))}
         </div>
         <div onClick={() => setSidebarOpen(!sidebarOpen)} style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--text3)", cursor: "pointer", textAlign: sidebarOpen ? "right" as const : "center" as const }}>{sidebarOpen ? "◀ Collapse" : "▶"}</div>
-        {sidebarOpen && <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)" }}>Ana García · Admin</div>}
+        {sidebarOpen && <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)" }}>Sofia · Admin</div>}
       </div>
 
       {/* MAIN */}
@@ -337,8 +374,134 @@ export default function AdminDashboard() {
           </div>
         )}
 
+
+        {/* ====== REPORTS ====== */}
+        {activePage === "reports" && (
+          <div style={{ padding: "32px 40px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+              <div>
+                <h1 style={h1s}>Monthly Reports</h1>
+                <p style={{ fontSize: 14, color: "var(--text2)" }}>{repLoading ? "Loading..." : `${reports.filter(r => r.status === "Sent").length} of ${reports.length} reports sent for ${repMonth}`}</p>
+              </div>
+              <select value={repMonth} onChange={e => setRepMonth(e.target.value)} style={{ ...sel, minWidth: 180 }}>
+                {repMonthOptions.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+
+            {/* Progress bar */}
+            {!repLoading && reports.length > 0 && (
+              <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 24, background: "var(--bg2)" }}>
+                <div style={{ width: `${(reports.filter(r => r.status === "Sent").length / reports.length) * 100}%`, background: "var(--green)", transition: "width 0.3s" }} />
+                <div style={{ width: `${(reports.filter(r => r.status === "Reviewed").length / reports.length) * 100}%`, background: "var(--accent)", transition: "width 0.3s" }} />
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" as const }}>
+              {reports.some(r => r.chargeStatus !== "Completed") && (
+                <button onClick={() => updateReports("generateCharges", reports.filter(r => r.chargeStatus !== "Completed").map(r => r.id))}
+                  disabled={repUpdating !== null}
+                  style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  {repUpdating === "generateCharges" ? "Running..." : `Generate all recurring charges (${reports.filter(r => r.chargeStatus !== "Completed").length})`}
+                </button>
+              )}
+              {reports.some(r => r.status === "Pending") && (
+                <button onClick={() => updateReports("markReviewed", reports.filter(r => r.status === "Pending").map(r => r.id))}
+                  disabled={repUpdating !== null}
+                  style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  Mark all as Reviewed
+                </button>
+              )}
+              {reports.some(r => r.status === "Reviewed") && (
+                <button onClick={() => updateReports("markSent", reports.filter(r => r.status === "Reviewed").map(r => r.id))}
+                  disabled={repUpdating !== null}
+                  style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--green)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  Mark all as Sent
+                </button>
+              )}
+            </div>
+
+            {/* Report list */}
+            <div style={{ display: "grid", gap: 10 }}>
+              {repLoading && <div style={{ padding: 20, color: "var(--text3)" }}>Loading reports...</div>}
+              {reports.map(r => {
+                const isNeg = r.finalBalance < 0;
+                const statusColor = r.status === "Sent" ? "var(--green)" : r.status === "Reviewed" ? "var(--accent)" : "var(--red)";
+                const statusBg = r.status === "Sent" ? "var(--green-s)" : r.status === "Reviewed" ? "var(--accent-s)" : "var(--red-s)";
+                return (
+                  <div key={r.id} style={{ ...card, padding: 0 }}>
+                    {/* Report header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 2 }}>{r.house}</div>
+                        <div style={{ fontSize: 12, color: "var(--text3)" }}>{r.owner}</div>
+                      </div>
+                      <span style={{ fontSize: 11, padding: "3px 12px", borderRadius: 100, fontWeight: 500, background: statusBg, color: statusColor }}>{r.status}</span>
+                      {r.chargeStatus !== "Completed" && (
+                        <span style={{ fontSize: 11, padding: "3px 12px", borderRadius: 100, fontWeight: 500, background: "var(--orange-s)", color: "var(--orange)" }}>Charges pending</span>
+                      )}
+                    </div>
+
+                    {/* Financial summary */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 0 }}>
+                      <div style={{ padding: "12px 20px", borderRight: "1px solid var(--border)" }}>
+                        <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Starting Bal.</div>
+                        <div style={{ fontSize: 14, fontWeight: 500 }}>{fmtCur(r.startingBalance, r.currency)}</div>
+                      </div>
+                      <div style={{ padding: "12px 20px", borderRight: "1px solid var(--border)" }}>
+                        <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Expenses</div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--red)" }}>{fmtCur(r.totalExpenses, r.currency)}</div>
+                      </div>
+                      <div style={{ padding: "12px 20px", borderRight: "1px solid var(--border)" }}>
+                        <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Deposits</div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--green)" }}>{fmtCur(r.totalDeposits, r.currency)}</div>
+                      </div>
+                      <div style={{ padding: "12px 20px" }}>
+                        <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Final Balance</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: "flex", gap: 8, padding: "12px 20px", borderTop: "1px solid var(--border)", justifyContent: "flex-end" }}>
+                      {r.chargeStatus !== "Completed" && (
+                        <button onClick={() => updateReports("generateCharges", [r.id])} disabled={repUpdating !== null}
+                          style={{ padding: "6px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--teal-l)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                          Generate charges
+                        </button>
+                      )}
+                      {r.status === "Pending" && (
+                        <button onClick={() => updateReports("markReviewed", [r.id])} disabled={repUpdating !== null}
+                          style={{ padding: "6px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                          Mark Reviewed
+                        </button>
+                      )}
+                      {r.status === "Reviewed" && (
+                        <button onClick={() => updateReports("markSent", [r.id])} disabled={repUpdating !== null}
+                          style={{ padding: "6px 14px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--green), #4a9e6e)", color: "#fff", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                          Mark Sent
+                        </button>
+                      )}
+                      {r.status === "Sent" && (
+                        <button onClick={() => updateReports("markPending", [r.id])} disabled={repUpdating !== null}
+                          style={{ padding: "6px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                          Reopen
+                        </button>
+                      )}
+                      <button onClick={() => { setExpFilter(r.house); setActivePage("expenses"); }}
+                        style={{ padding: "6px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                        View expenses
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && (
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>
