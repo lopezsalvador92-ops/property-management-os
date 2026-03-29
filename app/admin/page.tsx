@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; total: number; currency: string; description: string; receiptUrl: string; owner: string };
 type Deposit = { id: string; date: string; house: string; houseId: string; owner: string; currency: string; amount: number; notes: string; month: string };
+type PropertyDetail = { id: string; name: string; owner: string; email: string; secondaryEmail: string; currency: string; status: string; pmFeeUSD: number; pmFeeMXN: number; landscapingFeeUSD: number; landscapingFeeMXN: number; poolFeeUSD: number; poolFeeMXN: number; hskCadence: string; includedCleans: number; hskFeeUSD: number; hskFeeMXN: number; housemanFeeUSD: number; housemanFeeMXN: number };
 type HskLog = { id: string; housekeeper: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
 type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number };
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
@@ -80,6 +81,18 @@ export default function AdminDashboard() {
   const [repMonth, setRepMonth] = useState(new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }));
   const [repUpdating, setRepUpdating] = useState<string | null>(null);
 
+  const [propDetails, setPropDetails] = useState<PropertyDetail[]>([]);
+  const [propLoading, setPropLoading] = useState(false);
+  const [selectedProp, setSelectedProp] = useState<string | null>(null);
+  const [propTab, setPropTab] = useState<"overview" | "fees" | "housekeeping" | "history">("overview");
+  const [propSaving, setPropSaving] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newPropName, setNewPropName] = useState("");
+  const [newPropOwner, setNewPropOwner] = useState("");
+  const [newPropEmail, setNewPropEmail] = useState("");
+  const [newPropCurrency, setNewPropCurrency] = useState("MXN");
+  const [addingProp, setAddingProp] = useState(false);
+  const [propSaved, setPropSaved] = useState(false);
   const [hskLogs, setHskLogs] = useState<HskLog[]>([]);
   const [hskSummary, setHskSummary] = useState<HskSummary[]>([]);
   const [hskMonth, setHskMonth] = useState("");
@@ -139,6 +152,43 @@ export default function AdminDashboard() {
         .catch(() => setRepLoading(false));
     }
   }, [activePage, repMonth]);
+
+  useEffect(() => {
+    if (activePage === "properties") {
+      setPropLoading(true);
+      fetch("/api/properties-detail").then(r => r.json()).then(d => { setPropDetails(d.properties || []); setPropLoading(false); }).catch(() => setPropLoading(false));
+    }
+  }, [activePage]);
+
+  async function addProperty() {
+    if (!newPropName || !newPropOwner) return;
+    setAddingProp(true);
+    try {
+      const res = await fetch("/api/properties-detail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newPropName, owner: newPropOwner, email: newPropEmail, currency: newPropCurrency }),
+      });
+      if (res.ok) {
+        setShowAddForm(false); setNewPropName(""); setNewPropOwner(""); setNewPropEmail("");
+        fetch("/api/properties-detail").then(r => r.json()).then(d => setPropDetails(d.properties || []));
+      }
+    } catch (e) { console.error(e); }
+    setAddingProp(false);
+  }
+
+  async function saveProperty(recordId: string, fields: Record<string, any>) {
+    setPropSaving(true);
+    try {
+      const res = await fetch("/api/properties-detail", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recordId, fields }) });
+      if (res.ok) {
+        setPropSaved(true);
+        setTimeout(() => setPropSaved(false), 2000);
+        fetch("/api/properties-detail").then(r => r.json()).then(d => setPropDetails(d.properties || []));
+      }
+    } catch (e) { console.error(e); }
+    setPropSaving(false);
+  }
 
   useEffect(() => {
     if (activePage === "housekeeping") {
@@ -808,8 +858,238 @@ export default function AdminDashboard() {
           );
         })()}
 
-        {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && (
+
+        {/* ====== PROPERTIES ====== */}
+        {activePage === "properties" && (() => {
+          const activePropList = propDetails.filter(p => p.status === "Active");
+          const otherPropList = propDetails.filter(p => p.status !== "Active");
+          const sel_prop = selectedProp ? propDetails.find(p => p.id === selectedProp) : null;
+
+
+          // DETAIL VIEW
+          if (sel_prop) {
+            const isUSD = sel_prop.currency === "USD";
+            const pmFee = isUSD ? sel_prop.pmFeeUSD : sel_prop.pmFeeMXN;
+            const landscapingFee = isUSD ? sel_prop.landscapingFeeUSD : sel_prop.landscapingFeeMXN;
+            const poolFee = isUSD ? sel_prop.poolFeeUSD : sel_prop.poolFeeMXN;
+            const hskFee = isUSD ? sel_prop.hskFeeUSD : sel_prop.hskFeeMXN;
+            const housemanFee = isUSD ? sel_prop.housemanFeeUSD : sel_prop.housemanFeeMXN;
+            const bal = balances.find(b => b.house === sel_prop.name);
+            const isNeg = bal && bal.finalBalance < 0;
+            const tabStyle = (active: boolean): React.CSSProperties => ({ padding: "8px 20px", border: "1px solid var(--border2)", background: active ? "var(--accent-s)" : "transparent", color: active ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" });
+
+            return (
+              <div style={{ padding: "32px 40px", maxWidth: 900 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+                  <span onClick={() => { setSelectedProp(null); setPropTab("overview"); }} style={{ fontSize: 13, color: "var(--teal-l)", cursor: "pointer" }}>Properties</span>
+                  <span style={{ fontSize: 13, color: "var(--text3)" }}>/</span>
+                  <span style={{ fontSize: 13, color: "var(--text)" }}>{sel_prop.name}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+                  <div>
+                    <h1 style={h1s}>{sel_prop.name}</h1>
+                    <p style={{ fontSize: 14, color: "var(--text2)" }}>{sel_prop.owner} · {sel_prop.currency} · {sel_prop.status}</p>
+                  </div>
+                  {bal && (
+                    <div style={{ textAlign: "right" as const }}>
+                      <div style={{ fontSize: 20, fontWeight: 600, fontFamily: "'Georgia', serif", color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(bal.finalBalance, bal.currency)}</div>
+                      <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const }}>Current balance</div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
+                  <button onClick={() => setPropTab("overview")} style={{ ...tabStyle(propTab === "overview"), borderRadius: "8px 0 0 8px" }}>Overview</button>
+                  <button onClick={() => setPropTab("fees")} style={{ ...tabStyle(propTab === "fees"), borderLeft: "none" }}>Fee Config</button>
+                  <button onClick={() => setPropTab("housekeeping")} style={{ ...tabStyle(propTab === "housekeeping"), borderLeft: "none" }}>Housekeeping</button>
+                  <button onClick={() => setPropTab("history")} style={{ ...tabStyle(propTab === "history"), borderLeft: "none", borderRadius: "0 8px 8px 0" }}>History</button>
+                </div>
+                {propSaved && <div style={{ padding: "10px 16px", background: "var(--green-s)", border: "1px solid rgba(110,207,151,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "var(--green)" }}>✓ Changes saved to Airtable</div>}
+
+                {propTab === "overview" && (
+                  <div style={{ ...card }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Owner information</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                      <div><label style={lbl}>Owner name</label><input defaultValue={sel_prop.owner} onBlur={e => saveProperty(sel_prop.id, { owner: e.target.value })} style={inp} /></div>
+                      <div>
+                        <label style={lbl}>Preferred currency</label>
+                        <select defaultValue={sel_prop.currency} onChange={e => saveProperty(sel_prop.id, { currency: e.target.value })} style={{ ...inp, appearance: "none" as const }}>
+                          <option value="USD">USD</option>
+                          <option value="MXN">MXN</option>
+                        </select>
+                      </div>
+                      <div><label style={lbl}>Primary email</label><input defaultValue={sel_prop.email} onBlur={e => saveProperty(sel_prop.id, { email: e.target.value })} style={inp} /></div>
+                      <div><label style={lbl}>Secondary email</label><input defaultValue={sel_prop.secondaryEmail} onBlur={e => saveProperty(sel_prop.id, { secondaryEmail: e.target.value })} style={inp} /></div>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 12, paddingTop: 16, borderTop: "1px solid var(--border)" }}>Quick actions</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => { setExpFilter(sel_prop.name); setActivePage("expenses"); }} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--teal-l)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View expenses</button>
+                      <button onClick={() => setActivePage("reports")} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View reports</button>
+                      <button onClick={() => setActivePage("deposits")} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--green)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View deposits</button>
+                    </div>
+                  </div>
+                )}
+
+                {propTab === "fees" && (
+                  <div style={{ ...card }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Monthly recurring fees ({sel_prop.currency})</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                      <div><label style={lbl}>PM Fee</label><input type="number" defaultValue={pmFee || ""} onBlur={e => saveProperty(sel_prop.id, { [isUSD ? "pmFeeUSD" : "pmFeeMXN"]: e.target.value })} style={inp} placeholder="0.00" /></div>
+                      <div><label style={lbl}>Landscaping Fee</label><input type="number" defaultValue={landscapingFee || ""} onBlur={e => saveProperty(sel_prop.id, { [isUSD ? "landscapingFeeUSD" : "landscapingFeeMXN"]: e.target.value })} style={inp} placeholder="0.00" /></div>
+                      <div><label style={lbl}>Pool Fee</label><input type="number" defaultValue={poolFee || ""} onBlur={e => saveProperty(sel_prop.id, { [isUSD ? "poolFeeUSD" : "poolFeeMXN"]: e.target.value })} style={inp} placeholder="0.00" /></div>
+                    </div>
+                    <p style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>Changes save automatically when you click away from a field.</p>
+                  </div>
+                )}
+
+                {propTab === "housekeeping" && (
+                  <div style={{ ...card }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Housekeeping configuration</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                      <div><label style={lbl}>Cadence</label><div style={{ padding: "10px 14px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 14, color: "var(--text2)" }}>{sel_prop.hskCadence}</div></div>
+                      <div><label style={lbl}>Included cleans per week</label><input type="number" defaultValue={sel_prop.includedCleans || ""} onBlur={e => saveProperty(sel_prop.id, { includedCleans: e.target.value })} style={inp} placeholder="0" /></div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      <div><label style={lbl}>HSK Fee ({sel_prop.currency})</label><input type="number" defaultValue={hskFee || ""} onBlur={e => saveProperty(sel_prop.id, { [isUSD ? "hskFeeUSD" : "hskFeeMXN"]: e.target.value })} style={inp} placeholder="0.00" /></div>
+                      <div><label style={lbl}>Houseman Fee ({sel_prop.currency})</label><input type="number" defaultValue={housemanFee || ""} onBlur={e => saveProperty(sel_prop.id, { [isUSD ? "housemanFeeUSD" : "housemanFeeMXN"]: e.target.value })} style={inp} placeholder="0.00" /></div>
+                    </div>
+                    <p style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>Changes save automatically when you click away from a field.</p>
+                  </div>
+                )}
+
+                {propTab === "history" && (
+                  <div style={{ ...card, padding: 0 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 100px 130px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Month</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "right" as const }}>Starting</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "right" as const }}>Expenses</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "right" as const }}>Deposits</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "right" as const }}>Final Balance</div>
+                    </div>
+                    {balances.filter(b => b.house === sel_prop.name).length > 0 ? (
+                      balances.filter(b => b.house === sel_prop.name).map((b, i, arr) => {
+                        const neg = b.finalBalance < 0;
+                        return (
+                          <div key={`hist-${b.houseId}-${i}`} style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 100px 130px", padding: "12px 20px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>{b.month}</div>
+                            <div style={{ fontSize: 13, color: "var(--text2)", textAlign: "right" as const }}>{fmtCur(b.startingBalance, b.currency)}</div>
+                            <div style={{ fontSize: 13, color: "var(--red)", textAlign: "right" as const }}>{fmtCur(b.totalExpenses, b.currency)}</div>
+                            <div style={{ fontSize: 13, color: "var(--green)", textAlign: "right" as const }}>{fmtCur(b.totalDeposits, b.currency)}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: neg ? "var(--red)" : "var(--green)", textAlign: "right" as const }}>{neg ? "-" : ""}{fmtCur(b.finalBalance, b.currency)}</div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>No financial history available.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // DASHBOARD LIST VIEW
+          const totalBalance = balances.reduce((sum, b) => sum + (b.currency === "USD" ? b.finalBalance : 0), 0);
+          const negCount = balances.filter(b => b.finalBalance < 0).length;
+          const usdProps = activePropList.filter(p => p.currency === "USD").length;
+          const mxnProps = activePropList.filter(p => p.currency === "MXN").length;
+
+          return (
+            <div style={{ padding: "32px 40px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+                <div>
+                  <h1 style={h1s}>Properties</h1>
+                  <p style={{ fontSize: 14, color: "var(--text2)" }}>{propLoading ? "Loading..." : `${activePropList.length} active, ${otherPropList.length} other`}</p>
+                </div>
+                <button onClick={() => setShowAddForm(!showAddForm)}
+                  style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  + Add Property
+                </button>
+              </div>
+
+              {/* Stats */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+                <div style={card}><div style={lbl}>Active</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--teal-l)" }}>{activePropList.length}</div></div>
+                <div style={card}><div style={lbl}>USD Properties</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--blue)" }}>{usdProps}</div></div>
+                <div style={card}><div style={lbl}>MXN Properties</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--teal-l)" }}>{mxnProps}</div></div>
+                <div style={card}><div style={lbl}>Negative Balances</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: negCount > 0 ? "var(--red)" : "var(--green)" }}>{negCount}</div></div>
+              </div>
+
+              {/* Add property form */}
+              {showAddForm && (
+                <div style={{ ...card, marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Add a new property</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                    <div><label style={lbl}>Property name</label><input value={newPropName} onChange={e => setNewPropName(e.target.value)} placeholder="e.g. Chileno RE40" style={inp} /></div>
+                    <div><label style={lbl}>Owner name</label><input value={newPropOwner} onChange={e => setNewPropOwner(e.target.value)} placeholder="e.g. Mr. & Mrs. Smith" style={inp} /></div>
+                    <div><label style={lbl}>Owner email</label><input value={newPropEmail} onChange={e => setNewPropEmail(e.target.value)} placeholder="email@example.com" style={inp} /></div>
+                    <div>
+                      <label style={lbl}>Preferred currency</label>
+                      <select value={newPropCurrency} onChange={e => setNewPropCurrency(e.target.value)} style={{ ...inp, appearance: "none" as const }}>
+                        <option value="MXN">MXN</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button onClick={() => setShowAddForm(false)} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                    <button onClick={addProperty} disabled={addingProp || !newPropName || !newPropOwner}
+                      style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: (!newPropName || !newPropOwner) ? "var(--bg2)" : "linear-gradient(135deg, var(--teal), #2A6B7C)", color: (!newPropName || !newPropOwner) ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: (!newPropName || !newPropOwner) ? "default" : "pointer", fontFamily: "inherit" }}>
+                      {addingProp ? "Adding..." : "Add Property"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Property cards grid */}
+              <h2 style={{ ...h2s, marginBottom: 12 }}>Active properties</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
+                {activePropList.map(p => {
+                  const bal = balances.find(b => b.house === p.name);
+                  const isNeg = bal && bal.finalBalance < 0;
+                  return (
+                    <div key={p.id} onClick={() => { setSelectedProp(p.id); setPropTab("overview"); }}
+                      style={{ ...card, cursor: "pointer", transition: "border-color 0.15s", border: `1px solid ${isNeg ? "rgba(207,110,110,0.15)" : "var(--border)"}`, padding: 16 }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)")}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = isNeg ? "rgba(207,110,110,0.15)" : "rgba(255,255,255,0.06)")}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                        <div style={{ fontSize: 15, fontWeight: 500 }}>{p.name}</div>
+                        <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 100, background: p.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: p.currency === "USD" ? "var(--blue)" : "var(--teal-l)" }}>{p.currency}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 10 }}>{p.owner}</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: 12 }}>
+                          <div style={{ fontSize: 11, color: "var(--text3)" }}>HSK: <span style={{ color: "var(--text2)" }}>{p.hskCadence}</span></div>
+                          {p.includedCleans > 0 && <div style={{ fontSize: 11, color: "var(--text3)" }}>Cleans: <span style={{ color: "var(--text2)" }}>{p.includedCleans}/wk</span></div>}
+                        </div>
+                        {bal ? (
+                          <div style={{ fontSize: 14, fontWeight: 600, color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(bal.finalBalance, bal.currency)}</div>
+                        ) : (
+                          <span style={{ fontSize: 11, color: "var(--green)" }}>Active</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {otherPropList.length > 0 && (
+                <>
+                  <h2 style={{ ...h2s, marginBottom: 12 }}>Other</h2>
+                  {otherPropList.map(p => (
+                    <div key={p.id} onClick={() => { setSelectedProp(p.id); setPropTab("overview"); }}
+                      style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 20px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8, cursor: "pointer", opacity: 0.6 }}>
+                      <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{p.name}</div><div style={{ fontSize: 12, color: "var(--text3)" }}>{p.owner || "No owner"}</div></div>
+                      <span style={{ fontSize: 12, color: "var(--text3)", padding: "3px 12px", borderRadius: 100, background: "var(--bg3)" }}>{p.status}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          );
+        })()}
+
+                {/* PLACEHOLDER */}
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>
