@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; total: number; currency: string; description: string; receiptUrl: string; owner: string };
 type Deposit = { id: string; date: string; house: string; houseId: string; owner: string; currency: string; amount: number; notes: string; month: string };
+type HskLog = { id: string; housekeeper: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
+type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number };
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
 type ReportStatus = { pending: number; reviewed: number; sent: number; total: number; month: string };
@@ -78,6 +80,12 @@ export default function AdminDashboard() {
   const [repMonth, setRepMonth] = useState(new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }));
   const [repUpdating, setRepUpdating] = useState<string | null>(null);
 
+  const [hskLogs, setHskLogs] = useState<HskLog[]>([]);
+  const [hskSummary, setHskSummary] = useState<HskSummary[]>([]);
+  const [hskMonth, setHskMonth] = useState("");
+  const [hskLoading, setHskLoading] = useState(false);
+  const [hskUpdating, setHskUpdating] = useState<string | null>(null);
+  const [hskView, setHskView] = useState<"individual" | "weekly" | "summary">("individual");
   const [previewId, setPreviewId] = useState<string | null>(null);
 
   function monthToFilterValue(monthStr: string): string {
@@ -131,6 +139,22 @@ export default function AdminDashboard() {
         .catch(() => setRepLoading(false));
     }
   }, [activePage, repMonth]);
+
+  useEffect(() => {
+    if (activePage === "housekeeping") {
+      setHskLoading(true);
+      fetch("/api/housekeeping").then(r => r.json()).then(d => { setHskLogs(d.logs || []); setHskSummary(d.monthlySummary || []); setHskMonth(d.currentMonth || ""); setHskLoading(false); }).catch(() => setHskLoading(false));
+    }
+  }, [activePage]);
+
+  async function updateHsk(action: string, ids: string[]) {
+    setHskUpdating(action);
+    try {
+      const res = await fetch("/api/housekeeping", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, recordIds: ids }) });
+      if (res.ok) { fetch("/api/housekeeping").then(r => r.json()).then(d => { setHskLogs(d.logs || []); setHskSummary(d.monthlySummary || []); }); }
+    } catch (e) { console.error(e); }
+    setHskUpdating(null);
+  }
 
   async function updateReports(action: string, ids: string[]) {
     setRepUpdating(action);
@@ -589,8 +613,203 @@ export default function AdminDashboard() {
           </div>
         )}
 
-                {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && (
+        
+        {/* ====== HOUSEKEEPING ====== */}
+        {activePage === "housekeeping" && (() => {
+          const pending = hskLogs.filter(l => l.status === "Pending");
+          const approved = hskLogs.filter(l => l.status === "Approved");
+          const dayKeys: (keyof HskLog["days"])[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+          const dayLabels = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+
+          function formatWeek(dateStr: string) {
+            if (!dateStr) return "";
+            try { const d = new Date(dateStr + "T12:00:00"); return `Week of ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`; } catch { return dateStr; }
+          }
+
+          function PropertyPill({ name }: { name: string }) {
+            const colors = ["var(--teal)", "var(--accent)", "var(--green)", "var(--blue)", "var(--orange)", "#9B8EC4", "#CFC46E"];
+            const idx = name.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
+            return <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500, background: `${colors[idx]}18`, color: colors[idx], whiteSpace: "nowrap" as const, margin: "1px 2px" }}>{name}</span>;
+          }
+
+          return (
+            <div style={{ padding: "32px 40px" }}>
+              <h1 style={h1s}>Housekeeping Logs</h1>
+              <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 24 }}>Review and approve weekly cleaning schedules</p>
+
+              {/* Tabs */}
+              <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
+                <button onClick={() => setHskView("individual")}
+                  style={{ padding: "8px 20px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border2)", background: hskView === "individual" ? "var(--accent-s)" : "transparent", color: hskView === "individual" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Individual Logs</button>
+                <button onClick={() => setHskView("weekly")}
+                  style={{ padding: "8px 20px", borderRadius: "0 0 0 0", border: "1px solid var(--border2)", borderLeft: "none", background: hskView === "weekly" ? "var(--accent-s)" : "transparent", color: hskView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Weekly Overview</button>
+                <button onClick={() => setHskView("summary")}
+                  style={{ padding: "8px 20px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border2)", borderLeft: "none", background: hskView === "summary" ? "var(--accent-s)" : "transparent", color: hskView === "summary" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Monthly Summary</button>
+              </div>
+
+              {/* Summary bar */}
+              {pending.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 24 }}>
+                  <span style={{ fontSize: 14 }}>{pending.length} {pending.length === 1 ? "log" : "logs"} pending your approval</span>
+                  <button onClick={() => updateHsk("approve", pending.map(l => l.id))} disabled={hskUpdating !== null}
+                    style={{ padding: "8px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                    {hskUpdating === "approve" ? "Approving..." : "Approve All"}
+                  </button>
+                </div>
+              )}
+
+              {hskLoading && <div style={{ padding: 20, color: "var(--text3)" }}>Loading logs...</div>}
+
+              {/* INDIVIDUAL VIEW */}
+              {hskView === "individual" && (<>
+                {/* Pending */}
+                {pending.map(log => (
+                  <div key={log.id} style={{ ...card, marginBottom: 16, padding: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+                      <div style={{ fontSize: 15, fontWeight: 500 }}>{formatWeek(log.weekStart)} — {log.housekeeper}</div>
+                      <span style={{ fontSize: 11, padding: "3px 12px", borderRadius: 100, fontWeight: 500, background: "var(--accent-s)", color: "var(--accent)" }}>PENDING</span>
+                    </div>
+                    {/* Grid */}
+                    <div style={{ overflowX: "auto" as const, padding: "16px 20px" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "120px repeat(7, 1fr)", gap: 0, minWidth: 700 }}>
+                        <div />
+                        {dayLabels.map(d => <div key={d} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const, padding: "0 4px 8px" }}>{d}</div>)}
+                        <div style={{ fontSize: 13, color: "var(--text2)", padding: "8px 0", display: "flex", alignItems: "center" }}>{log.housekeeper.split(" ")[0]}</div>
+                        {dayKeys.map(dk => (
+                          <div key={dk} style={{ padding: "4px", textAlign: "center" as const, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap" as const, gap: 2 }}>
+                            {log.days[dk] ? log.days[dk].split(", ").map((h, i) => <PropertyPill key={i} name={h.trim()} />) : <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Comments */}
+                    {log.comments && (
+                      <div style={{ padding: "0 20px 12px", fontSize: 12, color: "var(--text3)", fontStyle: "italic" }}>{log.comments}</div>
+                    )}
+                    {/* Actions */}
+                    <div style={{ display: "flex", gap: 8, padding: "12px 20px", borderTop: "1px solid var(--border)", justifyContent: "flex-end" }}>
+                      <button onClick={() => updateHsk("reject", [log.id])} disabled={hskUpdating !== null}
+                        style={{ padding: "7px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
+                      <button onClick={() => updateHsk("approve", [log.id])} disabled={hskUpdating !== null}
+                        style={{ padding: "7px 18px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Approve & Create Expenses</button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Approved */}
+                {approved.length > 0 && (
+                  <>
+                    <h2 style={{ ...h2s, marginTop: 28, marginBottom: 12 }}>Approved</h2>
+                    {approved.slice(0, 10).map(log => (
+                      <div key={log.id} style={{ ...card, marginBottom: 12, padding: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+                          <div style={{ fontSize: 15, fontWeight: 500 }}>{formatWeek(log.weekStart)} — {log.housekeeper}</div>
+                          <span style={{ fontSize: 11, padding: "3px 12px", borderRadius: 100, fontWeight: 500, background: "var(--green-s)", color: "var(--green)" }}>APPROVED</span>
+                        </div>
+                        <div style={{ overflowX: "auto" as const, padding: "16px 20px" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "120px repeat(7, 1fr)", gap: 0, minWidth: 700 }}>
+                            <div />
+                            {dayLabels.map(d => <div key={d} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const, padding: "0 4px 8px" }}>{d}</div>)}
+                            <div style={{ fontSize: 13, color: "var(--text2)", padding: "8px 0", display: "flex", alignItems: "center" }}>{log.housekeeper.split(" ")[0]}</div>
+                            {dayKeys.map(dk => (
+                              <div key={dk} style={{ padding: "4px", textAlign: "center" as const, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap" as const, gap: 2 }}>
+                                {log.days[dk] ? log.days[dk].split(", ").map((h, i) => <PropertyPill key={i} name={h.trim()} />) : <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ padding: "10px 20px", borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--green)" }}>
+                          {log.expensesCreated ? "✓ Expenses created" : "Expenses will be created on next Wednesday run"}
+                          {log.comments && <span style={{ color: "var(--text3)", marginLeft: 12 }}>{log.comments}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </>)}
+
+
+              {/* MONTHLY SUMMARY */}
+              {hskView === "summary" && (
+                <div>
+                  <h2 style={{ ...h2s, marginBottom: 12 }}>Clean count summary, {hskMonth}</h2>
+                  <p style={{ fontSize: 13, color: "var(--text3)", marginBottom: 16 }}>Validate clean counts per property before generating housekeeping charges</p>
+                  <div style={{ ...card, padding: 0 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 100px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Property</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const }}>Total</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const }}>Included</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const }}>Extra</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const }}>Cadence</div>
+                    </div>
+                    {hskSummary.map((s, i) => {
+                      const hasExtra = s.extraCleans > 0;
+                      return (
+                        <div key={s.property} style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 100px", padding: "12px 20px", borderBottom: i < hskSummary.length - 1 ? "1px solid var(--border)" : "none" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.property}</div>
+                            <div style={{ fontSize: 11, color: "var(--text3)" }}>{s.includedPerWeek} included/week</div>
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 500, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.totalCleans}</div>
+                          <div style={{ fontSize: 14, textAlign: "center" as const, color: "var(--text2)", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.includedMonthly}</div>
+                          <div style={{ fontSize: 14, fontWeight: 600, textAlign: "center" as const, color: hasExtra ? "var(--orange)" : "var(--green)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {hasExtra ? s.extraCleans : "✓"}
+                          </div>
+                          <div style={{ fontSize: 11, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <span style={{ padding: "2px 10px", borderRadius: 100, background: s.cadence === "Weekly" ? "var(--teal-s)" : "var(--accent-s)", color: s.cadence === "Weekly" ? "var(--teal-l)" : "var(--accent)" }}>{s.cadence}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {hskSummary.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>No housekeeping data for this month.</div>}
+                  </div>
+                  {hskSummary.some(s => s.extraCleans > 0) && (
+                    <div style={{ marginTop: 16, padding: "12px 20px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, fontSize: 13 }}>
+                      {hskSummary.filter(s => s.extraCleans > 0).length} {hskSummary.filter(s => s.extraCleans > 0).length === 1 ? "property has" : "properties have"} extra cleans that will be charged beyond the included amount.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* WEEKLY OVERVIEW */}
+              {hskView === "weekly" && (() => {
+                const weeks = Array.from(new Set(hskLogs.map(l => l.weekStart))).sort((a, b) => b.localeCompare(a));
+                return (<>
+                  {weeks.slice(0, 6).map(week => {
+                    const weekLogs = hskLogs.filter(l => l.weekStart === week);
+                    return (
+                      <div key={week} style={{ ...card, marginBottom: 16, padding: 0 }}>
+                        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", fontSize: 15, fontWeight: 500 }}>{formatWeek(week)}</div>
+                        <div style={{ overflowX: "auto" as const, padding: "16px 20px" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "140px repeat(7, 1fr)", gap: 0, minWidth: 800 }}>
+                            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", padding: "0 0 8px" }}>Housekeeper</div>
+                            {dayLabels.map(d => <div key={d} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const, padding: "0 4px 8px" }}>{d}</div>)}
+                            {weekLogs.map(log => (<>
+                              <div key={`name-${log.id}`} style={{ fontSize: 13, color: "var(--text2)", padding: "8px 0", display: "flex", alignItems: "center", gap: 6, borderTop: "1px solid var(--border)" }}>
+                                {log.housekeeper.split(" ")[0]}
+                                <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 100, background: log.status === "Approved" ? "var(--green-s)" : "var(--accent-s)", color: log.status === "Approved" ? "var(--green)" : "var(--accent)" }}>{log.status === "Approved" ? "✓" : "○"}</span>
+                              </div>
+                              {dayKeys.map(dk => (
+                                <div key={`${log.id}-${dk}`} style={{ padding: "4px", textAlign: "center" as const, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap" as const, gap: 2, borderTop: "1px solid var(--border)" }}>
+                                  {log.days[dk] ? log.days[dk].split(", ").map((h, i) => <PropertyPill key={i} name={h.trim()} />) : <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>}
+                                </div>
+                              ))}
+                            </>))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>);
+              })()}
+            </div>
+          );
+        })()}
+
+        {/* PLACEHOLDER */}
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>
