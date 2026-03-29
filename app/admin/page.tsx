@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; total: number; currency: string; description: string; receiptUrl: string; owner: string };
 type Deposit = { id: string; date: string; house: string; houseId: string; owner: string; currency: string; amount: number; notes: string; month: string };
+type AppUser = { id: string; firstName: string; lastName: string; email: string; role: string; linkedProperty: string; createdAt: number; lastSignInAt: number | null; imageUrl: string };
 type PropertyDetail = { id: string; name: string; owner: string; email: string; secondaryEmail: string; currency: string; status: string; pmFeeUSD: number; pmFeeMXN: number; landscapingFeeUSD: number; landscapingFeeMXN: number; poolFeeUSD: number; poolFeeMXN: number; hskCadence: string; includedCleans: number; hskFeeUSD: number; hskFeeMXN: number; housemanFeeUSD: number; housemanFeeMXN: number };
 type HskLog = { id: string; housekeeper: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
 type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number };
@@ -81,6 +82,17 @@ export default function AdminDashboard() {
   const [repMonth, setRepMonth] = useState(new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }));
   const [repUpdating, setRepUpdating] = useState<string | null>(null);
 
+  const [appUsers, setAppUsers] = useState<AppUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserFirst, setNewUserFirst] = useState("");
+  const [newUserLast, setNewUserLast] = useState("");
+  const [newUserPass, setNewUserPass] = useState("");
+  const [newUserRole, setNewUserRole] = useState("owner");
+  const [newUserProp, setNewUserProp] = useState("");
+  const [addingUser, setAddingUser] = useState(false);
+  const [userError, setUserError] = useState("");
   const [propDetails, setPropDetails] = useState<PropertyDetail[]>([]);
   const [propLoading, setPropLoading] = useState(false);
   const [selectedProp, setSelectedProp] = useState<string | null>(null);
@@ -154,7 +166,42 @@ export default function AdminDashboard() {
   }, [activePage, repMonth]);
 
   useEffect(() => {
-    if (activePage === "properties") {
+    if (activePage === "users") {
+      setUsersLoading(true);
+      fetch("/api/users").then(r => r.json()).then(d => { setAppUsers(d.users || []); setUsersLoading(false); }).catch(() => setUsersLoading(false));
+    }
+  }, [activePage]);
+
+  async function createUser() {
+    if (!newUserEmail || !newUserPass || !newUserRole) return;
+    setAddingUser(true);
+    setUserError("");
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newUserEmail, firstName: newUserFirst, lastName: newUserLast, password: newUserPass, role: newUserRole, linkedProperty: newUserProp }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowAddUser(false); setNewUserEmail(""); setNewUserFirst(""); setNewUserLast(""); setNewUserPass(""); setNewUserProp("");
+        fetch("/api/users").then(r => r.json()).then(d => setAppUsers(d.users || []));
+      } else {
+        setUserError(data.error || "Failed to create user");
+      }
+    } catch (e) { setUserError("Failed to create user"); }
+    setAddingUser(false);
+  }
+
+  async function updateUserRole(userId: string, role: string, linkedProperty?: string) {
+    try {
+      await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, role, ...(linkedProperty !== undefined ? { linkedProperty } : {}) }) });
+      fetch("/api/users").then(r => r.json()).then(d => setAppUsers(d.users || []));
+    } catch (e) { console.error(e); }
+  }
+
+  useEffect(() => {
+    if (activePage === "properties" || activePage === "users") {
       setPropLoading(true);
       fetch("/api/properties-detail").then(r => r.json()).then(d => { setPropDetails(d.properties || []); setPropLoading(false); }).catch(() => setPropLoading(false));
     }
@@ -1088,8 +1135,106 @@ export default function AdminDashboard() {
           );
         })()}
 
-                {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && (
+        
+        {/* ====== USERS ====== */}
+        {activePage === "users" && (
+          <div style={{ padding: "32px 40px", maxWidth: 900 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+              <div>
+                <h1 style={h1s}>Users</h1>
+                <p style={{ fontSize: 14, color: "var(--text2)" }}>{usersLoading ? "Loading..." : `${appUsers.length} users registered`}</p>
+              </div>
+              <button onClick={() => setShowAddUser(!showAddUser)}
+                style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                + Add User
+              </button>
+            </div>
+
+            {/* Stat cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
+              <div style={card}><div style={lbl}>Admins</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--teal-l)" }}>{appUsers.filter(u => u.role === "admin").length}</div></div>
+              <div style={card}><div style={lbl}>Owners</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--accent)" }}>{appUsers.filter(u => u.role === "owner").length}</div></div>
+              <div style={card}><div style={lbl}>Other</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--text3)" }}>{appUsers.filter(u => u.role !== "admin" && u.role !== "owner").length}</div></div>
+            </div>
+
+            {/* Add user form */}
+            {showAddUser && (
+              <div style={{ ...card, marginBottom: 24 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Create a new user</div>
+                {userError && <div style={{ padding: "10px 16px", background: "var(--red-s)", borderRadius: 8, marginBottom: 12, fontSize: 13, color: "var(--red)" }}>{userError}</div>}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  <div><label style={lbl}>First name</label><input value={newUserFirst} onChange={e => setNewUserFirst(e.target.value)} placeholder="Sofia" style={inp} /></div>
+                  <div><label style={lbl}>Last name</label><input value={newUserLast} onChange={e => setNewUserLast(e.target.value)} placeholder="Garcia" style={inp} /></div>
+                  <div><label style={lbl}>Email</label><input value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} placeholder="email@example.com" style={inp} /></div>
+                  <div><label style={lbl}>Password</label><input type="password" value={newUserPass} onChange={e => setNewUserPass(e.target.value)} placeholder="Min 8 characters" style={inp} /></div>
+                  <div>
+                    <label style={lbl}>Role</label>
+                    <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} style={inp}>
+                      <option value="admin">Admin</option>
+                      <option value="owner">Owner</option>
+                      <option value="house_manager">House Manager</option>
+                    </select>
+                  </div>
+                  {newUserRole === "owner" && (
+                    <div>
+                      <label style={lbl}>Linked property</label>
+                      <select value={newUserProp} onChange={e => setNewUserProp(e.target.value)} style={inp}>
+                        <option value="">Select a property...</option>
+                        {propDetails.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button onClick={() => { setShowAddUser(false); setUserError(""); }} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                  <button onClick={createUser} disabled={addingUser || !newUserEmail || !newUserPass}
+                    style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: (!newUserEmail || !newUserPass) ? "var(--bg2)" : "linear-gradient(135deg, var(--teal), #2A6B7C)", color: (!newUserEmail || !newUserPass) ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: (!newUserEmail || !newUserPass) ? "default" : "pointer", fontFamily: "inherit" }}>
+                    {addingUser ? "Creating..." : "Create User"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* User list */}
+            <div style={{ ...card, padding: 0 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 120px 140px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>User</div>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Email</div>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Role</div>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Last sign in</div>
+              </div>
+              {appUsers.map((u, i) => {
+                const roleColor = u.role === "admin" ? "var(--teal-l)" : u.role === "owner" ? "var(--accent)" : "var(--text3)";
+                const roleBg = u.role === "admin" ? "var(--teal-s)" : u.role === "owner" ? "var(--accent-s)" : "var(--bg2)";
+                return (
+                  <div key={u.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 120px 140px", padding: "12px 20px", borderBottom: i < appUsers.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 500 }}>{u.firstName} {u.lastName}</div>
+                      {u.linkedProperty && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.linkedProperty}</div>}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--text2)" }}>{u.email}</div>
+                    <div>
+                      <select defaultValue={u.role} onChange={e => updateUserRole(u.id, e.target.value)}
+                        style={{ padding: "3px 8px", borderRadius: 100, border: "none", background: roleBg, color: roleColor, fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", appearance: "none" as const, textAlign: "center" as const, minWidth: 80 }}>
+                        <option value="admin">Admin</option>
+                        <option value="owner">Owner</option>
+                        <option value="house_manager">House Mgr</option>
+                        <option value="none">None</option>
+                      </select>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text3)" }}>
+                      {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}
+                    </div>
+                  </div>
+                );
+              })}
+              {appUsers.length === 0 && !usersLoading && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>No users found.</div>}
+            </div>
+          </div>
+        )}
+
+        {/* PLACEHOLDER */}
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>
