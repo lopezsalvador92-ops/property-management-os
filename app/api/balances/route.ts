@@ -17,23 +17,35 @@ function monthToSortKey(monthYear: string): number {
 
 async function airtableGet(tableId: string, params: URLSearchParams) {
   const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
-    cache: "no-store",
-  });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
 }
 
+async function fetchAllRecords(tableId: string, params: URLSearchParams) {
+  const allRecords: any[] = [];
+  let offset: string | undefined;
+
+  do {
+    const p = new URLSearchParams(params);
+    if (offset) p.set("offset", offset);
+    const data = await airtableGet(tableId, p);
+    allRecords.push(...data.records);
+    offset = data.offset;
+  } while (offset);
+
+  return allRecords;
+}
+
 export async function GET() {
   try {
-    // Fetch properties for name resolution
+    // Fetch properties
     const propParams = new URLSearchParams();
     propParams.append("fields[]", "House Name");
     propParams.append("fields[]", "Owner");
     propParams.append("fields[]", "Preferred Currency");
     propParams.append("fields[]", "Status");
-    propParams.set("pageSize", "50");
+    propParams.set("pageSize", "100");
     const propData = await airtableGet(PROPERTIES_TABLE, propParams);
 
     const propMap = new Map<string, { name: string; owner: string; currency: string; status: string }>();
@@ -41,12 +53,12 @@ export async function GET() {
       propMap.set(rec.id, {
         name: rec.fields["House Name"] || "",
         owner: rec.fields["Owner"] || "",
-        currency: rec.fields["Preferred Currency"]?.name || rec.fields["Preferred Currency"] || "",
-        status: rec.fields["Status"]?.name || rec.fields["Status"] || "",
+        currency: typeof rec.fields["Preferred Currency"] === "string" ? rec.fields["Preferred Currency"] : rec.fields["Preferred Currency"]?.name || "",
+        status: typeof rec.fields["Status"] === "string" ? rec.fields["Status"] : rec.fields["Status"]?.name || "",
       });
     }
 
-    // Fetch monthly reports
+    // Fetch ALL monthly reports with pagination
     const repParams = new URLSearchParams();
     repParams.append("fields[]", "Report Name");
     repParams.append("fields[]", "House Name");
@@ -60,33 +72,30 @@ export async function GET() {
     repParams.append("fields[]", "Final Balance MXN");
     repParams.append("fields[]", "Final Balance USD");
     repParams.set("pageSize", "100");
-    const repData = await airtableGet(REPORTS_TABLE, repParams);
+
+    const allReports = await fetchAllRecords(REPORTS_TABLE, repParams);
+
+    // Count current month report statuses
+    const now = new Date();
+    const currentMonthStr = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    let pendingCount = 0, reviewedCount = 0, sentCount = 0;
 
     // Process all reports, keeping only the latest month per property
     const reportsByProperty = new Map<string, any>();
 
-    // Determine current month for report status counting
-    const now = new Date();
-    const currentMonthStr = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    let pendingCount = 0;
-    let reviewedCount = 0;
-    let sentCount = 0;
-
-    for (const record of repData.records) {
+    for (const record of allReports) {
       const monthYear = record.fields["Month and Year"] || "";
-      const status = record.fields["Status"]?.name || record.fields["Status"] || "";
+      const statusRaw = record.fields["Status"];
+      const status = typeof statusRaw === "string" ? statusRaw : statusRaw?.name || "";
 
-      // Count current month report statuses
       if (monthYear === currentMonthStr) {
         if (status === "Pending") pendingCount++;
         else if (status === "Reviewed") reviewedCount++;
         else if (status === "Sent") sentCount++;
       }
 
-      // Get house info
       const houseField = record.fields["House Name"];
-      let houseId = "";
-      let houseName = "";
+      let houseId = "", houseName = "";
       if (Array.isArray(houseField) && houseField.length > 0) {
         const first = houseField[0];
         houseId = typeof first === "string" ? first : first?.id || "";
@@ -96,38 +105,22 @@ export async function GET() {
       }
       if (!houseId) continue;
 
-      // Compare with existing record for this property - keep the latest month
       const sortKey = monthToSortKey(monthYear);
       const existing = reportsByProperty.get(houseId);
       if (existing && existing.sortKey >= sortKey) continue;
 
-      // Determine currency
-      const prefRaw = record.fields["Preferred Currency"];
-      let currency = "USD";
-      if (prefRaw) {
-        if (Array.isArray(prefRaw)) {
-          const f = prefRaw[0];
-          currency = typeof f === "string" ? f : f?.name || "USD";
-        } else if (typeof prefRaw === "object" && prefRaw.name) {
-          currency = prefRaw.name;
-        } else {
-          currency = String(prefRaw);
-        }
-      }
+      const prop = propMap.get(houseId);
+      const currency = prop?.currency || "USD";
+      const isUSD = currency === "USD";
 
-      // Pick correct balance and expenses based on currency
-      const balUSD = record.fields["Final Balance USD"];
-      const balMXN = record.fields["Final Balance MXN"];
-      let finalBalance = currency === "USD"
-        ? (typeof balUSD === "number" ? balUSD : 0)
-        : (typeof balMXN === "number" ? balMXN : 0);
+      let finalBalance = isUSD
+        ? (typeof record.fields["Final Balance USD"] === "number" ? record.fields["Final Balance USD"] : 0)
+        : (typeof record.fields["Final Balance MXN"] === "number" ? record.fields["Final Balance MXN"] : 0);
       if (!isFinite(finalBalance)) finalBalance = 0;
 
-      const expUSD = record.fields["Total Expenses USD"];
-      const expMXN = record.fields["Total Expenses MXN"];
-      let totalExpenses = currency === "USD"
-        ? (typeof expUSD === "number" ? expUSD : 0)
-        : (typeof expMXN === "number" ? expMXN : 0);
+      let totalExpenses = isUSD
+        ? (typeof record.fields["Total Expenses USD"] === "number" ? record.fields["Total Expenses USD"] : 0)
+        : (typeof record.fields["Total Expenses MXN"] === "number" ? record.fields["Total Expenses MXN"] : 0);
       if (!isFinite(totalExpenses)) totalExpenses = 0;
 
       let startingBalance = record.fields["Starting Balance"] || 0;
@@ -151,9 +144,7 @@ export async function GET() {
     }
 
     const balances = Array.from(reportsByProperty.values());
-    // Remove the sortKey before sending to client
     balances.forEach((b: any) => delete b.sortKey);
-    // Sort: negative balances first, then ascending
     balances.sort((a: any, b: any) => a.finalBalance - b.finalBalance);
 
     return NextResponse.json({
