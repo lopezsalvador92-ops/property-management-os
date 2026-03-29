@@ -73,6 +73,28 @@ export default function SignInPage() {
             formFieldInputShowPasswordButton: {
               color: "#A0AEBF",
             },
+            otpCodeFieldInput: {
+              backgroundColor: "#1A2740",
+              color: "#EDF1F5",
+              borderColor: "rgba(255,255,255,0.12)",
+              fontSize: "20px",
+              fontWeight: "600",
+            },
+            otpCodeField: {
+              color: "#EDF1F5",
+            },
+            formFieldSuccessText: {
+              color: "#6ECF97",
+            },
+            formFieldErrorText: {
+              color: "#CF6E6E",
+            },
+            formFieldWarningText: {
+              color: "#CF956E",
+            },
+            formFieldInfoText: {
+              color: "#A0AEBF",
+            },
             footerActionLink: {
               color: "#3A9BAA",
             },
@@ -81,6 +103,9 @@ export default function SignInPage() {
               color: "#FFFFFF",
               fontSize: "14px",
               fontWeight: "600",
+            },
+            formResendCodeLink: {
+              color: "#3A9BAA",
             },
             dividerLine: {
               borderColor: "rgba(255,255,255,0.08)",
@@ -102,6 +127,16 @@ export default function SignInPage() {
             },
             alert: {
               color: "#EDF1F5",
+            },
+            alertText: {
+              color: "#EDF1F5",
+            },
+            alternativeMethodsBlockButton: {
+              color: "#A0AEBF",
+              borderColor: "rgba(255,255,255,0.12)",
+            },
+            backLink: {
+              color: "#3A9BAA",
             },
           },
         }}

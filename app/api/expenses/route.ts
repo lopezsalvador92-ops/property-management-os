@@ -1,66 +1,105 @@
 import { NextResponse } from "next/server";
-import { airtableFetch, TABLES } from "@/lib/airtable";
+
+const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
+const BASE_ID = process.env.AIRTABLE_BASE_ID!;
+const EXPENSES_TABLE = "tblHeiBjXhsKW9Opj";
+const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
+
+async function airtableGet(tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
+  if (!res.ok) throw new Error(`Airtable ${res.status}`);
+  return res.json();
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const house = searchParams.get("house");
-    const sortField = searchParams.get("sortField") || "Date";
-    const sortDir = searchParams.get("sortDir") || "desc";
+    const house = searchParams.get("house") || "";
+    const month = searchParams.get("month") || "";
 
-    const options: any = {
-      fields: [
-        "Receipt No",
-        "Date",
-        "Expense Category",
-        "Supplier",
-        "House Name",
-        "Total",
-        "Currency",
-        "Total Amount (USD)",
-        "Description",
-        "Receipt URL",
-        "Owner",
-        "Preferred Currency",
-      ],
-      pageSize: 100,
-      sort: [{ field: sortField, direction: sortDir as "asc" | "desc" }],
-    };
+    const params = new URLSearchParams();
+    params.append("fields[]", "Description");
+    params.append("fields[]", "Total");
+    params.append("fields[]", "Total Amount (USD)");
+    params.append("fields[]", "Expense Category");
+    params.append("fields[]", "Date");
+    params.append("fields[]", "Receipt URL");
+    params.append("fields[]", "House Name");
+    params.append("fields[]", "Supplier");
+    params.append("fields[]", "Currency");
+    params.set("sort[0][field]", "Date");
+    params.set("sort[0][direction]", "desc");
+    params.set("pageSize", "100");
 
-    if (house && house !== "all") {
-      options.filterFormula = `FIND("${house}", {House Name})`;
+    if (house && month && month !== "all") {
+      params.set("filterByFormula", `AND(FIND("${house}", ARRAYJOIN({House Name}, ",")), {Month and Year}="${month}")`);
+    } else if (house) {
+      params.set("filterByFormula", `FIND("${house}", ARRAYJOIN({House Name}, ","))`);
     }
 
-    const data = await airtableFetch(TABLES.expenses, options);
+    const data = await airtableGet(EXPENSES_TABLE, params);
 
-    const expenses = data.records.map((record: any) => ({
-      id: record.id,
-      receiptNo: record.fields["Receipt No"] || "",
-      date: record.fields["Date"] || "",
-      category: record.fields["Expense Category"]?.name || record.fields["Expense Category"] || "",
-      supplier: record.fields["Supplier"] || "",
-      house: Array.isArray(record.fields["House Name"])
-        ? record.fields["House Name"][0]
-        : record.fields["House Name"] || "",
-      total: record.fields["Total"] || 0,
-      currency: record.fields["Currency"]?.name || record.fields["Currency"] || "",
-      totalUSD: record.fields["Total Amount (USD)"] || null,
-      description: record.fields["Description"] || "",
-      receiptUrl: record.fields["Receipt URL"] || "",
-      owner: Array.isArray(record.fields["Owner"])
-        ? record.fields["Owner"][0]
-        : record.fields["Owner"] || "",
-      preferredCurrency: Array.isArray(record.fields["Preferred Currency"])
-        ? record.fields["Preferred Currency"][0]
-        : record.fields["Preferred Currency"] || "",
-    }));
+    const expenses = data.records.map((r: any) => {
+      const f = r.fields;
+      const catRaw = f["Expense Category"];
+      const curRaw = f["Currency"];
+      return {
+        id: r.id,
+        description: f["Description"] || "",
+        amount: f["Total"] || 0,
+        amountUSD: f["Total Amount (USD)"] || 0,
+        category: typeof catRaw === "string" ? catRaw : catRaw?.name || "",
+        currency: typeof curRaw === "string" ? curRaw : curRaw?.name || "",
+        date: f["Date"] || "",
+        receiptUrl: f["Receipt URL"] || "",
+        house: Array.isArray(f["House Name"]) ? f["House Name"].join(", ") : f["House Name"] || "",
+        supplier: f["Supplier"] || "",
+      };
+    });
 
     return NextResponse.json({ expenses });
   } catch (error) {
-    console.error("Airtable error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch expenses" },
-      { status: 500 }
-    );
+    console.error("Expenses error:", error);
+    return NextResponse.json({ error: "Failed to fetch expenses" }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { propertyId, date, category, amount, currency, description, supplier } = body;
+
+    if (!propertyId || !date || !category || !amount) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const fields: Record<string, any> = {
+      "House": [propertyId],
+      "Date": date,
+      "Expense Category": category,
+      "Total": parseFloat(amount),
+      "Currency": currency || "MXN",
+    };
+    if (description) fields["Description"] = description;
+    if (supplier) fields["Supplier"] = supplier;
+
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${EXPENSES_TABLE}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ records: [{ fields }], typecast: true }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      console.error("Airtable create expense error:", errData);
+      return NextResponse.json({ error: "Failed to create expense" }, { status: 500 });
+    }
+
+    const data = await res.json();
+    return NextResponse.json({ success: true, record: data.records[0] });
+  } catch (error) {
+    console.error("Create expense error:", error);
+    return NextResponse.json({ error: "Failed to create expense" }, { status: 500 });
   }
 }

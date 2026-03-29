@@ -92,6 +92,16 @@ export default function AdminDashboard() {
   const [newUserRole, setNewUserRole] = useState("owner");
   const [newUserProp, setNewUserProp] = useState("");
   const [addingUser, setAddingUser] = useState(false);
+  const [expTab, setExpTab] = useState<"list" | "add">("list");
+  const [newExpProp, setNewExpProp] = useState("");
+  const [newExpDate, setNewExpDate] = useState(new Date().toISOString().split("T")[0]);
+  const [newExpCat, setNewExpCat] = useState("Utilities");
+  const [newExpAmt, setNewExpAmt] = useState("");
+  const [newExpCur, setNewExpCur] = useState("MXN");
+  const [newExpDesc, setNewExpDesc] = useState("");
+  const [newExpSupplier, setNewExpSupplier] = useState("");
+  const [addingExp, setAddingExp] = useState(false);
+  const [expSuccess, setExpSuccess] = useState(false);
   const [userError, setUserError] = useState("");
   const [propDetails, setPropDetails] = useState<PropertyDetail[]>([]);
   const [propLoading, setPropLoading] = useState(false);
@@ -193,6 +203,23 @@ export default function AdminDashboard() {
     setAddingUser(false);
   }
 
+  async function resetUserPassword(userId: string) {
+    const pw = prompt("Enter new password for this user (min 8 characters):");
+    if (!pw || pw.length < 8) { alert("Password must be at least 8 characters"); return; }
+    try {
+      await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, password: pw }) });
+      alert("Password updated successfully");
+    } catch (e) { console.error(e); alert("Failed to reset password"); }
+  }
+
+  async function deleteUser(userId: string) {
+    if (!confirm("Are you sure you want to delete this user? This cannot be undone.")) return;
+    try {
+      await fetch("/api/users?userId=" + userId, { method: "DELETE" });
+      fetch("/api/users").then(r => r.json()).then(d => setAppUsers(d.users || []));
+    } catch (e) { console.error(e); }
+  }
+
   async function updateUserRole(userId: string, role: string, linkedProperty?: string) {
     try {
       await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, role, ...(linkedProperty !== undefined ? { linkedProperty } : {}) }) });
@@ -206,6 +233,25 @@ export default function AdminDashboard() {
       fetch("/api/properties-detail").then(r => r.json()).then(d => { setPropDetails(d.properties || []); setPropLoading(false); }).catch(() => setPropLoading(false));
     }
   }, [activePage]);
+
+  async function createExpense() {
+    if (!newExpProp || !newExpAmt || !newExpDate) return;
+    setAddingExp(true);
+    try {
+      const res = await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId: newExpProp, date: newExpDate, category: newExpCat, amount: newExpAmt, currency: newExpCur, description: newExpDesc, supplier: newExpSupplier }),
+      });
+      if (res.ok) {
+        setExpSuccess(true);
+        setNewExpAmt(""); setNewExpDesc(""); setNewExpSupplier("");
+        setTimeout(() => setExpSuccess(false), 3000);
+        fetch("/api/expenses").then(r => r.json()).then(d => setExpenses(d.expenses || []));
+      }
+    } catch (e) { console.error(e); }
+    setAddingExp(false);
+  }
 
   async function addProperty() {
     if (!newPropName || !newPropOwner) return;
@@ -276,8 +322,8 @@ export default function AdminDashboard() {
 
   // Recent activity: combine deposits and expenses
   const recentActivity = [
-    ...deposits.slice(0, 8).map(d => ({ type: "deposit" as const, date: d.date, house: d.house, owner: d.owner, detail: `${d.currency} $${d.amount.toLocaleString()} deposit received`, notes: d.notes })),
-    ...expenses.slice(0, 8).map(e => ({ type: "expense" as const, date: e.date, house: e.house, owner: e.owner, detail: `${e.currency} $${e.total.toLocaleString()} — ${e.supplier}`, notes: e.category })),
+    ...deposits.slice(0, 8).map(d => ({ type: "deposit" as const, date: d.date, house: d.house, owner: d.owner, detail: `${d.currency} $${(d.amount || 0).toLocaleString()} deposit received`, notes: d.notes })),
+    ...expenses.slice(0, 8).map(e => ({ type: "expense" as const, date: e.date, house: e.house, owner: e.owner, detail: `${e.currency} $${(e.total || 0).toLocaleString()} — ${e.supplier}`, notes: e.category })),
   ].sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 10);
 
   async function submitDeposit() {
@@ -431,17 +477,45 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ====== EXPENSES ====== */}
+                {/* ====== EXPENSES ====== */}
         {activePage === "expenses" && (
           <div style={{ padding: "32px 32px 32px 40px" }}>
-            <div style={{ marginBottom: 24 }}>
-              <h1 style={h1s}>Expenses</h1>
-              <p style={{ fontSize: 14, color: "var(--text2)" }}>
-                {expLoading ? "Loading..." : `${filteredExpenses.length} records`}
-                {expFilter !== "all" ? ` · ${expFilter}` : ""}
-                {monthFilter !== "all" ? ` · ${monthOptions.find(m => m.value === monthFilter)?.label}` : ""}
-              </p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+              <div>
+                <h1 style={h1s}>Expenses</h1>
+                <p style={{ fontSize: 14, color: "var(--text2)" }}>
+                  {expLoading ? "Loading..." : `${filteredExpenses.length} records`}
+                  {expFilter !== "all" ? ` · ${expFilter}` : ""}
+                  {monthFilter !== "all" ? ` · ${monthOptions.find(m => m.value === monthFilter)?.label}` : ""}
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 0 }}>
+                <button onClick={() => setExpTab("list")} style={{ padding: "8px 20px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border2)", background: expTab === "list" ? "var(--accent-s)" : "transparent", color: expTab === "list" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>All Expenses</button>
+                <button onClick={() => setExpTab("add")} style={{ padding: "8px 20px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border2)", borderLeft: "none", background: expTab === "add" ? "var(--accent-s)" : "transparent", color: expTab === "add" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Expense</button>
+              </div>
             </div>
+            {expSuccess && <div style={{ padding: "10px 16px", background: "var(--green-s)", border: "1px solid rgba(110,207,151,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "var(--green)" }}>✓ Expense created successfully</div>}
+
+            {expTab === "add" && (
+              <div style={{ ...card, maxWidth: 700 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Record a new expense</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  <div><label style={lbl}>Property</label><select value={newExpProp} onChange={e => setNewExpProp(e.target.value)} style={inp}><option value="">Select property...</option>{active.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                  <div><label style={lbl}>Date</label><input type="date" value={newExpDate} onChange={e => setNewExpDate(e.target.value)} style={inp} /></div>
+                  <div><label style={lbl}>Category</label><select value={newExpCat} onChange={e => setNewExpCat(e.target.value)} style={inp}><option value="Utilities">Utilities</option><option value="Villa Staff">Villa Staff</option><option value="Maintenance">Maintenance</option><option value="Cleaning Supplies">Cleaning Supplies</option><option value="Groceries">Groceries</option><option value="Miscellaneous">Miscellaneous</option><option value="Others">Others</option><option value="Rental Expenses">Rental Expenses</option></select></div>
+                  <div><label style={lbl}>Amount</label><input type="number" value={newExpAmt} onChange={e => setNewExpAmt(e.target.value)} placeholder="0.00" style={inp} /></div>
+                  <div><label style={lbl}>Currency</label><select value={newExpCur} onChange={e => setNewExpCur(e.target.value)} style={inp}><option value="MXN">MXN</option><option value="USD">USD</option></select></div>
+                  <div><label style={lbl}>Supplier</label><input value={newExpSupplier} onChange={e => setNewExpSupplier(e.target.value)} placeholder="e.g. CFE, Telmex" style={inp} /></div>
+                </div>
+                <div style={{ marginBottom: 16 }}><label style={lbl}>Description</label><input value={newExpDesc} onChange={e => setNewExpDesc(e.target.value)} placeholder="Brief description of the expense" style={inp} /></div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button onClick={() => setExpTab("list")} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                  <button onClick={createExpense} disabled={addingExp || !newExpProp || !newExpAmt || !newExpDate} style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: (!newExpProp || !newExpAmt || !newExpDate) ? "var(--bg2)" : "linear-gradient(135deg, var(--teal), #2A6B7C)", color: (!newExpProp || !newExpAmt || !newExpDate) ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: (!newExpProp || !newExpAmt || !newExpDate) ? "default" : "pointer", fontFamily: "inherit" }}>{addingExp ? "Creating..." : "Create Expense"}</button>
+                </div>
+              </div>
+            )}
+
+            {expTab === "list" && (<>
             <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", flexWrap: "wrap" as const }}>
               <select value={expFilter} onChange={e => setExpFilter(e.target.value)} style={{ ...sel, minWidth: 200 }}><option value="all">All properties</option>{active.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select>
               <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} style={{ ...sel, minWidth: 180 }}><option value="all">All months</option>{monthOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select>
@@ -453,11 +527,12 @@ export default function AdminDashboard() {
                   <thead><tr>{["Date", "Receipt #", "Property", "Category", "Supplier", "Description", "Amount", "Cur", "Receipt"].map(h => (<th key={h} style={{ textAlign: "left" as const, padding: "12px 14px", fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, borderBottom: "2px solid var(--border2)", position: "sticky" as const, top: 0, background: "var(--bg3)", whiteSpace: "nowrap" as const, zIndex: 1 }}>{h}</th>))}</tr></thead>
                   <tbody>
                     {filteredExpenses.length === 0 && !expLoading && <tr><td colSpan={9} style={{ padding: "40px 14px", textAlign: "center" as const, color: "var(--text3)", fontSize: 14 }}>No expenses found.</td></tr>}
-                    {filteredExpenses.map(e => { const cc = catColors[e.category] || { bg: "var(--bg2)", text: "var(--text2)" }; return (<tr key={e.id} onMouseEnter={ev => (ev.currentTarget.style.background = "rgba(255,255,255,0.02)")} onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text2)", whiteSpace: "nowrap" as const }}>{e.date}</td><td style={{ padding: "11px 14px", fontSize: 11, borderBottom: "1px solid var(--border)", color: "var(--text3)", whiteSpace: "nowrap" as const, fontFamily: "monospace" }}>{e.receiptNo}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text)", fontWeight: 500, whiteSpace: "nowrap" as const }}>{e.house}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)" }}><span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 100, fontSize: 11, fontWeight: 500, background: cc.bg, color: cc.text, whiteSpace: "nowrap" as const }}>{e.category}</span></td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text2)", whiteSpace: "nowrap" as const }}>{e.supplier}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text2)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }} title={e.description}>{e.description}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text)", fontWeight: 500, whiteSpace: "nowrap" as const, textAlign: "right" as const }}>${e.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 100, background: e.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: e.currency === "USD" ? "var(--blue)" : "var(--teal-l)" }}>{e.currency}</span></td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)" }}>{e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--teal-l)", textDecoration: "none", fontSize: 12, fontWeight: 500 }}>View</a>}</td></tr>); })}
+                    {filteredExpenses.map(e => { const cc = catColors[e.category] || { bg: "var(--bg2)", text: "var(--text2)" }; return (<tr key={e.id} onMouseEnter={ev => (ev.currentTarget.style.background = "rgba(255,255,255,0.02)")} onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text2)", whiteSpace: "nowrap" as const }}>{e.date}</td><td style={{ padding: "11px 14px", fontSize: 11, borderBottom: "1px solid var(--border)", color: "var(--text3)", whiteSpace: "nowrap" as const, fontFamily: "monospace" }}>{e.receiptNo}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text)", fontWeight: 500, whiteSpace: "nowrap" as const }}>{e.house}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)" }}><span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 100, fontSize: 11, fontWeight: 500, background: cc.bg, color: cc.text, whiteSpace: "nowrap" as const }}>{e.category}</span></td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text2)", whiteSpace: "nowrap" as const }}>{e.supplier}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text2)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }} title={e.description}>{e.description}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)", color: "var(--text)", fontWeight: 500, whiteSpace: "nowrap" as const, textAlign: "right" as const }}>${(e.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 100, background: e.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: e.currency === "USD" ? "var(--blue)" : "var(--teal-l)" }}>{e.currency}</span></td><td style={{ padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)" }}>{e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--teal-l)", textDecoration: "none", fontSize: 12, fontWeight: 500 }}>View</a>}</td></tr>); })}
                   </tbody>
                 </table>
               </div>
             </div>
+            </>)}
           </div>
         )}
 
@@ -493,7 +568,7 @@ export default function AdminDashboard() {
                     <div style={{ fontSize: 14, marginBottom: 2 }}>{d.house} — {d.owner}</div>
                     <div style={{ fontSize: 12, color: "var(--text3)" }}>{d.notes || "Deposit"} · {fmtDate(d.date)}</div>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: "var(--green)", whiteSpace: "nowrap" as const }}>+{d.currency} ${d.amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: "var(--green)", whiteSpace: "nowrap" as const }}>+{d.currency} ${(d.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
                 </div>
               ))}
             </div>
@@ -1197,17 +1272,18 @@ export default function AdminDashboard() {
 
             {/* User list */}
             <div style={{ ...card, padding: 0 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 120px 140px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 100px 120px 100px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>User</div>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Email</div>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Role</div>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Last sign in</div>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Actions</div>
               </div>
               {appUsers.map((u, i) => {
                 const roleColor = u.role === "admin" ? "var(--teal-l)" : u.role === "owner" ? "var(--accent)" : "var(--text3)";
                 const roleBg = u.role === "admin" ? "var(--teal-s)" : u.role === "owner" ? "var(--accent-s)" : "var(--bg2)";
                 return (
-                  <div key={u.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 120px 140px", padding: "12px 20px", borderBottom: i < appUsers.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
+                  <div key={u.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 100px 120px 100px", padding: "12px 20px", borderBottom: i < appUsers.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 500 }}>{u.firstName} {u.lastName}</div>
                       {u.linkedProperty && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.linkedProperty}</div>}
@@ -1224,6 +1300,10 @@ export default function AdminDashboard() {
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text3)" }}>
                       {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}
+                    </div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => resetUserPassword(u.id)} title="Reset password" style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Reset PW</button>
+                      <button onClick={() => deleteUser(u.id)} title="Delete user" style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(207,110,110,0.2)", background: "transparent", color: "var(--red)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
                     </div>
                   </div>
                 );
