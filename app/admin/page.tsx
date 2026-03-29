@@ -68,6 +68,7 @@ export default function AdminDashboard() {
   const [depLoading, setDepLoading] = useState(false);
   const [expFilter, setExpFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activePage, setActivePage] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [depProperty, setDepProperty] = useState("");
@@ -342,12 +343,26 @@ export default function AdminDashboard() {
   }
 
   return (
+    <>
+    {theme === "light" && <style>{`
+      :root {
+        --bg: #F5F7FA !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #F0F2F5 !important;
+        --text: #1A1A2E !important; --text2: #4A5568 !important; --text3: #8795A8 !important;
+        --border: rgba(0,0,0,0.08) !important; --border2: rgba(0,0,0,0.12) !important;
+        --accent: #B8942E !important; --accent-s: rgba(184,148,46,0.1) !important;
+        --teal: #2A8B9A !important; --teal-l: #1A7A8A !important; --teal-s: rgba(42,139,154,0.08) !important;
+        --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.08) !important;
+        --red: #C45555 !important; --red-s: rgba(196,85,85,0.08) !important;
+        --blue: #4A8BC4 !important; --blue-s: rgba(74,139,196,0.08) !important;
+        --orange: #C4804A !important; --orange-s: rgba(196,128,74,0.08) !important;
+      }
+    `}</style>}
     <div style={{ display: "grid", gridTemplateColumns: `${sidebarWidth}px 1fr`, minHeight: "100vh", transition: "grid-template-columns 0.2s ease" }}>
 
       {/* SIDEBAR */}
       <div style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", height: "100vh", position: "sticky" as const, top: 0, display: "flex", flexDirection: "column" as const, overflow: "hidden", transition: "width 0.2s ease", width: sidebarWidth }}>
         <div style={{ padding: sidebarOpen ? "24px 20px 20px" : "24px 12px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, minHeight: 78 }}>
-          <svg width="28" height="30" viewBox="0 0 54 58" fill="none" style={{ flexShrink: 0 }}><defs><linearGradient id="lg1" x1="27" y1="0" x2="27" y2="36"><stop offset="0%" stopColor="#1A2E4A" /><stop offset="100%" stopColor="#2A6B7C" /></linearGradient><linearGradient id="lg2" x1="27" y1="16" x2="27" y2="46"><stop offset="0%" stopColor="#2A6B7C" /><stop offset="100%" stopColor="#3A9BAA" /></linearGradient><linearGradient id="lg3" x1="27" y1="32" x2="27" y2="56"><stop offset="0%" stopColor="#3A9BAA" /><stop offset="100%" stopColor="#5CC4C9" /></linearGradient></defs><path d="M27 2L50 42H4L27 2Z" fill="url(#lg1)" opacity=".92" /><path d="M27 18L44 48H10L27 18Z" fill="url(#lg2)" opacity=".88" /><path d="M27 32L38 54H16L27 32Z" fill="url(#lg3)" opacity=".95" /></svg>
+          <img src="/cape-logo.png" alt="Cape PM" style={{ height: 28 }} />
           {sidebarOpen && <div><div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text2)" }}>Cape PM</div><div style={{ fontSize: 10, color: "var(--text3)" }}>Admin Panel</div></div>}
         </div>
         <div style={{ padding: sidebarOpen ? "16px 12px 8px" : "16px 8px 8px", flex: 1 }}>
@@ -362,6 +377,7 @@ export default function AdminDashboard() {
         </div>
         <div onClick={() => setSidebarOpen(!sidebarOpen)} style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--text3)", cursor: "pointer", textAlign: sidebarOpen ? "right" as const : "center" as const }}>{sidebarOpen ? "◀ Collapse" : "▶"}</div>
         {sidebarOpen && <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)" }}>Sofia · Admin</div>}
+        {sidebarOpen && <div style={{ padding: "8px 20px", borderTop: "1px solid var(--border)" }}><button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>{theme === "dark" ? "Switch to Light" : "Switch to Dark"}</button></div>}
       </div>
 
       {/* MAIN */}
@@ -1319,5 +1335,6 @@ export default function AdminDashboard() {
         )}
       </main>
     </div>
+    </>
   );
 }

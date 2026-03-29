@@ -24,6 +24,7 @@ export default function OwnerPortal() {
   const [reports, setReports] = useState<Report[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
+  const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activePage, setActivePage] = useState("home");
   const [currentMonth, setCurrentMonth] = useState(0);
 
@@ -80,6 +81,19 @@ export default function OwnerPortal() {
         :root{--bg:#060B12;--bg2:#0C1420;--bg3:#111C2E;--bg4:#152236;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.10);--text:#EDF1F5;--text2:rgba(237,241,245,0.55);--text3:rgba(237,241,245,0.35);--accent:#C9A96E;--accent-s:rgba(201,169,110,0.12);--teal:#3A9BAA;--teal-l:#5CC4C9;--teal-s:rgba(58,155,170,0.12);--green:#6ECF97;--green-s:rgba(110,207,151,0.10);--red:#CF6E6E;--red-s:rgba(207,110,110,0.10);--blue:#6EA8CF;--blue-s:rgba(110,168,207,0.10);--orange:#CF956E;--orange-s:rgba(207,149,110,0.10);--fd:'Instrument Serif',Georgia,serif;--fb:'DM Sans',system-ui,sans-serif}
         *{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
       `}</style>
+      {theme === "light" && <style>{`
+        :root {
+          --bg: #F5F7FA !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #F0F2F5 !important;
+          --text: #1A1A2E !important; --text2: #4A5568 !important; --text3: #8795A8 !important;
+          --border: rgba(0,0,0,0.08) !important; --border2: rgba(0,0,0,0.12) !important;
+          --accent: #B8942E !important; --accent-s: rgba(184,148,46,0.1) !important;
+          --teal: #2A8B9A !important; --teal-l: #1A7A8A !important; --teal-s: rgba(42,139,154,0.08) !important;
+          --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.08) !important;
+          --red: #C45555 !important; --red-s: rgba(196,85,85,0.08) !important;
+          --blue: #4A8BC4 !important; --blue-s: rgba(74,139,196,0.08) !important;
+          --orange: #C4804A !important; --orange-s: rgba(196,128,74,0.08) !important;
+        }
+      `}</style>}
 
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", minHeight: "100vh" }}>
         {/* SIDEBAR */}
@@ -107,6 +121,7 @@ export default function OwnerPortal() {
           <div style={{ flex: 1 }} />
           <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 11, color: "var(--text3)" }}>{ownerName}</span>
+            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "Switch to Light" : "Switch to Dark"}</button>
             <UserButton />
           </div>
         </div>
@@ -115,7 +130,7 @@ export default function OwnerPortal() {
         <div style={{ overflowY: "auto" as const }}>
           {/* Hero */}
           {activePage === "home" && (
-            <div style={{ position: "relative", height: 200, background: "linear-gradient(135deg, rgba(26,46,74,0.9), rgba(42,107,124,0.7))", display: "flex", alignItems: "flex-end", padding: "32px 40px", overflow: "hidden" }}>
+            <div style={{ position: "relative", height: 200, background: theme === "dark" ? "linear-gradient(135deg, rgba(26,46,74,0.9), rgba(42,107,124,0.7))" : "linear-gradient(135deg, rgba(42,107,124,0.85), rgba(58,155,170,0.7))", display: "flex", alignItems: "flex-end", padding: "32px 40px", overflow: "hidden" }}>
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 120, background: "linear-gradient(transparent, var(--bg))" }} />
               <div style={{ position: "relative", zIndex: 1 }}>
                 <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>Welcome back,</div>
