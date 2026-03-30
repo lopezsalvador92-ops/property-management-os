@@ -345,6 +345,14 @@ export default function AdminDashboard() {
 
   return (
     <>
+    <style>{`
+      .admin-mobile-bar{display:none}
+      @media(max-width:900px){
+        .admin-shell{grid-template-columns:0px 1fr !important;}
+        .admin-sidebar-wrap{display:none !important;}
+        .admin-mobile-bar{display:flex !important;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+      }
+    `}</style>
     {theme === "light" && <style>{`
       :root {
         --bg: #F5F7FA !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #F0F2F5 !important;
@@ -358,9 +366,23 @@ export default function AdminDashboard() {
         --orange: #C4804A !important; --orange-s: rgba(196,128,74,0.08) !important;
       }
     `}</style>}
-    <div style={{ display: "grid", gridTemplateColumns: `${sidebarWidth}px 1fr`, minHeight: "100vh", transition: "grid-template-columns 0.2s ease" }}>
+    <div className="admin-shell" style={{ display: "grid", gridTemplateColumns: `${sidebarWidth}px 1fr`, minHeight: "100vh", transition: "grid-template-columns 0.2s ease" }}>
 
-      {/* SIDEBAR */}
+      
+        {/* Mobile top bar */}
+        <div className="admin-mobile-bar">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src="/cape-logo.png" alt="Cape PM" style={{ height: 22 }} />
+            <span style={{ fontSize: 13, fontWeight: 500 }}>Cape PM</span>
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+            {navItems.map(item => (
+              <button key={item.id + "-mob"} onClick={() => setActivePage(item.id)} style={{ padding: "4px 10px", borderRadius: 6, border: activePage === item.id ? "1px solid var(--accent)" : "1px solid var(--border)", background: activePage === item.id ? "var(--accent-s)" : "transparent", color: activePage === item.id ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>{item.label}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* SIDEBAR */}
       <div style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", height: "100vh", position: "sticky" as const, top: 0, display: "flex", flexDirection: "column" as const, overflow: "hidden", transition: "width 0.2s ease", width: sidebarWidth }}>
         <div style={{ padding: sidebarOpen ? "24px 20px 20px" : "24px 12px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, minHeight: 78 }}>
           <img src="/cape-logo.png" alt="Cape PM" style={{ height: 28 }} />

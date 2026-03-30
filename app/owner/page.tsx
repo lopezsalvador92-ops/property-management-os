@@ -95,6 +95,25 @@ export default function OwnerPortal() {
       <style>{`
         :root{--bg:#060B12;--bg2:#0C1420;--bg3:#111C2E;--bg4:#152236;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.10);--text:#EDF1F5;--text2:rgba(237,241,245,0.55);--text3:rgba(237,241,245,0.35);--accent:#C9A96E;--accent-s:rgba(201,169,110,0.12);--teal:#3A9BAA;--teal-l:#5CC4C9;--teal-s:rgba(58,155,170,0.12);--green:#6ECF97;--green-s:rgba(110,207,151,0.10);--red:#CF6E6E;--red-s:rgba(207,110,110,0.10);--blue:#6EA8CF;--blue-s:rgba(110,168,207,0.10);--orange:#CF956E;--orange-s:rgba(207,149,110,0.10);--fd:'Instrument Serif',Georgia,serif;--fb:'DM Sans',system-ui,sans-serif}
         *{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+        @media(max-width:768px){
+          .owner-shell{grid-template-columns:1fr !important;}
+          .owner-sidebar{display:none !important;}
+          .owner-main{padding:20px 16px !important;max-width:100% !important;}
+          .owner-stats{grid-template-columns:1fr !important;}
+          .owner-hero{margin-bottom:16px !important;}
+          .owner-hero h1{font-size:22px !important;}
+          .fin-header{flex-direction:column !important;gap:16px !important;align-items:flex-start !important;}
+          .fin-stats{grid-template-columns:1fr 1fr !important;}
+          .exp-table-grid{grid-template-columns:70px 1fr 80px !important;}
+          .exp-table-cat,.exp-table-receipt-hd{display:none !important;}
+          .exp-cat-cell,.exp-receipt-cell{display:none !important;}
+          .fin-section-title{font-size:24px !important;}
+          .month-selector{align-self:flex-start !important;}
+        }
+        @media(max-width:480px){
+          .fin-stats{grid-template-columns:1fr !important;}
+          .exp-table-grid{grid-template-columns:60px 1fr 70px !important;}
+        }
       `}</style>
       {theme === "light" && <style>{`
         :root {
@@ -110,9 +129,28 @@ export default function OwnerPortal() {
         }
       `}</style>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", minHeight: "100vh" }}>
+      <div className="owner-shell" style={{ display: "grid", gridTemplateColumns: "260px 1fr", minHeight: "100vh" }}>
+
+        {/* Mobile top bar */}
+        <div className="owner-mobile-bar" style={{ display: "none" }}>
+          <style>{`
+            @media(max-width:768px){
+              .owner-mobile-bar{display:flex !important;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;}
+            }
+          `}</style>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src="/cape-logo.png" alt="Cape PM" style={{ height: 22 }} />
+            <span style={{ fontSize: 13, fontWeight: 500 }}>{property?.name}</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {navItems.map(n => (
+              <button key={n.id} onClick={() => setActivePage(n.id)} style={{ padding: "6px 12px", borderRadius: 6, border: activePage === n.id ? "1px solid var(--accent)" : "1px solid var(--border)", background: activePage === n.id ? "var(--accent-s)" : "transparent", color: activePage === n.id ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>{n.label}</button>
+            ))}
+          </div>
+        </div>
+
         {/* SIDEBAR */}
-        <div style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", position: "sticky", top: 0, height: "100vh", display: "flex", flexDirection: "column" as const, overflowY: "auto" as const }}>
+        <div className="owner-sidebar" style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", position: "sticky", top: 0, height: "100vh", display: "flex", flexDirection: "column" as const, overflowY: "auto" as const }}>
           <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
             <img src="/cape-logo.png" alt="Cape PM" style={{ height: 28 }} />
             <div><div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text2)" }}>Cape PM</div><div style={{ fontSize: 10, color: "var(--text3)", letterSpacing: "0.04em" }}>Powered by Axvia</div></div>
@@ -145,10 +183,10 @@ export default function OwnerPortal() {
 
         {/* MAIN */}
         <div style={{ overflowY: "auto" as const }}>
-          <div style={{ padding: "32px 40px", maxWidth: 960 }}>
+          <div className="owner-main" style={{ padding: "32px 40px", maxWidth: 960 }}>
             {/* Page header for Home */}
             {activePage === "home" && (
-              <div style={{ marginBottom: 28 }}>
+              <div className="owner-hero" style={{ marginBottom: 28 }}>
                 <div style={{ fontSize: 14, color: "var(--text3)", marginBottom: 4 }}>Welcome back,</div>
                 <div style={{ fontFamily: "var(--fd)", fontSize: 28, marginBottom: 4 }}>{property?.name}</div>
                 <div style={{ fontSize: 14, color: "var(--text2)" }}>{property?.owner} · {cur}</div>
@@ -156,7 +194,7 @@ export default function OwnerPortal() {
             )}
             {/* HOME */}
             {activePage === "home" && (<>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
+              <div className="owner-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
                 <div style={{ padding: 20, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14 }}>
                   <div style={{ fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 8, fontWeight: 500 }}>Account Balance</div>
                   <div style={{ fontFamily: "var(--fd)", fontSize: 26, color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmt(currentBalance)}</div>
@@ -202,9 +240,9 @@ export default function OwnerPortal() {
             {/* FINANCIALS */}
             {activePage === "financials" && (<>
               {/* Header + month selector */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+              <div className="fin-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
                 <div>
-                  <div style={{ fontFamily: "var(--fd)", fontSize: 28, marginBottom: 6 }}>Financial Statement</div>
+                  <div className="fin-section-title" style={{ fontFamily: "var(--fd)", fontSize: 28, marginBottom: 6 }}>Financial Statement</div>
                   <div style={{ fontSize: 14, color: "var(--text2)" }}>Monthly account summary for {property?.name}</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -216,7 +254,7 @@ export default function OwnerPortal() {
 
               {report ? (<>
                 {/* Stat cards */}
-                <div style={{ display: "grid", gridTemplateColumns: cur === "USD" ? "repeat(4, 1fr)" : "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
+                <div className="fin-stats" style={{ display: "grid", gridTemplateColumns: cur === "USD" ? "repeat(4, 1fr)" : "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
                   <div style={{ padding: 20, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14 }}><div style={{ fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 8, fontWeight: 500 }}>Deposits</div><div style={{ fontFamily: "var(--fd)", fontSize: 26, color: "var(--teal-l)" }}>{fmt(report.totalDeposits)}</div></div>
                   <div style={{ padding: 20, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14 }}><div style={{ fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 8, fontWeight: 500 }}>Total Charges</div><div style={{ fontFamily: "var(--fd)", fontSize: 26 }}>{fmt(report.totalExpenses)}</div></div>
                   {cur === "USD" && <div style={{ padding: 20, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14 }}><div style={{ fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 8, fontWeight: 500 }}>Exchange Rate</div><div style={{ fontFamily: "var(--fd)", fontSize: 26 }}>{report.exchangeRate > 0 ? report.exchangeRate.toFixed(2) : "—"}</div></div>}
@@ -257,27 +295,27 @@ export default function OwnerPortal() {
                   </div>
                   <div style={{ padding: "0 20px" }}>
                     {/* Table header */}
-                    <div style={{ display: "grid", gridTemplateColumns: "90px 1fr 100px 120px 60px", padding: "12px 0", borderBottom: "2px solid var(--border2)" }}>
+                    <div className="exp-table-grid" style={{ display: "grid", gridTemplateColumns: "90px 1fr 100px 120px 60px", padding: "12px 0", borderBottom: "2px solid var(--border2)" }}>
                       <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)" }}>Date</div>
                       <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)" }}>Description</div>
                       <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "right" as const }}>Amount</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Category</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Receipt</div>
+                      <div className="exp-table-cat" style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Category</div>
+                      <div className="exp-table-receipt-hd" style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Receipt</div>
                     </div>
                     {/* Expense rows */}
                     {monthExpenses.map((e, i) => (
-                      <div key={e.id} style={{ display: "grid", gridTemplateColumns: "90px 1fr 100px 120px 60px", padding: "10px 0", borderBottom: i < monthExpenses.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
+                      <div key={e.id} className="exp-table-grid" style={{ display: "grid", gridTemplateColumns: "90px 1fr 100px 120px 60px", padding: "10px 0", borderBottom: i < monthExpenses.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
                         <div style={{ fontSize: 12, color: "var(--text3)" }}>{fmtDate(e.date)}</div>
                         <div style={{ fontSize: 13, color: "var(--text)" }}>{e.description || "Expense"}</div>
                         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", textAlign: "right" as const }}>{fmt(e.amount)}</div>
-                        <div style={{ textAlign: "center" as const }}><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "var(--bg4)", color: "var(--text3)", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 110, display: "inline-block" }}>{e.category}</span></div>
-                        <div style={{ textAlign: "center" as const }}>{e.receiptUrl ? <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--teal-l)", textDecoration: "none", fontSize: 11, fontWeight: 500 }}>View</a> : <span style={{ fontSize: 11, color: "var(--text3)" }}>-</span>}</div>
+                        <div className="exp-cat-cell" style={{ textAlign: "center" as const }}><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "var(--bg4)", color: "var(--text3)", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 110, display: "inline-block" }}>{e.category}</span></div>
+                        <div className="exp-receipt-cell" style={{ textAlign: "center" as const }}>{e.receiptUrl ? <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--teal-l)", textDecoration: "none", fontSize: 11, fontWeight: 500 }}>View</a> : <span style={{ fontSize: 11, color: "var(--text3)" }}>-</span>}</div>
                       </div>
                     ))}
                     {monthExpenses.length === 0 && <div style={{ padding: "20px 0", color: "var(--text3)", fontSize: 13, textAlign: "center" as const }}>No expenses for this month.</div>}
                     {/* Total row */}
                     {monthExpenses.length > 0 && (
-                      <div style={{ display: "grid", gridTemplateColumns: "90px 1fr 100px 120px 60px", padding: "12px 0", borderTop: "2px solid var(--border2)", marginTop: 4 }}>
+                      <div className="exp-table-grid" style={{ display: "grid", gridTemplateColumns: "90px 1fr 100px 120px 60px", padding: "12px 0", borderTop: "2px solid var(--border2)", marginTop: 4 }}>
                         <div />
                         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Total</div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", textAlign: "right" as const }}>{fmt(report.totalExpenses)}</div>

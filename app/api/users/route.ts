@@ -35,7 +35,9 @@ export async function GET() {
       imageUrl: user.image_url || "",
     }));
 
-    return NextResponse.json({ users });
+    // Hide system_admin users from the admin view
+    const visibleUsers = users.filter((u: any) => u.role !== "system_admin");
+    return NextResponse.json({ users: visibleUsers });
   } catch (error: any) {
     console.error("Users GET error:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch users" }, { status: 500 });

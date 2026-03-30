@@ -1,21 +1,35 @@
-import { currentUser } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+"use client";
 
-export default async function Home() {
-  const user = await currentUser();
+import { useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
-  if (!user) {
-    redirect("/sign-in");
-  }
+export default function RootPage() {
+  const { user, isLoaded } = useUser();
+  const router = useRouter();
 
-  const role = (user.publicMetadata as { role?: string })?.role;
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!user) {
+      router.push("/sign-in");
+      return;
+    }
+    const role = (user.publicMetadata as any)?.role || "";
+    if (role === "admin" || role === "system_admin") {
+      router.push("/admin");
+    } else if (role === "owner") {
+      router.push("/owner");
+    } else {
+      router.push("/sign-in");
+    }
+  }, [user, isLoaded, router]);
 
-  if (role === "admin") {
-    redirect("/admin");
-  } else if (role === "owner") {
-    redirect("/owner");
-  } else {
-    // Default: send to admin if no role set
-    redirect("/admin");
-  }
+  return (
+    <div style={{ minHeight: "100vh", background: "#F5F7FA", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <div style={{ textAlign: "center" }}>
+        <img src="/cape-logo.png" alt="Cape PM" style={{ height: 40, marginBottom: 16, opacity: 0.5 }} />
+        <div style={{ fontSize: 13, color: "#8795A8" }}>Loading...</div>
+      </div>
+    </div>
+  );
 }
