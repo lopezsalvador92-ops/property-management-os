@@ -32,6 +32,19 @@ async function airtableGet(tableId: string, params: URLSearchParams) {
   return res.json();
 }
 
+async function fetchAllRecords(tableId: string, params: URLSearchParams) {
+  const allRecords: any[] = [];
+  let offset: string | undefined;
+  do {
+    const p = new URLSearchParams(params);
+    if (offset) p.set("offset", offset);
+    const data = await airtableGet(tableId, p);
+    allRecords.push(...data.records);
+    offset = data.offset;
+  } while (offset);
+  return allRecords;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -60,7 +73,7 @@ export async function GET(request: Request) {
     const currency = typeof currRaw === "string" ? currRaw : currRaw?.name || "USD";
     const isUSD = currency === "USD";
 
-    // 2. Get ALL monthly reports for this property
+    // 2. Get ALL monthly reports
     const repParams = new URLSearchParams();
     const repFields = [
       "Report Name", "Month and Year", "Status",
@@ -103,12 +116,11 @@ export async function GET(request: Request) {
       };
     });
 
-    // Only show Sent or Reviewed reports, sorted newest first (chronological)
     const visibleReports = allReports
       .filter((r: any) => r.status === "Sent" || r.status === "Reviewed")
       .sort((a: any, b: any) => monthToSortKey(b.month) - monthToSortKey(a.month));
 
-    // 3. Get recent expenses
+    // 3. Get ALL expenses for this property (paginated)
     const expParams = new URLSearchParams();
     expParams.append("fields[]", "Description");
     expParams.append("fields[]", "Total");
@@ -117,13 +129,14 @@ export async function GET(request: Request) {
     expParams.append("fields[]", "Date");
     expParams.append("fields[]", "Receipt URL");
     expParams.append("fields[]", "House Name");
+    expParams.append("fields[]", "Month and Year");
     expParams.set("filterByFormula", `FIND("${propertyName}", ARRAYJOIN({House Name}, ","))`);
     expParams.set("sort[0][field]", "Date");
-    expParams.set("sort[0][direction]", "desc");
-    expParams.set("pageSize", "20");
-    const expData = await airtableGet(EXPENSES_TABLE, expParams);
+    expParams.set("sort[0][direction]", "asc");
+    expParams.set("pageSize", "100");
+    const allExpenseRecords = await fetchAllRecords(EXPENSES_TABLE, expParams);
 
-    const expenses = expData.records.map((r: any) => {
+    const expenses = allExpenseRecords.map((r: any) => {
       const f = r.fields;
       const catRaw = f["Expense Category"];
       const category = typeof catRaw === "string" ? catRaw : catRaw?.name || "";
@@ -134,18 +147,20 @@ export async function GET(request: Request) {
         category,
         date: f["Date"] || "",
         receiptUrl: f["Receipt URL"] || "",
+        monthYear: f["Month and Year"] || "",
       };
     });
 
-    // 4. Get deposits
+    // 4. Get all deposits
     const depParams = new URLSearchParams();
     depParams.append("fields[]", "Amount");
     depParams.append("fields[]", "Date");
     depParams.append("fields[]", "Notes");
     depParams.append("fields[]", "House Name");
+    depParams.append("fields[]", "Deposit Month and Year");
     depParams.set("sort[0][field]", "Date");
     depParams.set("sort[0][direction]", "desc");
-    depParams.set("pageSize", "50");
+    depParams.set("pageSize", "100");
     const depData = await airtableGet(DEPOSITS_TABLE, depParams);
 
     const propId = propRec.id;
@@ -157,15 +172,24 @@ export async function GET(request: Request) {
         }
         return false;
       })
-      .slice(0, 10)
       .map((r: any) => ({
         id: r.id,
         amount: safeNum(r.fields["Amount"]),
         date: r.fields["Date"] || "",
         notes: r.fields["Notes"] || "",
+        monthYear: r.fields["Deposit Month and Year"] || "",
       }));
 
     const latestReport = visibleReports[0] || null;
+
+    // 5. Compute YTD category totals
+    const currentYear = new Date().getFullYear().toString();
+    const ytdExpenses = expenses.filter((e: any) => e.date && e.date.startsWith(currentYear));
+    const ytdByCategory: Record<string, number> = {};
+    for (const e of ytdExpenses) {
+      const cat = e.category || "Other";
+      ytdByCategory[cat] = (ytdByCategory[cat] || 0) + e.amount;
+    }
 
     return NextResponse.json({
       property: {
@@ -179,6 +203,7 @@ export async function GET(request: Request) {
       reports: visibleReports,
       expenses,
       deposits,
+      ytdByCategory,
     });
   } catch (error) {
     console.error("Owner API error:", error);
