@@ -8,7 +8,7 @@ type Deposit = { id: string; date: string; house: string; houseId: string; owner
 type AppUser = { id: string; firstName: string; lastName: string; email: string; role: string; linkedProperty: string; createdAt: number; lastSignInAt: number | null; imageUrl: string };
 type PropertyDetail = { id: string; name: string; owner: string; email: string; secondaryEmail: string; currency: string; status: string; pmFeeUSD: number; pmFeeMXN: number; landscapingFeeUSD: number; landscapingFeeMXN: number; poolFeeUSD: number; poolFeeMXN: number; hskCadence: string; includedCleans: number; hskFeeUSD: number; hskFeeMXN: number; housemanFeeUSD: number; housemanFeeMXN: number };
 type HskLog = { id: string; housekeeper: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
-type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number };
+type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number; weeklyBreakdown: { weekStart: string; cleans: number; included: number; extra: number }[] };
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
 type ReportStatus = { pending: number; reviewed: number; sent: number; total: number; month: string };
@@ -119,6 +119,7 @@ export default function AdminDashboard() {
   const [hskLogs, setHskLogs] = useState<HskLog[]>([]);
   const [hskSummary, setHskSummary] = useState<HskSummary[]>([]);
   const [hskMonth, setHskMonth] = useState("");
+  const [hskWeekStarts, setHskWeekStarts] = useState<string[]>([]);
   const [hskLoading, setHskLoading] = useState(false);
   const [hskUpdating, setHskUpdating] = useState<string | null>(null);
   const [hskView, setHskView] = useState<"individual" | "weekly" | "summary">("individual");
@@ -287,7 +288,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activePage === "housekeeping") {
       setHskLoading(true);
-      fetch("/api/housekeeping").then(r => r.json()).then(d => { setHskLogs(d.logs || []); setHskSummary(d.monthlySummary || []); setHskMonth(d.currentMonth || ""); setHskLoading(false); }).catch(() => setHskLoading(false));
+      fetch("/api/housekeeping").then(r => r.json()).then(d => { setHskLogs(d.logs || []); setHskSummary(d.monthlySummary || []); setHskMonth(d.currentMonth || ""); setHskWeekStarts(d.weekStarts || []); setHskLoading(false); }).catch(() => setHskLoading(false));
     }
   }, [activePage]);
 
@@ -295,7 +296,7 @@ export default function AdminDashboard() {
     setHskUpdating(action);
     try {
       const res = await fetch("/api/housekeeping", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, recordIds: ids }) });
-      if (res.ok) { fetch("/api/housekeeping").then(r => r.json()).then(d => { setHskLogs(d.logs || []); setHskSummary(d.monthlySummary || []); }); }
+      if (res.ok) { fetch("/api/housekeeping").then(r => r.json()).then(d => { setHskLogs(d.logs || []); setHskSummary(d.monthlySummary || []); setHskWeekStarts(d.weekStarts || []); }); }
     } catch (e) { console.error(e); }
     setHskUpdating(null);
   }
@@ -918,48 +919,86 @@ export default function AdminDashboard() {
 
 
               {/* MONTHLY SUMMARY */}
-              {hskView === "summary" && (
+              {hskView === "summary" && (() => {
+                const weekCols = hskWeekStarts.map((ws, wi) => {
+                  const d = new Date(ws + "T12:00:00");
+                  const label = "Wk " + (wi + 1);
+                  const sub = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  return { ws, label, sub };
+                });
+                const wkColTemplate = weekCols.map(() => "65px 65px").join(" ");
+                const gridCols = "200px " + wkColTemplate + " 65px 65px 65px";
+                return (
                 <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Clean count summary, {hskMonth}</h2>
-                  <p style={{ fontSize: 13, color: "var(--text3)", marginBottom: 16 }}>Validate clean counts per property before generating housekeeping charges</p>
-                  <div style={{ ...card, padding: 0 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 100px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Property</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const }}>Total</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const }}>Included</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const }}>Extra</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const }}>Cadence</div>
+                  <p style={{ fontSize: 13, color: "var(--text3)", marginBottom: 16 }}>Week-by-week breakdown: included vs extra cleans per property</p>
+                  <div style={{ ...card, padding: 0, overflowX: "auto" as const }}>
+                    <div style={{ minWidth: 700 }}>
+                    {/* Header row 1: week group labels */}
+                    <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "8px 16px 0", gap: 0 }}>
+                      <div />
+                      {weekCols.map(wc => (
+                        <div key={wc.ws} style={{ gridColumn: "span 2", textAlign: "center" as const, fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>
+                          <div>{wc.label}</div>
+                          <div style={{ fontWeight: 400, fontSize: 9, color: "var(--text3)" }}>{wc.sub}</div>
+                        </div>
+                      ))}
+                      <div style={{ gridColumn: "span 3" }} />
                     </div>
+                    {/* Header row 2: sub-column labels */}
+                    <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "4px 16px 8px", borderBottom: "2px solid var(--border2)", gap: 0 }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)" }}>Property</div>
+                      {weekCols.map(wc => (
+                        <div key={wc.ws} style={{ display: "contents" }}>
+                          <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase" as const, color: "var(--text3)", textAlign: "center" as const }}>Incl</div>
+                          <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase" as const, color: "var(--orange)", textAlign: "center" as const }}>Extra</div>
+                        </div>
+                      ))}
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Total</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Incl</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Extra</div>
+                    </div>
+                    {/* Data rows */}
                     {hskSummary.map((s, i) => {
                       const hasExtra = s.extraCleans > 0;
                       return (
-                        <div key={s.property} style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 100px", padding: "12px 20px", borderBottom: i < hskSummary.length - 1 ? "1px solid var(--border)" : "none" }}
+                        <div key={s.property} style={{ display: "grid", gridTemplateColumns: gridCols, padding: "10px 16px", borderBottom: i < hskSummary.length - 1 ? "1px solid var(--border)" : "none", gap: 0 }}
                           onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
                           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.property}</div>
-                            <div style={{ fontSize: 11, color: "var(--text3)" }}>{s.includedPerWeek} included/week</div>
+                            <div style={{ fontSize: 12, fontWeight: 500 }}>{s.property}</div>
+                            <div style={{ fontSize: 10, color: "var(--text3)" }}>{s.includedPerWeek}/wk</div>
                           </div>
-                          <div style={{ fontSize: 14, fontWeight: 500, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.totalCleans}</div>
-                          <div style={{ fontSize: 14, textAlign: "center" as const, color: "var(--text2)", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.includedMonthly}</div>
+                          {weekCols.map(wc => {
+                            const wb = (s.weeklyBreakdown || []).find((w: any) => w.weekStart === wc.ws);
+                            const incl = wb ? Math.min(wb.cleans, wb.included) : 0;
+                            const extra = wb ? wb.extra : 0;
+                            return (
+                              <div key={wc.ws} style={{ display: "contents" }}>
+                                <div style={{ fontSize: 13, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center", color: incl > 0 ? "var(--text)" : "var(--text3)" }}>{incl > 0 ? incl : "—"}</div>
+                                <div style={{ fontSize: 13, fontWeight: extra > 0 ? 600 : 400, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center", color: extra > 0 ? "var(--orange)" : "var(--text3)" }}>{extra > 0 ? extra : "—"}</div>
+                              </div>
+                            );
+                          })}
+                          <div style={{ fontSize: 14, fontWeight: 600, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.totalCleans}</div>
+                          <div style={{ fontSize: 13, textAlign: "center" as const, color: "var(--text2)", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.includedMonthly}</div>
                           <div style={{ fontSize: 14, fontWeight: 600, textAlign: "center" as const, color: hasExtra ? "var(--orange)" : "var(--green)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                             {hasExtra ? s.extraCleans : "✓"}
-                          </div>
-                          <div style={{ fontSize: 11, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <span style={{ padding: "2px 10px", borderRadius: 100, background: s.cadence === "Weekly" ? "var(--teal-s)" : "var(--accent-s)", color: s.cadence === "Weekly" ? "var(--teal-l)" : "var(--accent)" }}>{s.cadence}</span>
                           </div>
                         </div>
                       );
                     })}
                     {hskSummary.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>No housekeeping data for this month.</div>}
+                    </div>
                   </div>
                   {hskSummary.some(s => s.extraCleans > 0) && (
                     <div style={{ marginTop: 16, padding: "12px 20px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, fontSize: 13 }}>
-                      {hskSummary.filter(s => s.extraCleans > 0).length} {hskSummary.filter(s => s.extraCleans > 0).length === 1 ? "property has" : "properties have"} extra cleans that will be charged beyond the included amount.
+                      {hskSummary.filter(s => s.extraCleans > 0).length} {hskSummary.filter(s => s.extraCleans > 0).length === 1 ? "property has" : "properties have"} extra cleans beyond included.
                     </div>
                   )}
                 </div>
-              )}
+                );
+              })()}
 
               {/* WEEKLY OVERVIEW */}
               {hskView === "weekly" && (() => {
@@ -974,7 +1013,7 @@ export default function AdminDashboard() {
                           <div style={{ display: "grid", gridTemplateColumns: "140px repeat(7, 1fr)", gap: 0, minWidth: 800 }}>
                             <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", padding: "0 0 8px" }}>Housekeeper</div>
                             {dayLabels.map(d => <div key={d} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const, padding: "0 4px 8px" }}>{d}</div>)}
-                            {weekLogs.map(log => (<>
+                            {weekLogs.map(log => (<div key={log.id} style={{ display: "contents" }}>
                               <div key={`name-${log.id}`} style={{ fontSize: 13, color: "var(--text2)", padding: "8px 0", display: "flex", alignItems: "center", gap: 6, borderTop: "1px solid var(--border)" }}>
                                 {log.housekeeper.split(" ")[0]}
                                 <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 100, background: log.status === "Approved" ? "var(--green-s)" : "var(--accent-s)", color: log.status === "Approved" ? "var(--green)" : "var(--accent)" }}>{log.status === "Approved" ? "✓" : "○"}</span>
@@ -984,7 +1023,7 @@ export default function AdminDashboard() {
                                   {log.days[dk] ? log.days[dk].split(", ").map((h, i) => <PropertyPill key={i} name={h.trim()} />) : <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>}
                                 </div>
                               ))}
-                            </>))}
+                            </div>))}
                           </div>
                         </div>
                       </div>

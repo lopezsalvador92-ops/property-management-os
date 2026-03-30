@@ -23,22 +23,15 @@ export async function GET() {
     propParams.set("pageSize", "50");
     const propData = await airtableGet(PROPERTIES_TABLE, propParams);
 
-    // Build property configs - handle all possible field formats
     const propConfigs: Record<string, { name: string; includedCleans: number; cadence: string }> = {};
     for (const rec of propData.records) {
       const name = rec.fields["House Name"] || "";
-      
-      // Status could be string or {id, name, color}
       const statusRaw = rec.fields["Status"];
       const status = typeof statusRaw === "string" ? statusRaw : statusRaw?.name || "";
       if (status !== "Active") continue;
-      
-      // HSK Fixed Fee could be string or {id, name, color}
       const cadenceRaw = rec.fields["HSK Fixed Fee"];
       const cadence = typeof cadenceRaw === "string" ? cadenceRaw : cadenceRaw?.name || "None";
-      
       const includedCleans = rec.fields["Included Cleans"] || 0;
-      
       propConfigs[name] = { name, includedCleans, cadence };
     }
 
@@ -81,39 +74,55 @@ export async function GET() {
       };
     });
 
-    // Step 3: Compute monthly summary
+    // Step 3: Compute monthly summary with per-week breakdown
     const now = new Date();
     const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const currentMonthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    
-    // Filter logs for current month
     const monthLogs = logs.filter((l: any) => l.weekStart && l.weekStart.startsWith(currentMonthPrefix));
-    
-    // Count cleans per property
-    const cleanCounts: Record<string, number> = {};
     const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+    // Get unique weeks sorted chronologically
+    const weekStarts: string[] = Array.from(new Set(monthLogs.map((l: any) => l.weekStart as string))).sort();
+
+    // Count cleans per property per week
+    const cleansByPropertyWeek: Record<string, Record<string, number>> = {};
+    const cleanCounts: Record<string, number> = {};
+
     for (const log of monthLogs) {
       for (const dk of dayKeys) {
         const houses = (log.days as any)[dk] as string;
         if (houses && houses.trim()) {
           for (const h of houses.split(",")) {
             const name = h.trim();
-            if (name) cleanCounts[name] = (cleanCounts[name] || 0) + 1;
+            if (name) {
+              cleanCounts[name] = (cleanCounts[name] || 0) + 1;
+              if (!cleansByPropertyWeek[name]) cleansByPropertyWeek[name] = {};
+              const ws = log.weekStart as string;
+              cleansByPropertyWeek[name][ws] = (cleansByPropertyWeek[name][ws] || 0) + 1;
+            }
           }
         }
       }
     }
 
-    // Count unique weeks
-    const weeksInMonth = new Set(monthLogs.map((l: any) => l.weekStart)).size || 4;
+    const weeksInMonth = weekStarts.length || 4;
 
-    // Build summary
+    // Build summary with weekly breakdown
     const monthlySummary = Object.values(propConfigs)
       .filter(cfg => cfg.cadence !== "None")
       .map(cfg => {
         const totalCleans = cleanCounts[cfg.name] || 0;
         const includedMonthly = cfg.cadence === "Weekly" ? cfg.includedCleans * weeksInMonth : cfg.includedCleans;
         const extraCleans = Math.max(0, totalCleans - includedMonthly);
+
+        // Per-week breakdown
+        const weeklyBreakdown = weekStarts.map(ws => {
+          const cleans = cleansByPropertyWeek[cfg.name]?.[ws] || 0;
+          const included = cfg.includedCleans;
+          const extra = Math.max(0, cleans - included);
+          return { weekStart: ws, cleans, included, extra };
+        });
+
         return {
           property: cfg.name,
           totalCleans,
@@ -122,6 +131,7 @@ export async function GET() {
           extraCleans,
           cadence: cfg.cadence,
           weeksInMonth,
+          weeklyBreakdown,
         };
       })
       .sort((a, b) => b.extraCleans - a.extraCleans || b.totalCleans - a.totalCleans);
@@ -129,8 +139,8 @@ export async function GET() {
     return NextResponse.json({
       logs,
       monthlySummary,
+      weekStarts,
       currentMonth: currentMonthLabel,
-      
     });
   } catch (error) {
     console.error("HSK error:", error);
