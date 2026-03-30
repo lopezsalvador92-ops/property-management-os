@@ -47,8 +47,9 @@ export async function GET(request: Request) {
       return {
         id: r.id,
         description: f["Description"] || "",
-        amount: f["Total"] || 0,
+        total: f["Total"] || 0,
         amountUSD: f["Total Amount (USD)"] || 0,
+        amount: f["Total"] || 0,
         category: typeof catRaw === "string" ? catRaw : catRaw?.name || "",
         currency: typeof curRaw === "string" ? curRaw : curRaw?.name || "",
         date: f["Date"] || "",
