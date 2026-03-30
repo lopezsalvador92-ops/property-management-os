@@ -82,7 +82,9 @@ export async function GET() {
     const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
     // Get unique weeks sorted chronologically
-    const weekStarts: string[] = Array.from(new Set(monthLogs.map((l: any) => l.weekStart as string))).sort();
+    const weekStartSet = new Set<string>();
+    for (const l of monthLogs) { if (l.weekStart) weekStartSet.add(l.weekStart as string); }
+    const weekStarts: string[] = Array.from(weekStartSet).sort();
 
     // Count cleans per property per week
     const cleansByPropertyWeek: Record<string, Record<string, number>> = {};

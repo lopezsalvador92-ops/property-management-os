@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; total: number; currency: string; description: string; receiptUrl: string; owner: string };
@@ -922,74 +922,53 @@ export default function AdminDashboard() {
               {hskView === "summary" && (() => {
                 const weekCols = hskWeekStarts.map((ws, wi) => {
                   const d = new Date(ws + "T12:00:00");
-                  const label = "Wk " + (wi + 1);
-                  const sub = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                  return { ws, label, sub };
+                  return { ws, label: "Wk " + (wi + 1), sub: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) };
                 });
-                const wkColTemplate = weekCols.map(() => "65px 65px").join(" ");
-                const gridCols = "200px " + wkColTemplate + " 65px 65px 65px";
+                const hd: React.CSSProperties = { padding: "6px 8px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text3)", textAlign: "center", whiteSpace: "nowrap", borderBottom: "2px solid var(--border2)" };
+                const td: React.CSSProperties = { padding: "10px 8px", textAlign: "center", fontSize: 13, borderBottom: "1px solid var(--border)" };
+                const evenBg = "rgba(58,155,170,0.05)";
                 return (
                 <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Clean count summary, {hskMonth}</h2>
-                  <p style={{ fontSize: 13, color: "var(--text3)", marginBottom: 16 }}>Week-by-week breakdown: included vs extra cleans per property</p>
+                  <p style={{ fontSize: 13, color: "var(--text3)", marginBottom: 16 }}>Week-by-week included vs extra cleans per property</p>
                   <div style={{ ...card, padding: 0, overflowX: "auto" as const }}>
-                    <div style={{ minWidth: 700 }}>
-                    {/* Header row 1: week group labels */}
-                    <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "8px 16px 0", gap: 0 }}>
-                      <div />
-                      {weekCols.map(wc => (
-                        <div key={wc.ws} style={{ gridColumn: "span 2", textAlign: "center" as const, fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>
-                          <div>{wc.label}</div>
-                          <div style={{ fontWeight: 400, fontSize: 9, color: "var(--text3)" }}>{wc.sub}</div>
-                        </div>
-                      ))}
-                      <div style={{ gridColumn: "span 3" }} />
-                    </div>
-                    {/* Header row 2: sub-column labels */}
-                    <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "4px 16px 8px", borderBottom: "2px solid var(--border2)", gap: 0 }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)" }}>Property</div>
-                      {weekCols.map(wc => (
-                        <div key={wc.ws} style={{ display: "contents" }}>
-                          <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase" as const, color: "var(--text3)", textAlign: "center" as const }}>Incl</div>
-                          <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase" as const, color: "var(--orange)", textAlign: "center" as const }}>Extra</div>
-                        </div>
-                      ))}
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Total</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Incl</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", textAlign: "center" as const }}>Extra</div>
-                    </div>
-                    {/* Data rows */}
-                    {hskSummary.map((s, i) => {
-                      const hasExtra = s.extraCleans > 0;
-                      return (
-                        <div key={s.property} style={{ display: "grid", gridTemplateColumns: gridCols, padding: "10px 16px", borderBottom: i < hskSummary.length - 1 ? "1px solid var(--border)" : "none", gap: 0 }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
-                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                          <div>
-                            <div style={{ fontSize: 12, fontWeight: 500 }}>{s.property}</div>
-                            <div style={{ fontSize: 10, color: "var(--text3)" }}>{s.includedPerWeek}/wk</div>
-                          </div>
-                          {weekCols.map(wc => {
-                            const wb = (s.weeklyBreakdown || []).find((w: any) => w.weekStart === wc.ws);
-                            const incl = wb ? Math.min(wb.cleans, wb.included) : 0;
-                            const extra = wb ? wb.extra : 0;
-                            return (
-                              <div key={wc.ws} style={{ display: "contents" }}>
-                                <div style={{ fontSize: 13, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center", color: incl > 0 ? "var(--text)" : "var(--text3)" }}>{incl > 0 ? incl : "—"}</div>
-                                <div style={{ fontSize: 13, fontWeight: extra > 0 ? 600 : 400, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center", color: extra > 0 ? "var(--orange)" : "var(--text3)" }}>{extra > 0 ? extra : "—"}</div>
-                              </div>
-                            );
-                          })}
-                          <div style={{ fontSize: 14, fontWeight: 600, textAlign: "center" as const, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.totalCleans}</div>
-                          <div style={{ fontSize: 13, textAlign: "center" as const, color: "var(--text2)", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.includedMonthly}</div>
-                          <div style={{ fontSize: 14, fontWeight: 600, textAlign: "center" as const, color: hasExtra ? "var(--orange)" : "var(--green)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            {hasExtra ? s.extraCleans : "✓"}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <table style={{ width: "100%", borderCollapse: "collapse" as const, minWidth: 750 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...hd, textAlign: "left", padding: "10px 16px", minWidth: 160 }}>Property</th>
+                          {weekCols.map((wc, wi) => (<React.Fragment key={wc.ws}>
+                            <th style={{ ...hd, background: wi % 2 === 0 ? evenBg : "transparent", minWidth: 50 }}><div style={{ marginBottom: 2 }}>{wc.label}</div><div style={{ fontWeight: 400, fontSize: 9, opacity: 0.6 }}>{wc.sub}</div><div style={{ marginTop: 3, color: "var(--text3)" }}>Incl</div></th>
+                            <th style={{ ...hd, background: wi % 2 === 0 ? evenBg : "transparent", minWidth: 50, color: "var(--orange)" }}>Extra</th>
+                          </React.Fragment>))}
+                          <th style={{ ...hd, minWidth: 60, borderLeft: "2px solid var(--border2)" }}>Total</th>
+                          <th style={{ ...hd, minWidth: 60 }}>Incl</th>
+                          <th style={{ ...hd, minWidth: 60 }}>Extra</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hskSummary.map(s => {
+                          const hasExtra = s.extraCleans > 0;
+                          return (
+                            <tr key={s.property}>
+                              <td style={{ ...td, textAlign: "left", padding: "10px 16px" }}><div style={{ fontSize: 13, fontWeight: 500 }}>{s.property}</div><div style={{ fontSize: 10, color: "var(--text3)" }}>{s.includedPerWeek}/wk</div></td>
+                              {weekCols.map((wc, wi) => {
+                                const wb = (s.weeklyBreakdown || []).find((w: any) => w.weekStart === wc.ws);
+                                const incl = wb ? Math.min(wb.cleans, wb.included) : 0;
+                                const extra = wb ? wb.extra : 0;
+                                return (<React.Fragment key={wc.ws}>
+                                  <td style={{ ...td, background: wi % 2 === 0 ? evenBg : "transparent", color: incl > 0 ? "var(--text)" : "var(--text3)" }}>{incl > 0 ? incl : "—"}</td>
+                                  <td style={{ ...td, background: wi % 2 === 0 ? evenBg : "transparent", color: extra > 0 ? "var(--orange)" : "var(--text3)", fontWeight: extra > 0 ? 600 : 400 }}>{extra > 0 ? extra : "—"}</td>
+                                </React.Fragment>);
+                              })}
+                              <td style={{ ...td, fontWeight: 600, fontSize: 14, borderLeft: "2px solid var(--border2)" }}>{s.totalCleans}</td>
+                              <td style={{ ...td, color: "var(--text2)" }}>{s.includedMonthly}</td>
+                              <td style={{ ...td, fontWeight: 600, color: hasExtra ? "var(--orange)" : "var(--green)" }}>{hasExtra ? s.extraCleans : "✓"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                     {hskSummary.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>No housekeeping data for this month.</div>}
-                    </div>
                   </div>
                   {hskSummary.some(s => s.extraCleans > 0) && (
                     <div style={{ marginTop: 16, padding: "12px 20px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, fontSize: 13 }}>
