@@ -34,6 +34,9 @@ export async function GET() {
     params.append("fields[]", "Property");
     params.append("fields[]", "Notes");
     params.append("fields[]", "Checklist");
+    params.append("fields[]", "Adults");
+    params.append("fields[]", "Children");
+    params.append("fields[]", "Questionnaire");
     params.set("sort[0][field]", "Check-in Date");
     params.set("sort[0][direction]", "asc");
 
@@ -50,6 +53,8 @@ export async function GET() {
 
     const visits = data.records.map((r: any) => {
       const propertyIds: string[] = r.fields["Property"] || [];
+      let questionnaire: Record<string, any> = {};
+      try { questionnaire = JSON.parse(r.fields["Questionnaire"] || "{}"); } catch {}
       return {
         id: r.id,
         visitName: r.fields["Visit Name"] || "",
@@ -62,6 +67,9 @@ export async function GET() {
         propertyName: propMap[propertyIds[0]] || "",
         notes: r.fields["Notes"] || "",
         checklist: r.fields["Checklist"] || "",
+        adults: r.fields["Adults"] || 0,
+        children: r.fields["Children"] || 0,
+        questionnaire,
       };
     });
 
@@ -75,7 +83,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { visitName, guestName, visitType, checkIn, checkOut, status, propertyId, notes, checklist } = body;
+    const { visitName, guestName, visitType, checkIn, checkOut, status, propertyId, notes, checklist, adults, children, questionnaire } = body;
 
     if (!visitName || !checkIn || !checkOut) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -90,6 +98,9 @@ export async function POST(request: Request) {
       "Status": status || "Upcoming",
       "Notes": notes || "",
       "Checklist": checklist || "",
+      "Adults": adults || 0,
+      "Children": children || 0,
+      "Questionnaire": questionnaire ? JSON.stringify(questionnaire) : "{}",
     };
     if (propertyId) fields["Property"] = [propertyId];
 
@@ -122,6 +133,9 @@ export async function PATCH(request: Request) {
     if (fields.propertyId !== undefined) airtableFields["Property"] = fields.propertyId ? [fields.propertyId] : [];
     if (fields.notes !== undefined) airtableFields["Notes"] = fields.notes;
     if (fields.checklist !== undefined) airtableFields["Checklist"] = fields.checklist;
+    if (fields.adults !== undefined) airtableFields["Adults"] = fields.adults;
+    if (fields.children !== undefined) airtableFields["Children"] = fields.children;
+    if (fields.questionnaire !== undefined) airtableFields["Questionnaire"] = JSON.stringify(fields.questionnaire);
 
     await airtableFetch(VISITS_TABLE, {
       method: "PATCH",
