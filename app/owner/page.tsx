@@ -150,7 +150,7 @@ export default function OwnerPortal() {
         </div>
 
         {/* SIDEBAR */}
-        <div className="owner-sidebar" style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", position: "sticky", top: 0, height: "100vh", display: "flex", flexDirection: "column" as const, overflowY: "auto" as const }}>
+        <div className="owner-sidebar" style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", position: "sticky", top: 0, height: "100vh", display: "flex", flexDirection: "column" as const, overflow: "hidden" }}>
           <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
             <img src="/cape-logo.png" alt="Cape PM" style={{ height: 28 }} />
             <div><div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text2)" }}>Cape PM</div><div style={{ fontSize: 10, color: "var(--text3)", letterSpacing: "0.04em" }}>Powered by Axvia</div></div>
@@ -171,11 +171,11 @@ export default function OwnerPortal() {
               </div>
             ))}
           </div>
-          <div style={{ flex: 1 }} />
-          <div style={{ padding: "8px 20px", borderTop: "1px solid var(--border)" }}>
+          <div style={{ flex: 1, minHeight: 0 }} />
+          <div style={{ flexShrink: 0, padding: "8px 20px", borderTop: "1px solid var(--border)" }}>
             <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>{theme === "dark" ? "Switch to Light" : "Switch to Dark"}</button>
           </div>
-          <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ flexShrink: 0, padding: "12px 20px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 11, color: "var(--text3)" }}>{ownerName}</span>
             <UserButton />
           </div>
