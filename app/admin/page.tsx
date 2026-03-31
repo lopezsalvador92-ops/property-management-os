@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useUser, UserButton } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; total: number; currency: string; description: string; receiptUrl: string; owner: string };
@@ -58,6 +60,10 @@ const sel: React.CSSProperties = { padding: "9px 36px 9px 14px", background: "va
 const inp: React.CSSProperties = { width: "100%", padding: "10px 14px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 14, outline: "none" };
 
 export default function AdminDashboard() {
+  const { user } = useUser();
+  const router = useRouter();
+  const userRole = (user?.publicMetadata as any)?.role || "admin";
+  const userName = user?.firstName || "User";
   const [properties, setProperties] = useState<Property[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
@@ -399,7 +405,8 @@ export default function AdminDashboard() {
           ))}
         </div>
         <div onClick={() => setSidebarOpen(!sidebarOpen)} style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--text3)", cursor: "pointer", textAlign: sidebarOpen ? "right" as const : "center" as const }}>{sidebarOpen ? "◀ Collapse" : "▶"}</div>
-        {sidebarOpen && <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)" }}>Sofia · Admin</div>}
+        {sidebarOpen && <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)", display: "flex", alignItems: "center", gap: 8 }}><UserButton afterSignOutUrl="/sign-in" appearance={{ elements: { avatarBox: { width: 24, height: 24 } } }} /><span>{userName} · {userRole === "system_admin" ? "System Admin" : userRole.charAt(0).toUpperCase() + userRole.slice(1)}</span></div>}
+        {sidebarOpen && userRole === "system_admin" && <div style={{ padding: "4px 20px 8px" }}><button onClick={() => router.push("/system")} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>⚙ System Settings</button></div>}
         {sidebarOpen && <div style={{ padding: "8px 20px", borderTop: "1px solid var(--border)" }}><button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>{theme === "dark" ? "Switch to Light" : "Switch to Dark"}</button></div>}
       </div>
 
