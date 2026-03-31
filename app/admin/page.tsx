@@ -14,6 +14,8 @@ type HskSummary = { property: string; totalCleans: number; includedPerWeek: numb
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
 type ReportStatus = { pending: number; reviewed: number; sent: number; total: number; month: string };
+type MaintenanceTask = { id: string; title: string; type: string; status: string; priority: string; propertyId: string; propertyName: string; vendorId: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean };
+type MaintenanceConfig = { id: string; taskName: string; category: string; propertyIds: string[]; propertyNames: string[]; frequency: string; vendorId: string; vendorName: string; lastCompleted: string; nextDue: string; notes: string; active: boolean };
 type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; propertyId: string; propertyName: string; notes: string; checklist: string; adults: number; children: number; questionnaire: Record<string, any> };
 type Vendor = { id: string; name: string; category: string; contact: string; location: string; tags: string; notes: string };
 type ItineraryEvent = { id: string; eventName: string; visitId: string; vendorId: string; vendorName: string; date: string; time: string; details: string; status: string };
@@ -36,6 +38,7 @@ const navItems = [
   { id: "deposits", icon: "↓", label: "Deposits" },
   { id: "reports", icon: "↗", label: "Reports" },
   { id: "concierge", icon: "✦", label: "Concierge" },
+  { id: "maintenance", icon: "⟡", label: "Maintenance" },
   { id: "calendar", icon: "▦", label: "Calendar" },
   { id: "properties", icon: "◫", label: "Properties" },
   { id: "users", icon: "◌", label: "Users" },
@@ -171,6 +174,34 @@ export default function AdminDashboard() {
   // CSV import
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvResult, setCsvResult] = useState<string | null>(null);
+
+  // Maintenance state
+  const [maintTasks, setMaintTasks] = useState<MaintenanceTask[]>([]);
+  const [maintConfigs, setMaintConfigs] = useState<MaintenanceConfig[]>([]);
+  const [maintLoading, setMaintLoading] = useState(false);
+  const [maintTab, setMaintTab] = useState<"schedule" | "config" | "inbox" | "vendors">("schedule");
+  const [maintTypeFilter, setMaintTypeFilter] = useState<"all" | "Reactive" | "Preventive">("all");
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [showAddConfig, setShowAddConfig] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskType, setNewTaskType] = useState("Reactive");
+  const [newTaskProp, setNewTaskProp] = useState("");
+  const [newTaskVendor, setNewTaskVendor] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState("Medium");
+  const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split("T")[0]);
+  const [newTaskNotes, setNewTaskNotes] = useState("");
+  const [newTaskCost, setNewTaskCost] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
+  const [newCfgName, setNewCfgName] = useState("");
+  const [newCfgCat, setNewCfgCat] = useState("General");
+  const [newCfgProps, setNewCfgProps] = useState<string[]>([]);
+  const [newCfgFreq, setNewCfgFreq] = useState("Monthly");
+  const [newCfgVendor, setNewCfgVendor] = useState("");
+  const [newCfgNextDue, setNewCfgNextDue] = useState("");
+  const [newCfgNotes, setNewCfgNotes] = useState("");
+  const [addingConfig, setAddingConfig] = useState(false);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [taskUpdating, setTaskUpdating] = useState<string | null>(null);
   // Add event form
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [newEventName, setNewEventName] = useState("");
@@ -182,6 +213,7 @@ export default function AdminDashboard() {
   const [addingEvent, setAddingEvent] = useState(false);
   // Add vendor form
   const [showAddVendor, setShowAddVendor] = useState(false);
+  const [showAddMaintVendor, setShowAddMaintVendor] = useState(false);
   const [newVendorName, setNewVendorName] = useState("");
   const [newVendorCat, setNewVendorCat] = useState("Dining");
   const [newVendorContact, setNewVendorContact] = useState("");
@@ -298,6 +330,22 @@ export default function AdminDashboard() {
     if (activePage === "properties" || activePage === "users") {
       setPropLoading(true);
       fetch("/api/properties-detail").then(r => r.json()).then(d => { setPropDetails(d.properties || []); setPropLoading(false); }).catch(() => setPropLoading(false));
+    }
+  }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "maintenance") {
+      setMaintLoading(true);
+      Promise.all([
+        fetch("/api/maintenance").then(r => r.json()),
+        fetch("/api/maintenance-config").then(r => r.json()),
+        fetch("/api/vendors").then(r => r.json()),
+      ]).then(([tData, cData, vData]) => {
+        setMaintTasks(tData.tasks || []);
+        setMaintConfigs(cData.configs || []);
+        setVendors(vData.vendors || []);
+        setMaintLoading(false);
+      }).catch(() => setMaintLoading(false));
     }
   }, [activePage]);
 
@@ -1952,6 +2000,430 @@ export default function AdminDashboard() {
           );
         })()}
 
+        {/* ====== MAINTENANCE ====== */}
+        {activePage === "maintenance" && (() => {
+          const today = new Date(); today.setHours(0,0,0,0);
+          const todayStr = today.toISOString().split("T")[0];
+          const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + 7);
+          const weekEndStr = weekEnd.toISOString().split("T")[0];
+          const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split("T")[0];
+
+          const activeTasks = maintTasks.filter(t => t.status !== "Cancelled" && t.status !== "Completed");
+          const todayTasks = activeTasks.filter(t => t.scheduledDate === todayStr);
+          const weekTasks = activeTasks.filter(t => t.scheduledDate >= todayStr && t.scheduledDate <= weekEndStr);
+          const monthTasks = activeTasks.filter(t => t.scheduledDate >= todayStr && t.scheduledDate <= monthEnd);
+          const openReactive = maintTasks.filter(t => t.type === "Reactive" && (t.status === "Open" || t.status === "In Progress"));
+          const recentlyResolved = maintTasks.filter(t => t.status === "Completed").slice(0, 10);
+
+          function priorityColor(p: string) {
+            if (p === "Urgent") return { bg: "var(--red-s)", text: "var(--red)" };
+            if (p === "High") return { bg: "var(--orange-s)", text: "var(--orange)" };
+            if (p === "Medium") return { bg: "rgba(207,196,110,0.1)", text: "#CFC46E" };
+            return { bg: "rgba(255,255,255,0.05)", text: "var(--text3)" };
+          }
+
+          function statusColor(s: string) {
+            if (s === "Open") return { bg: "var(--orange-s)", text: "var(--orange)" };
+            if (s === "In Progress") return { bg: "var(--blue-s)", text: "var(--blue)" };
+            if (s === "Completed") return { bg: "var(--green-s)", text: "var(--green)" };
+            return { bg: "rgba(255,255,255,0.05)", text: "var(--text3)" };
+          }
+
+          function catColor(cat: string) {
+            const m: Record<string, { bg: string; text: string }> = {
+              HVAC: { bg: "var(--blue-s)", text: "var(--blue)" },
+              Pool: { bg: "rgba(110,196,207,0.1)", text: "var(--cyan)" },
+              Landscaping: { bg: "var(--green-s)", text: "var(--green)" },
+              "Pest Control": { bg: "var(--orange-s)", text: "var(--orange)" },
+              Plumbing: { bg: "var(--teal-s)", text: "var(--teal-l)" },
+              Electrical: { bg: "rgba(207,196,110,0.1)", text: "#CFC46E" },
+              Appliances: { bg: "rgba(155,142,196,0.12)", text: "#9B8EC4" },
+              General: { bg: "rgba(255,255,255,0.05)", text: "var(--text3)" },
+            };
+            return m[cat] || { bg: "rgba(255,255,255,0.05)", text: "var(--text3)" };
+          }
+
+          function freqColor(f: string) {
+            const m: Record<string, { bg: string; text: string }> = {
+              Weekly: { bg: "var(--teal-s)", text: "var(--teal-l)" },
+              Monthly: { bg: "var(--blue-s)", text: "var(--blue)" },
+              Quarterly: { bg: "var(--green-s)", text: "var(--green)" },
+              "Semi-Annual": { bg: "rgba(207,196,110,0.1)", text: "#CFC46E" },
+              Annual: { bg: "var(--orange-s)", text: "var(--orange)" },
+            };
+            return m[f] || { bg: "rgba(255,255,255,0.05)", text: "var(--text3)" };
+          }
+
+          async function addTask() {
+            if (!newTaskTitle) return;
+            setAddingTask(true);
+            try {
+              await fetch("/api/maintenance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: newTaskTitle, type: newTaskType, priority: newTaskPriority, propertyId: newTaskProp, vendorId: newTaskVendor, scheduledDate: newTaskDate, notes: newTaskNotes, cost: newTaskCost ? Number(newTaskCost) : 0 }) });
+              const d = await fetch("/api/maintenance").then(r => r.json());
+              setMaintTasks(d.tasks || []);
+              setNewTaskTitle(""); setNewTaskProp(""); setNewTaskVendor(""); setNewTaskNotes(""); setNewTaskCost(""); setNewTaskType("Reactive"); setNewTaskPriority("Medium");
+              setShowAddTask(false);
+            } catch (e) { console.error(e); }
+            setAddingTask(false);
+          }
+
+          async function addConfig() {
+            if (!newCfgName) return;
+            setAddingConfig(true);
+            try {
+              await fetch("/api/maintenance-config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskName: newCfgName, category: newCfgCat, propertyIds: newCfgProps, frequency: newCfgFreq, vendorId: newCfgVendor, nextDue: newCfgNextDue, notes: newCfgNotes }) });
+              const d = await fetch("/api/maintenance-config").then(r => r.json());
+              setMaintConfigs(d.configs || []);
+              setNewCfgName(""); setNewCfgProps([]); setNewCfgVendor(""); setNewCfgNextDue(""); setNewCfgNotes(""); setNewCfgCat("General"); setNewCfgFreq("Monthly");
+              setShowAddConfig(false);
+            } catch (e) { console.error(e); }
+            setAddingConfig(false);
+          }
+
+          async function updateTaskStatus(id: string, status: string, extra?: Record<string, any>) {
+            setTaskUpdating(id);
+            try {
+              await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status, ...(extra || {}), ...(status === "Completed" ? { completedDate: new Date().toISOString().split("T")[0] } : {}) }) });
+              const d = await fetch("/api/maintenance").then(r => r.json());
+              setMaintTasks(d.tasks || []);
+            } catch (e) { console.error(e); }
+            setTaskUpdating(null);
+          }
+
+          async function assignVendor(id: string, vendorId: string) {
+            setTaskUpdating(id);
+            try {
+              await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, vendorId, status: "In Progress" }) });
+              const d = await fetch("/api/maintenance").then(r => r.json());
+              setMaintTasks(d.tasks || []);
+            } catch (e) { console.error(e); }
+            setTaskUpdating(null);
+          }
+
+          async function generateExpense(task: MaintenanceTask) {
+            try {
+              await fetch("/api/expenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ house: task.propertyId, date: task.completedDate || todayStr, category: "Maintenance", amount: task.cost, currency: "USD", description: task.title, supplier: task.vendorName || "" }) });
+              await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: task.id, expenseCreated: true }) });
+              const d = await fetch("/api/maintenance").then(r => r.json());
+              setMaintTasks(d.tasks || []);
+            } catch (e) { console.error(e); }
+          }
+
+          const scheduleList = maintTypeFilter === "all" ? maintTasks : maintTasks.filter(t => t.type === maintTypeFilter);
+
+          return (
+            <div style={{ padding: "32px 40px", maxWidth: 1000 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+                <div>
+                  <h1 style={h1s}>Maintenance</h1>
+                  <p style={{ fontSize: 14, color: "var(--text2)" }}>Track preventive and reactive maintenance across all properties</p>
+                </div>
+                {maintTab === "schedule" && <button onClick={() => setShowAddTask(!showAddTask)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Task</button>}
+                {maintTab === "config" && <button onClick={() => setShowAddConfig(!showAddConfig)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Schedule</button>}
+                {maintTab === "vendors" && <button onClick={() => setShowAddMaintVendor(!showAddMaintVendor)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Vendor</button>}
+              </div>
+
+              {/* Sub-tabs */}
+              <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content" }}>
+                {([["schedule","Schedule"],["inbox","Reactive Inbox"],["config","Preventive Config"],["vendors","Vendors"]] as [string,string][]).map(([id, label]) => (
+                  <button key={id} onClick={() => setMaintTab(id as any)} style={{ padding: "8px 18px", borderRadius: 100, fontSize: 13, color: maintTab === id ? "var(--accent)" : "var(--text3)", background: maintTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500 }}>{label}</button>
+                ))}
+              </div>
+
+              {maintLoading && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20 }}>Loading...</div>}
+
+              {/* ---- SCHEDULE TAB ---- */}
+              {!maintLoading && maintTab === "schedule" && (
+                <>
+                  {/* Stat cards */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
+                    {[
+                      { label: "Scheduled Today", value: todayTasks.length, color: todayTasks.length > 0 ? "var(--red)" : "var(--green)" },
+                      { label: "This Week", value: weekTasks.length, color: "var(--accent)" },
+                      { label: "This Month", value: monthTasks.length, color: "var(--blue)" },
+                    ].map(s => (
+                      <div key={s.label} style={{ padding: 20, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14 }}>
+                        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 8, fontWeight: 500 }}>{s.label}</div>
+                        <div style={{ fontFamily: "var(--fd)", fontSize: 26, color: s.color }}>{s.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Task Form */}
+                  {showAddTask && (
+                    <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>New Maintenance Task</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                        <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Title *</div><input value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} placeholder="e.g. AC filter replacement" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Type</div><select value={newTaskType} onChange={e => setNewTaskType(e.target.value)} style={sel}><option>Reactive</option><option>Preventive</option></select></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Priority</div><select value={newTaskPriority} onChange={e => setNewTaskPriority(e.target.value)} style={sel}><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Property</div><select value={newTaskProp} onChange={e => setNewTaskProp(e.target.value)} style={sel}><option value="">— All properties —</option>{properties.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Vendor</div><select value={newTaskVendor} onChange={e => setNewTaskVendor(e.target.value)} style={sel}><option value="">— None —</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Scheduled Date</div><input type="date" value={newTaskDate} onChange={e => setNewTaskDate(e.target.value)} style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Estimated Cost ($)</div><input type="number" value={newTaskCost} onChange={e => setNewTaskCost(e.target.value)} placeholder="0.00" style={inp} /></div>
+                        <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Notes</div><textarea value={newTaskNotes} onChange={e => setNewTaskNotes(e.target.value)} rows={2} style={{ ...inp, resize: "vertical" as const }} /></div>
+                      </div>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={addTask} disabled={addingTask} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{addingTask ? "Saving..." : "Save Task"}</button>
+                        <button onClick={() => setShowAddTask(false)} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Filter */}
+                  <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                    {(["all","Reactive","Preventive"] as const).map(f => (
+                      <button key={f} onClick={() => setMaintTypeFilter(f)} style={{ padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, border: "1px solid var(--border2)", background: maintTypeFilter === f ? "var(--accent-s)" : "transparent", color: maintTypeFilter === f ? "var(--accent)" : "var(--text3)", cursor: "pointer", fontFamily: "inherit" }}>{f === "all" ? "All" : f}</button>
+                    ))}
+                  </div>
+
+                  {/* Task list */}
+                  {scheduleList.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>No tasks yet.</div>
+                  ) : scheduleList.map(t => {
+                    const pc = priorityColor(t.priority);
+                    const sc = statusColor(t.status);
+                    const isReactive = t.type === "Reactive";
+                    const isOverdue = t.scheduledDate && t.scheduledDate < todayStr && t.status !== "Completed" && t.status !== "Cancelled";
+                    return (
+                      <div key={t.id} style={{ background: "var(--bg2)", border: `1px solid ${isOverdue ? "rgba(207,110,110,0.3)" : "var(--border)"}`, borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", cursor: "pointer" }} onClick={() => setExpandedTaskId(expandedTaskId === t.id ? null : t.id)}>
+                          <div style={{ width: 4, height: 32, borderRadius: 4, background: isReactive ? "var(--red)" : "var(--teal)", flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{t.title}</div>
+                            <div style={{ fontSize: 12, color: "var(--text3)" }}>{t.propertyName || "All properties"}{t.vendorName ? ` · ${t.vendorName}` : ""}{t.scheduledDate ? ` · ${t.scheduledDate}` : ""}</div>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                            {isOverdue && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 100, background: "var(--red-s)", color: "var(--red)" }}>OVERDUE</span>}
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: isReactive ? "var(--red-s)" : "var(--teal-s)", color: isReactive ? "var(--red)" : "var(--teal-l)", textTransform: "uppercase" as const }}>{t.type}</span>
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: pc.bg, color: pc.text, textTransform: "uppercase" as const }}>{t.priority}</span>
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: sc.bg, color: sc.text, textTransform: "uppercase" as const }}>{t.status}</span>
+                          </div>
+                        </div>
+                        {expandedTaskId === t.id && (
+                          <div style={{ padding: "12px 16px 16px", borderTop: "1px solid var(--border)", background: "var(--bg3)" }}>
+                            {t.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>{t.notes}</div>}
+                            {t.cost > 0 && <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 12 }}>Estimated cost: <strong>${t.cost.toFixed(2)}</strong></div>}
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              {t.status !== "Completed" && t.status !== "Cancelled" && (
+                                <button onClick={() => updateTaskStatus(t.id, "Completed")} disabled={taskUpdating === t.id} style={{ padding: "6px 14px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", border: "1px solid rgba(110,207,151,0.2)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>✓ Mark Complete</button>
+                              )}
+                              {t.status !== "Completed" && t.status !== "Cancelled" && (
+                                <button onClick={() => updateTaskStatus(t.id, "In Progress")} disabled={taskUpdating === t.id} style={{ padding: "6px 14px", borderRadius: 100, background: "var(--blue-s)", color: "var(--blue)", border: "1px solid rgba(110,168,207,0.2)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>In Progress</button>
+                              )}
+                              {t.status === "Completed" && !t.expenseCreated && (
+                                <button onClick={() => generateExpense(t)} style={{ padding: "6px 14px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.2)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>⎙ Generate Expense</button>
+                              )}
+                              {t.expenseCreated && <span style={{ fontSize: 12, color: "var(--green)", padding: "6px 0" }}>✓ Expense created</span>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* ---- REACTIVE INBOX TAB ---- */}
+              {!maintLoading && maintTab === "inbox" && (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14, color: "var(--text2)" }}>Open Requests <span style={{ fontSize: 12, color: "var(--text3)", fontWeight: 400 }}>({openReactive.length})</span></div>
+                  {openReactive.length === 0 ? (
+                    <div style={{ padding: 32, textAlign: "center", color: "var(--text3)", fontSize: 13, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 24 }}>No open reactive requests 🎉</div>
+                  ) : openReactive.map(t => {
+                    const pc = priorityColor(t.priority);
+                    const sc = statusColor(t.status);
+                    return (
+                      <div key={t.id} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px" }}>
+                          <div style={{ width: 4, height: 40, borderRadius: 4, background: "var(--red)", flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{t.title}</div>
+                            <div style={{ fontSize: 12, color: "var(--text3)" }}>{t.propertyName || "—"}{t.scheduledDate ? ` · ${t.scheduledDate}` : ""}</div>
+                            {t.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>{t.notes}</div>}
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexDirection: "column" as const, alignItems: "flex-end", flexShrink: 0 }}>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: pc.bg, color: pc.text, textTransform: "uppercase" as const }}>{t.priority}</span>
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: sc.bg, color: sc.text, textTransform: "uppercase" as const }}>{t.status}</span>
+                            </div>
+                            {/* Vendor assign */}
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <select defaultValue={t.vendorId} onChange={e => assignVendor(t.id, e.target.value)} style={{ ...sel, fontSize: 11, padding: "4px 28px 4px 8px", minWidth: 140 }} disabled={taskUpdating === t.id}>
+                                <option value="">Assign vendor…</option>
+                                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                              </select>
+                              <button onClick={() => updateTaskStatus(t.id, "Completed")} disabled={taskUpdating === t.id} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", border: "1px solid rgba(110,207,151,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>✓ Resolve</button>
+                            </div>
+                          </div>
+                        </div>
+                        {t.status === "Completed" && !t.expenseCreated && (
+                          <div style={{ padding: "8px 16px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
+                            <button onClick={() => generateExpense(t)} style={{ padding: "5px 14px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>⎙ Generate Expense</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14, marginTop: 28, color: "var(--text2)" }}>Recently Resolved</div>
+                  {recentlyResolved.length === 0 ? (
+                    <div style={{ padding: 20, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>No resolved tasks yet.</div>
+                  ) : recentlyResolved.map(t => (
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8, opacity: 0.7 }}>
+                      <div style={{ width: 4, height: 32, borderRadius: 4, background: "var(--green)", flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{t.title}</div>
+                        <div style={{ fontSize: 12, color: "var(--text3)" }}>{t.propertyName || "—"}{t.completedDate ? ` · Completed ${t.completedDate}` : ""}{t.vendorName ? ` · ${t.vendorName}` : ""}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {t.expenseCreated ? (
+                          <span style={{ fontSize: 11, color: "var(--green)" }}>✓ Expense created</span>
+                        ) : (
+                          <button onClick={() => generateExpense(t)} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>⎙ Generate Expense</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* ---- PREVENTIVE CONFIG TAB ---- */}
+              {!maintLoading && maintTab === "config" && (
+                <>
+                  <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20 }}>Recurring maintenance schedules — these drive the preventive tasks on the Schedule tab</div>
+
+                  {showAddConfig && (
+                    <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>New Preventive Schedule</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                        <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Task Name *</div><input value={newCfgName} onChange={e => setNewCfgName(e.target.value)} placeholder="e.g. Monthly pool inspection" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Category</div><select value={newCfgCat} onChange={e => setNewCfgCat(e.target.value)} style={sel}><option>HVAC</option><option>Pool</option><option>Landscaping</option><option>Pest Control</option><option>Plumbing</option><option>Electrical</option><option>Appliances</option><option>General</option></select></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Frequency</div><select value={newCfgFreq} onChange={e => setNewCfgFreq(e.target.value)} style={sel}><option>Weekly</option><option>Monthly</option><option>Quarterly</option><option>Semi-Annual</option><option>Annual</option></select></div>
+                        <div style={{ gridColumn: "1/-1" }}>
+                          <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>
+                            Properties <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>({newCfgProps.length === 0 ? "All" : `${newCfgProps.length} selected`})</span>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, padding: 12, background: "var(--bg3)", borderRadius: 8, border: "1px solid var(--border)", maxHeight: 180, overflowY: "auto" as const }}>
+                            {properties.filter(p => p.status === "Active").map(p => (
+                              <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text2)", cursor: "pointer" }}>
+                                <input type="checkbox" checked={newCfgProps.includes(p.id)} onChange={e => setNewCfgProps(prev => e.target.checked ? [...prev, p.id] : prev.filter(id => id !== p.id))} />
+                                {p.name}
+                              </label>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>Leave all unchecked to apply to all properties</div>
+                        </div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Vendor</div><select value={newCfgVendor} onChange={e => setNewCfgVendor(e.target.value)} style={sel}><option value="">— None —</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Next Due</div><input type="date" value={newCfgNextDue} onChange={e => setNewCfgNextDue(e.target.value)} style={inp} /></div>
+                        <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Notes</div><textarea value={newCfgNotes} onChange={e => setNewCfgNotes(e.target.value)} rows={2} style={{ ...inp, resize: "vertical" as const }} /></div>
+                      </div>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={addConfig} disabled={addingConfig} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{addingConfig ? "Saving..." : "Save Schedule"}</button>
+                        <button onClick={() => setShowAddConfig(false)} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {maintConfigs.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>No preventive schedules configured yet.</div>
+                  ) : maintConfigs.map(c => {
+                    const cc = catColor(c.category);
+                    const fc = freqColor(c.frequency);
+                    const isDue = c.nextDue && c.nextDue <= todayStr;
+                    return (
+                      <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "var(--bg2)", border: `1px solid ${isDue ? "rgba(207,110,110,0.3)" : "var(--border)"}`, borderRadius: 10, marginBottom: 8 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: cc.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+                          {c.category === "HVAC" ? "❄" : c.category === "Pool" ? "🏊" : c.category === "Landscaping" ? "🌿" : c.category === "Pest Control" ? "🪲" : c.category === "Plumbing" ? "🔧" : c.category === "Electrical" ? "⚡" : c.category === "Appliances" ? "🔌" : "⟡"}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{c.taskName}</div>
+                          <div style={{ fontSize: 12, color: "var(--text3)" }}>{c.propertyNames.length === 0 ? "All properties" : c.propertyNames.length === 1 ? c.propertyNames[0] : `${c.propertyNames[0]} +${c.propertyNames.length - 1} more`}{c.vendorName ? ` · ${c.vendorName}` : ""}{c.nextDue ? ` · Next: ${c.nextDue}` : ""}</div>
+                          {c.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>{c.notes}</div>}
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                          {isDue && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 100, background: "var(--red-s)", color: "var(--red)" }}>DUE</span>}
+                          <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: cc.bg, color: cc.text, textTransform: "uppercase" as const }}>{c.category}</span>
+                          <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: fc.bg, color: fc.text }}>{c.frequency}</span>
+                          <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: c.active ? "var(--green-s)" : "rgba(255,255,255,0.05)", color: c.active ? "var(--green)" : "var(--text3)" }}>{c.active ? "Active" : "Inactive"}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* ---- VENDORS TAB ---- */}
+              {!maintLoading && maintTab === "vendors" && (() => {
+                const maintVendors = vendors.filter(v => v.category === "Maintenance");
+
+                async function addMaintVendor() {
+                  if (!newVendorName) return;
+                  setAddingVendor(true);
+                  try {
+                    await fetch("/api/vendors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newVendorName, category: "Maintenance", contact: newVendorContact, location: newVendorLocation, tags: newVendorTags, notes: newVendorNotes }) });
+                    const d = await fetch("/api/vendors").then(r => r.json());
+                    setVendors(d.vendors || []);
+                    setNewVendorName(""); setNewVendorContact(""); setNewVendorLocation(""); setNewVendorTags(""); setNewVendorNotes("");
+                    setShowAddMaintVendor(false);
+                  } catch (e) { console.error(e); }
+                  setAddingVendor(false);
+                }
+
+                return (
+                  <>
+                    <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20 }}>
+                      Vendors assigned to maintenance tasks · <span style={{ color: "var(--text3)" }}>{maintVendors.length} maintenance vendor{maintVendors.length !== 1 ? "s" : ""}</span>
+                    </div>
+
+                    {showAddMaintVendor && (
+                      <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>New Maintenance Vendor</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                          <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Name *</div><input value={newVendorName} onChange={e => setNewVendorName(e.target.value)} placeholder="e.g. Cabo Pool Services" style={inp} /></div>
+                          <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Contact</div><input value={newVendorContact} onChange={e => setNewVendorContact(e.target.value)} placeholder="+52 624 xxx xxxx" style={inp} /></div>
+                          <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Location</div><input value={newVendorLocation} onChange={e => setNewVendorLocation(e.target.value)} placeholder="Cabo San Lucas" style={inp} /></div>
+                          <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Specialties / Tags</div><input value={newVendorTags} onChange={e => setNewVendorTags(e.target.value)} placeholder="e.g. Pool, HVAC, Emergency" style={inp} /></div>
+                          <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Notes</div><textarea value={newVendorNotes} onChange={e => setNewVendorNotes(e.target.value)} rows={2} placeholder="License #, availability, preferred contact method..." style={{ ...inp, resize: "vertical" as const }} /></div>
+                        </div>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button onClick={addMaintVendor} disabled={addingVendor} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{addingVendor ? "Saving..." : "Save Vendor"}</button>
+                          <button onClick={() => { setShowAddMaintVendor(false); setNewVendorName(""); setNewVendorContact(""); setNewVendorLocation(""); setNewVendorTags(""); setNewVendorNotes(""); }} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {maintVendors.length === 0 && !showAddMaintVendor ? (
+                      <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
+                        No maintenance vendors yet. Click <strong>+ Add Vendor</strong> to get started.
+                      </div>
+                    ) : maintVendors.map(v => {
+                      const activeTasks = maintTasks.filter(t => t.vendorId === v.id && t.status !== "Completed" && t.status !== "Cancelled");
+                      const completedTasks = maintTasks.filter(t => t.vendorId === v.id && t.status === "Completed");
+                      const tags = v.tags ? v.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
+                      return (
+                        <div key={v.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "14px 16px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--accent-s)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🔧</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{v.name}</div>
+                            {v.contact && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 2 }}>{v.contact}{v.location ? ` · ${v.location}` : ""}</div>}
+                            {v.notes && <div style={{ fontSize: 12, color: "var(--text3)" }}>{v.notes}</div>}
+                            {tags.length > 0 && <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>{tags.map((t: string) => <span key={t} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "var(--teal-s)", color: "var(--teal-l)", fontWeight: 500 }}>{t}</span>)}</div>}
+                          </div>
+                          <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
+                            {activeTasks.length > 0 && <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 100, background: "var(--orange-s)", color: "var(--orange)", fontWeight: 500 }}>{activeTasks.length} active</span>}
+                            {completedTasks.length > 0 && <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", fontWeight: 500 }}>{completedTasks.length} done</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+            </div>
+          );
+        })()}
+
         {/* ====== CALENDAR ====== */}
         {activePage === "calendar" && (() => {
           const [year, month] = calMonth.split("-").map(Number);
@@ -2091,7 +2563,7 @@ export default function AdminDashboard() {
         })()}
 
         {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && activePage !== "calendar" && (
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && activePage !== "calendar" && activePage !== "maintenance" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>
