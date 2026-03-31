@@ -6,6 +6,9 @@ const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
 const REPORTS_TABLE = "tblBei4KzIMDMT87X";
 const EXPENSES_TABLE = "tblHeiBjXhsKW9Opj";
 const DEPOSITS_TABLE = "tblVrgidgJKKfdFQ2";
+const MAINTENANCE_TABLE = "tblC5Muegq8fVfuQf";
+const VISITS_TABLE = "tblJ1iEgHCeJy2CnR";
+const ITINERARY_TABLE = "tblppsIgEI1hrM3wR";
 
 function safeNum(val: any): number {
   if (typeof val === "number" && isFinite(val)) return val;
@@ -191,6 +194,71 @@ export async function GET(request: Request) {
       ytdByCategory[cat] = (ytdByCategory[cat] || 0) + e.amount;
     }
 
+    // 6. Get maintenance tasks for this property
+    const maintParams = new URLSearchParams();
+    ["Title", "Type", "Status", "Priority", "Property", "Vendor", "Scheduled Date", "Completed Date", "Cost", "Notes", "Expense Created"].forEach(f => maintParams.append("fields[]", f));
+    maintParams.set("sort[0][field]", "Scheduled Date");
+    maintParams.set("sort[0][direction]", "desc");
+    maintParams.set("pageSize", "100");
+    const maintData = await airtableGet(MAINTENANCE_TABLE, maintParams);
+    const maintTasks = maintData.records
+      .filter((r: any) => (r.fields["Property"] || []).includes(propId))
+      .map((r: any) => {
+        const f = r.fields;
+        const statusRaw = f["Status"]; const typeRaw = f["Type"]; const prioRaw = f["Priority"];
+        return {
+          id: r.id, title: f["Title"] || "",
+          type: typeof typeRaw === "string" ? typeRaw : typeRaw?.name || "",
+          status: typeof statusRaw === "string" ? statusRaw : statusRaw?.name || "",
+          priority: typeof prioRaw === "string" ? prioRaw : prioRaw?.name || "",
+          vendorName: "", scheduledDate: f["Scheduled Date"] || "",
+          completedDate: f["Completed Date"] || "", cost: safeNum(f["Cost"]),
+          notes: f["Notes"] || "", expenseCreated: !!f["Expense Created"],
+        };
+      });
+
+    // 7. Get visits for this property
+    const visitParams = new URLSearchParams();
+    ["Visit Name", "Guest Name", "Visit Type", "Check-in Date", "Check-out Date", "Status", "Property", "Notes", "Adults", "Children"].forEach(f => visitParams.append("fields[]", f));
+    visitParams.set("sort[0][field]", "Check-in Date");
+    visitParams.set("sort[0][direction]", "desc");
+    visitParams.set("pageSize", "100");
+    const visitData = await airtableGet(VISITS_TABLE, visitParams);
+    const visits = visitData.records
+      .filter((r: any) => (r.fields["Property"] || []).includes(propId))
+      .map((r: any) => {
+        const f = r.fields;
+        const statusRaw = f["Status"]; const typeRaw = f["Visit Type"];
+        return {
+          id: r.id, visitName: f["Visit Name"] || "", guestName: f["Guest Name"] || "",
+          visitType: typeof typeRaw === "string" ? typeRaw : typeRaw?.name || "",
+          checkIn: f["Check-in Date"] || "", checkOut: f["Check-out Date"] || "",
+          status: typeof statusRaw === "string" ? statusRaw : statusRaw?.name || "",
+          notes: f["Notes"] || "", adults: safeNum(f["Adults"]), children: safeNum(f["Children"]),
+        };
+      });
+
+    // 8. Get itinerary events for the property's visits
+    const visitIds = visits.map((v: any) => v.id);
+    const itiParams = new URLSearchParams();
+    ["Event Name", "Visit", "Vendor", "Date", "Time", "Details", "Status"].forEach(f => itiParams.append("fields[]", f));
+    itiParams.set("sort[0][field]", "Date");
+    itiParams.set("sort[0][direction]", "asc");
+    itiParams.set("pageSize", "100");
+    const itiData = await airtableGet(ITINERARY_TABLE, itiParams);
+    const itineraryEvents = itiData.records
+      .filter((r: any) => { const vids = r.fields["Visit"] || []; return vids.some((vid: string) => visitIds.includes(vid)); })
+      .map((r: any) => {
+        const f = r.fields;
+        const statusRaw = f["Status"];
+        return {
+          id: r.id, eventName: f["Event Name"] || "",
+          visitId: (f["Visit"] || [])[0] || "", date: f["Date"] || "",
+          time: f["Time"] || "", details: f["Details"] || "",
+          status: typeof statusRaw === "string" ? statusRaw : statusRaw?.name || "",
+        };
+      });
+
     return NextResponse.json({
       property: {
         name: propertyName,
@@ -198,12 +266,16 @@ export async function GET(request: Request) {
         currency,
         status: typeof propRec.fields["Status"] === "string" ? propRec.fields["Status"] : propRec.fields["Status"]?.name || "",
       },
+      propertyId: propId,
       currentBalance: latestReport?.finalBalance || 0,
       latestReport,
       reports: visibleReports,
       expenses,
       deposits,
       ytdByCategory,
+      maintTasks,
+      visits,
+      itineraryEvents,
     });
   } catch (error) {
     console.error("Owner API error:", error);

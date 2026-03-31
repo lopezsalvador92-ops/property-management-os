@@ -11,6 +11,9 @@ type Report = {
 };
 type Expense = { id: string; description: string; amount: number; category: string; date: string; receiptUrl: string; monthYear: string };
 type Deposit = { id: string; amount: number; date: string; notes: string; monthYear: string };
+type MaintTask = { id: string; title: string; type: string; status: string; priority: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean };
+type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; notes: string; adults: number; children: number };
+type ItineraryEvent = { id: string; eventName: string; visitId: string; date: string; time: string; details: string; status: string };
 
 export default function OwnerPortal() {
   const { user } = useUser();
@@ -28,7 +31,21 @@ export default function OwnerPortal() {
   const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activePage, setActivePage] = useState("home");
   const [currentMonth, setCurrentMonth] = useState(0);
-  const [enabledModules, setEnabledModules] = useState<string[]>(["home", "financials"]);
+  const [enabledModules, setEnabledModules] = useState<string[]>(["home", "financials", "maintenance", "calendar", "concierge"]);
+  const [maintTasks, setMaintTasks] = useState<MaintTask[]>([]);
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [itineraryEvents, setItineraryEvents] = useState<ItineraryEvent[]>([]);
+  const [propertyId, setPropertyId] = useState("");
+  const [expandedMaintId, setExpandedMaintId] = useState<string | null>(null);
+  const [showRegisterVisit, setShowRegisterVisit] = useState(false);
+  const [newVisitCheckIn, setNewVisitCheckIn] = useState("");
+  const [newVisitCheckOut, setNewVisitCheckOut] = useState("");
+  const [newVisitAdults, setNewVisitAdults] = useState(2);
+  const [newVisitChildren, setNewVisitChildren] = useState(0);
+  const [newVisitNotes, setNewVisitNotes] = useState("");
+  const [addingVisit, setAddingVisit] = useState(false);
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     fetch("/api/platform-config").then(r => r.json()).then(d => {
@@ -54,6 +71,10 @@ export default function OwnerPortal() {
           setExpenses(d.expenses || []);
           setDeposits(d.deposits || []);
           setYtdByCategory(d.ytdByCategory || {});
+          setMaintTasks(d.maintTasks || []);
+          setVisits(d.visits || []);
+          setItineraryEvents(d.itineraryEvents || []);
+          setPropertyId(d.propertyId || "");
         }
         setLoading(false);
       })
@@ -95,6 +116,9 @@ export default function OwnerPortal() {
   const navItems = [
     { id: "home", icon: "⌂", label: "Home" },
     { id: "financials", icon: "◈", label: "Financials" },
+    { id: "maintenance", icon: "⟡", label: "Maintenance" },
+    { id: "calendar", icon: "▦", label: "Availability" },
+    { id: "concierge", icon: "✦", label: "Concierge" },
   ];
 
   // YTD totals for chart
@@ -224,28 +248,57 @@ export default function OwnerPortal() {
                 </div>
               </div>
 
-              {/* Recent activity */}
-              <div style={{ fontFamily: "var(--fd)", fontSize: 20, marginBottom: 16 }}>Recent activity</div>
-              <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, padding: 20 }}>
-                {expenses.slice(-10).reverse().slice(0, 7).map(e => (
-                  <div key={e.id} style={{ display: "flex", gap: 14, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0, background: "var(--red)" }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, lineHeight: 1.5 }}>{e.description || e.category} — <span style={{ color: "var(--red)" }}>{fmt(e.amount)} {cur}</span></div>
-                      <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(e.date)}</div>
-                    </div>
+              {/* Two-column layout: Upcoming maintenance + Recent activity */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                {/* Upcoming maintenance */}
+                <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                  <div style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>Upcoming maintenance</span>
                   </div>
-                ))}
-                {deposits.slice(0, 3).map(d => (
-                  <div key={d.id} style={{ display: "flex", gap: 14, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0, background: "var(--green)" }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, lineHeight: 1.5 }}>Deposit received — <span style={{ color: "var(--green)" }}>+{fmt(d.amount)} {cur}</span></div>
-                      <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(d.date)}</div>
-                    </div>
+                  <div style={{ padding: 20 }}>
+                    {maintTasks.filter(t => t.status === "Scheduled" || t.status === "Upcoming").slice(0, 3).map((t, i, arr) => (
+                      <div key={t.id} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", alignItems: "flex-start" }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0, background: t.status === "Scheduled" ? "var(--accent)" : "var(--blue)" }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13 }}>{t.title}</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(t.scheduledDate)}{t.vendorName ? ` · ${t.vendorName}` : ""}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {maintTasks.filter(t => t.status === "Scheduled" || t.status === "Upcoming").length === 0 && (
+                      <div style={{ padding: 10, color: "var(--text3)", fontSize: 13, textAlign: "center" as const }}>No upcoming tasks.</div>
+                    )}
+                    {enabledModules.includes("maintenance") && (
+                      <div onClick={() => setActivePage("maintenance")} style={{ marginTop: 12, fontSize: 12, color: "var(--accent)", cursor: "pointer", fontWeight: 500 }}>View full maintenance program &rarr;</div>
+                    )}
                   </div>
-                ))}
-                {expenses.length === 0 && deposits.length === 0 && <div style={{ padding: 20, color: "var(--text3)", textAlign: "center" as const }}>No recent activity.</div>}
+                </div>
+
+                {/* Recent activity */}
+                <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                  <div style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>Recent activity</span>
+                  </div>
+                  <div style={{ padding: 20 }}>
+                    {(() => {
+                      const combined: { id: string; type: string; label: string; amount: number; date: string; color: string }[] = [
+                        ...expenses.slice(-20).map(e => ({ id: e.id, type: "expense", label: e.description || e.category, amount: -e.amount, date: e.date, color: "var(--red)" })),
+                        ...deposits.slice(0, 10).map(d => ({ id: d.id, type: "deposit", label: d.notes || "Deposit received", amount: d.amount, date: d.date, color: "var(--green)" })),
+                        ...maintTasks.filter(t => t.status === "Completed").slice(0, 5).map(t => ({ id: t.id, type: "maint", label: `${t.title} completed`, amount: t.cost || 0, date: t.completedDate || t.scheduledDate, color: "var(--teal-l)" })),
+                      ].sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 5);
+                      if (combined.length === 0) return <div style={{ padding: 10, color: "var(--text3)", fontSize: 13, textAlign: "center" as const }}>No recent activity.</div>;
+                      return combined.map((item, i) => (
+                        <div key={item.id + item.type} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: i < combined.length - 1 ? "1px solid var(--border)" : "none", alignItems: "flex-start" }}>
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0, background: item.color }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, lineHeight: 1.5 }}>{item.label}{item.amount !== 0 ? <> — <span style={{ color: item.color }}>{item.amount < 0 ? "" : "+"}{fmt(Math.abs(item.amount))} {cur}</span></> : null}</div>
+                            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(item.date)}</div>
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
               </div>
             </>)}
 
@@ -436,6 +489,304 @@ export default function OwnerPortal() {
               </>) : (
                 <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, padding: 40, textAlign: "center" as const, color: "var(--text3)" }}>No reports available yet. Reports will appear here once your property manager publishes them.</div>
               )}
+            </>)}
+
+            {/* MAINTENANCE */}
+            {activePage === "maintenance" && (<>
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontFamily: "var(--fd)", fontSize: 28, marginBottom: 6 }}>Maintenance Program</div>
+                <div style={{ fontSize: 14, color: "var(--text2)" }}>Preventive and reactive maintenance for {property?.name}</div>
+              </div>
+
+              {/* This Month - Preventive */}
+              <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, marginBottom: 20, overflow: "hidden" }}>
+                <div style={{ padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>This Month</span>
+                  <span style={{ padding: "4px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600, background: "var(--accent-s)", color: "var(--accent)" }}>{maintTasks.filter(t => t.type !== "Reactive").length} tasks</span>
+                </div>
+                <div style={{ padding: "0 20px" }}>
+                  {maintTasks.filter(t => t.type !== "Reactive").length === 0 && (
+                    <div style={{ padding: 20, color: "var(--text3)", fontSize: 13, textAlign: "center" as const }}>No preventive tasks this month.</div>
+                  )}
+                  {maintTasks.filter(t => t.type !== "Reactive").map((t, i, arr) => {
+                    const statusColor = t.status === "Completed" ? "var(--green)" : t.status === "Scheduled" ? "var(--accent)" : "var(--blue)";
+                    const isExpanded = expandedMaintId === t.id;
+                    return (
+                      <div key={t.id} style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                        <div
+                          onClick={() => t.status === "Completed" ? setExpandedMaintId(isExpanded ? null : t.id) : undefined}
+                          style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", cursor: t.status === "Completed" ? "pointer" : "default" }}
+                        >
+                          <div style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, background: statusColor }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>{t.title}</div>
+                            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(t.scheduledDate)}{t.priority ? ` · ${t.priority}` : ""}</div>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, color: statusColor, background: t.status === "Completed" ? "var(--green-s)" : t.status === "Scheduled" ? "var(--accent-s)" : "var(--blue-s)" }}>{t.status}</span>
+                          {t.status === "Completed" && <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4 }}>{isExpanded ? "▾" : "▸"}</span>}
+                        </div>
+                        {isExpanded && (
+                          <div style={{ padding: "0 0 14px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                            {t.vendorName && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Vendor</div><div style={{ fontSize: 13 }}>{t.vendorName}</div></div>}
+                            {t.completedDate && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Completed</div><div style={{ fontSize: 13 }}>{fmtDate(t.completedDate)}</div></div>}
+                            {t.cost > 0 && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Cost</div><div style={{ fontSize: 13 }}>{fmt(t.cost)} {cur}</div></div>}
+                            {t.notes && <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Notes</div><div style={{ fontSize: 13, color: "var(--text2)" }}>{t.notes}</div></div>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reactive Repairs */}
+              {maintTasks.filter(t => t.type === "Reactive").length > 0 && (
+                <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                  <div style={{ padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>Reactive Repairs</span>
+                    <span style={{ padding: "4px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600, background: "var(--orange-s)", color: "var(--orange)" }}>{maintTasks.filter(t => t.type === "Reactive").length}</span>
+                  </div>
+                  <div style={{ padding: "0 20px" }}>
+                    {maintTasks.filter(t => t.type === "Reactive").map((t, i, arr) => {
+                      const statusColor = t.status === "Completed" ? "var(--green)" : t.status === "Scheduled" ? "var(--accent)" : "var(--blue)";
+                      const isExpanded = expandedMaintId === t.id;
+                      return (
+                        <div key={t.id} style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                          <div
+                            onClick={() => t.status === "Completed" ? setExpandedMaintId(isExpanded ? null : t.id) : undefined}
+                            style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", cursor: t.status === "Completed" ? "pointer" : "default" }}
+                          >
+                            <div style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, background: statusColor }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500 }}>{t.title}</div>
+                              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(t.scheduledDate)}{t.priority ? ` · ${t.priority}` : ""}</div>
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, color: statusColor, background: t.status === "Completed" ? "var(--green-s)" : t.status === "Scheduled" ? "var(--accent-s)" : "var(--blue-s)" }}>{t.status}</span>
+                            {t.status === "Completed" && <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4 }}>{isExpanded ? "▾" : "▸"}</span>}
+                          </div>
+                          {isExpanded && (
+                            <div style={{ padding: "0 0 14px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                              {t.vendorName && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Vendor</div><div style={{ fontSize: 13 }}>{t.vendorName}</div></div>}
+                              {t.completedDate && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Completed</div><div style={{ fontSize: 13 }}>{fmtDate(t.completedDate)}</div></div>}
+                              {t.cost > 0 && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Cost</div><div style={{ fontSize: 13 }}>{fmt(t.cost)} {cur}</div></div>}
+                              {t.notes && <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Notes</div><div style={{ fontSize: 13, color: "var(--text2)" }}>{t.notes}</div></div>}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>)}
+
+            {/* AVAILABILITY / CALENDAR */}
+            {activePage === "calendar" && (<>
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontFamily: "var(--fd)", fontSize: 28, marginBottom: 6 }}>Availability</div>
+                <div style={{ fontSize: 14, color: "var(--text2)" }}>Calendar overview for {property?.name}</div>
+              </div>
+
+              {/* Calendar grid */}
+              {(() => {
+                const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                const firstDay = new Date(calYear, calMonth, 1).getDay();
+                const monthName = new Date(calYear, calMonth).toLocaleString("en-US", { month: "long", year: "numeric" });
+
+                const getDayStatus = (day: number): "owner" | "rental" | "available" => {
+                  const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                  for (const v of visits) {
+                    if (v.checkIn && v.checkOut && dateStr >= v.checkIn.slice(0, 10) && dateStr <= v.checkOut.slice(0, 10)) {
+                      return v.visitType === "Rental" ? "rental" : "owner";
+                    }
+                  }
+                  return "available";
+                };
+
+                return (
+                  <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, marginBottom: 20, overflow: "hidden" }}>
+                    <div style={{ padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
+                      <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else setCalMonth(calMonth - 1); }} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>&lsaquo;</button>
+                      <span style={{ fontFamily: "var(--fd)", fontSize: 18 }}>{monthName}</span>
+                      <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else setCalMonth(calMonth + 1); }} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>&rsaquo;</button>
+                    </div>
+                    <div style={{ padding: 20 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, textAlign: "center" as const, marginBottom: 8 }}>
+                        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+                          <div key={d} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", padding: "4px 0" }}>{d}</div>
+                        ))}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+                        {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
+                        {Array.from({ length: daysInMonth }).map((_, i) => {
+                          const day = i + 1;
+                          const st = getDayStatus(day);
+                          const bg = st === "owner" ? "var(--accent)" : st === "rental" ? "var(--teal)" : "var(--bg4)";
+                          const clr = st === "available" ? "var(--text3)" : "#fff";
+                          return (
+                            <div key={day} style={{ width: "100%", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, fontSize: 12, fontWeight: 500, background: bg, color: clr }}>{day}</div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: "flex", gap: 16, marginTop: 14, justifyContent: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text3)" }}><div style={{ width: 10, height: 10, borderRadius: 3, background: "var(--accent)" }} /> Owner visit</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text3)" }}><div style={{ width: 10, height: 10, borderRadius: 3, background: "var(--teal)" }} /> Rental</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text3)" }}><div style={{ width: 10, height: 10, borderRadius: 3, background: "var(--bg4)" }} /> Available</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Upcoming visits */}
+              <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, marginBottom: 20, overflow: "hidden" }}>
+                <div style={{ padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>Upcoming visits</span>
+                  <span style={{ padding: "4px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600, background: "var(--teal-s)", color: "var(--teal-l)" }}>{visits.filter(v => v.status === "Active" || v.status === "Upcoming").length}</span>
+                </div>
+                <div style={{ padding: "0 20px" }}>
+                  {visits.filter(v => v.status === "Active" || v.status === "Upcoming").length === 0 && (
+                    <div style={{ padding: 20, color: "var(--text3)", fontSize: 13, textAlign: "center" as const }}>No upcoming visits.</div>
+                  )}
+                  {visits.filter(v => v.status === "Active" || v.status === "Upcoming").map((v, i, arr) => (
+                    <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{v.guestName || v.visitName}</div>
+                        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(v.checkIn)} — {fmtDate(v.checkOut)}{v.adults ? ` · ${v.adults} adult${v.adults > 1 ? "s" : ""}` : ""}{v.children ? `, ${v.children} child${v.children > 1 ? "ren" : ""}` : ""}</div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, color: v.visitType === "Rental" ? "var(--teal-l)" : "var(--accent)", background: v.visitType === "Rental" ? "var(--teal-s)" : "var(--accent-s)" }}>{v.visitType}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Register a visit */}
+              <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                <div style={{ padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: showRegisterVisit ? "1px solid var(--border)" : "none" }}>
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>Register a visit</span>
+                  <button onClick={() => setShowRegisterVisit(!showRegisterVisit)} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid var(--border2)", background: showRegisterVisit ? "var(--accent-s)" : "transparent", color: showRegisterVisit ? "var(--accent)" : "var(--text2)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 500 }}>{showRegisterVisit ? "Cancel" : "+ New Visit"}</button>
+                </div>
+                {showRegisterVisit && (
+                  <div style={{ padding: 20 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", display: "block", marginBottom: 6 }}>Check-in</label>
+                        <input type="date" value={newVisitCheckIn} onChange={e => setNewVisitCheckIn(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text)", fontSize: 13, fontFamily: "inherit" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", display: "block", marginBottom: 6 }}>Check-out</label>
+                        <input type="date" value={newVisitCheckOut} onChange={e => setNewVisitCheckOut(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text)", fontSize: 13, fontFamily: "inherit" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", display: "block", marginBottom: 6 }}>Adults</label>
+                        <input type="number" min={1} value={newVisitAdults} onChange={e => setNewVisitAdults(Number(e.target.value))} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text)", fontSize: 13, fontFamily: "inherit" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", display: "block", marginBottom: 6 }}>Children</label>
+                        <input type="number" min={0} value={newVisitChildren} onChange={e => setNewVisitChildren(Number(e.target.value))} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text)", fontSize: 13, fontFamily: "inherit" }} />
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", display: "block", marginBottom: 6 }}>Notes</label>
+                      <textarea value={newVisitNotes} onChange={e => setNewVisitNotes(e.target.value)} rows={3} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text)", fontSize: 13, fontFamily: "inherit", resize: "vertical" as const }} />
+                    </div>
+                    <button
+                      disabled={addingVisit || !newVisitCheckIn || !newVisitCheckOut}
+                      onClick={async () => {
+                        setAddingVisit(true);
+                        try {
+                          const res = await fetch("/api/visits", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ propertyId, checkIn: newVisitCheckIn, checkOut: newVisitCheckOut, adults: newVisitAdults, children: newVisitChildren, notes: newVisitNotes, status: "Upcoming", visitType: "Owner" }),
+                          });
+                          if (res.ok) {
+                            const v = await res.json();
+                            setVisits(prev => [...prev, v]);
+                            setShowRegisterVisit(false);
+                            setNewVisitCheckIn(""); setNewVisitCheckOut(""); setNewVisitAdults(2); setNewVisitChildren(0); setNewVisitNotes("");
+                          }
+                        } catch { /* ignore */ }
+                        setAddingVisit(false);
+                      }}
+                      style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: !newVisitCheckIn || !newVisitCheckOut ? "var(--bg4)" : "var(--accent)", color: !newVisitCheckIn || !newVisitCheckOut ? "var(--text3)" : "#fff", fontSize: 13, fontWeight: 500, cursor: !newVisitCheckIn || !newVisitCheckOut ? "default" : "pointer", fontFamily: "inherit", opacity: addingVisit ? 0.6 : 1 }}
+                    >{addingVisit ? "Saving..." : "Register Visit"}</button>
+                  </div>
+                )}
+              </div>
+            </>)}
+
+            {/* CONCIERGE */}
+            {activePage === "concierge" && (<>
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontFamily: "var(--fd)", fontSize: 28, marginBottom: 6 }}>Concierge &amp; Itinerary</div>
+                <div style={{ fontSize: 14, color: "var(--text2)" }}>Upcoming visit details and itinerary for {property?.name}</div>
+              </div>
+
+              {(() => {
+                const nextVisit = visits.find(v => v.status === "Active" || v.status === "Upcoming");
+                if (!nextVisit) {
+                  return (
+                    <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, padding: 40, textAlign: "center" as const, color: "var(--text3)" }}>
+                      No upcoming visits. Itinerary events will appear here when a visit is scheduled.
+                    </div>
+                  );
+                }
+
+                const visitEvents = itineraryEvents.filter(e => e.visitId === nextVisit.id).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+                const grouped: Record<string, ItineraryEvent[]> = {};
+                visitEvents.forEach(e => {
+                  const key = e.date || "Unscheduled";
+                  if (!grouped[key]) grouped[key] = [];
+                  grouped[key].push(e);
+                });
+                const sortedDays = Object.keys(grouped).sort();
+
+                return (<>
+                  {/* Visit info card */}
+                  <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, marginBottom: 20, padding: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>{nextVisit.guestName || nextVisit.visitName}</div>
+                        <div style={{ fontSize: 13, color: "var(--text2)" }}>{fmtDate(nextVisit.checkIn)} — {fmtDate(nextVisit.checkOut)}</div>
+                        {nextVisit.adults > 0 && <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4 }}>{nextVisit.adults} adult{nextVisit.adults > 1 ? "s" : ""}{nextVisit.children > 0 ? `, ${nextVisit.children} child${nextVisit.children > 1 ? "ren" : ""}` : ""}</div>}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, color: nextVisit.status === "Active" ? "var(--green)" : "var(--blue)", background: nextVisit.status === "Active" ? "var(--green-s)" : "var(--blue-s)" }}>{nextVisit.status}</span>
+                    </div>
+                    {nextVisit.notes && <div style={{ marginTop: 12, fontSize: 13, color: "var(--text2)", padding: "10px 14px", background: "var(--bg2)", borderRadius: 8 }}>{nextVisit.notes}</div>}
+                  </div>
+
+                  {/* Timeline */}
+                  {visitEvents.length === 0 ? (
+                    <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, padding: 40, textAlign: "center" as const, color: "var(--text3)" }}>
+                      No itinerary events scheduled for this visit yet.
+                    </div>
+                  ) : (
+                    <div>
+                      {sortedDays.map(day => (
+                        <div key={day} style={{ marginBottom: 20 }}>
+                          <div style={{ fontFamily: "var(--fd)", fontSize: 18, marginBottom: 10, color: "var(--accent)" }}>{day === "Unscheduled" ? day : fmtDate(day)}</div>
+                          <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                            {grouped[day].map((ev, i, arr) => {
+                              const statusColor = ev.status === "Confirmed" ? "var(--green)" : ev.status === "Pending" ? "var(--accent)" : "var(--text3)";
+                              return (
+                                <div key={ev.id} style={{ display: "flex", gap: 14, padding: "14px 20px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", alignItems: "flex-start" }}>
+                                  <div style={{ minWidth: 50, fontSize: 13, fontWeight: 500, color: "var(--teal-l)", paddingTop: 1 }}>{ev.time || "--:--"}</div>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 500 }}>{ev.eventName}</div>
+                                    {ev.details && <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 3 }}>{ev.details}</div>}
+                                  </div>
+                                  <span style={{ fontSize: 10, fontWeight: 600, padding: "3px 8px", borderRadius: 100, color: statusColor, background: ev.status === "Confirmed" ? "var(--green-s)" : ev.status === "Pending" ? "var(--accent-s)" : "var(--bg4)" }}>{ev.status || "TBD"}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>);
+              })()}
             </>)}
           </div>
 

@@ -26,8 +26,11 @@ const ALL_ADMIN_MODULES = [
 ];
 
 const ALL_OWNER_MODULES = [
-  { id: "home", label: "Home", description: "Welcome page with balance, recent activity" },
+  { id: "home", label: "Home", description: "Welcome page with balance, maintenance preview, activity" },
   { id: "financials", label: "Financials", description: "Monthly statements, expenses, category charts, YTD" },
+  { id: "maintenance", label: "Maintenance", description: "Read-only view of scheduled and completed maintenance" },
+  { id: "calendar", label: "Availability", description: "Property calendar, upcoming visits, register visits" },
+  { id: "concierge", label: "Concierge", description: "Itinerary timeline for upcoming visits" },
 ];
 
 export default function SystemSettings() {
