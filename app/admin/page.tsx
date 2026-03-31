@@ -158,6 +158,10 @@ export default function AdminDashboard() {
   const [newVisitQ, setNewVisitQ] = useState<Record<string, any>>({});
   const [addingVisit, setAddingVisit] = useState(false);
   const [visitSuccess, setVisitSuccess] = useState(false);
+  // Edit visit
+  const [editVisitId, setEditVisitId] = useState<string | null>(null);
+  const [editVisitForm, setEditVisitForm] = useState<Partial<Visit>>({});
+  const [savingVisit, setSavingVisit] = useState(false);
   // Questionnaire panel
   const [questVisitId, setQuestVisitId] = useState<string | null>(null);
   const [questForm, setQuestForm] = useState<Record<string, any>>({});
@@ -1479,6 +1483,18 @@ export default function AdminDashboard() {
             setAddingVisit(false);
           }
 
+          async function saveEditVisit() {
+            if (!editVisitId) return;
+            setSavingVisit(true);
+            try {
+              await fetch("/api/visits", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editVisitId, ...editVisitForm }) });
+              const d = await fetch("/api/visits").then(r => r.json());
+              setVisits(d.visits || []);
+              setEditVisitId(null);
+            } catch (e) { console.error(e); }
+            setSavingVisit(false);
+          }
+
           async function saveQuestionnaire() {
             if (!questVisitId) return;
             setSavingQuest(true);
@@ -1684,10 +1700,33 @@ export default function AdminDashboard() {
                               {v.questionnaire.kitchenStocked && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)" }}>Kitchen stocked</span>}
                             </div>
                           )}
-                          <div style={{ display: "flex", gap: 8 }}>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <button onClick={() => { setSelectedVisitId(v.id); setConcTab("builder"); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View Itinerary →</button>
-                            <button onClick={() => { setQuestVisitId(v.id); setQuestForm({ ...v.questionnaire }); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>📋 Questionnaire</button>
+                            <button onClick={() => { setQuestVisitId(questVisitId === v.id ? null : v.id); setQuestForm({ ...v.questionnaire }); setEditVisitId(null); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>📋 Questionnaire</button>
+                            <button onClick={() => { setEditVisitId(editVisitId === v.id ? null : v.id); setEditVisitForm({ visitName: v.visitName, guestName: v.guestName, visitType: v.visitType, checkIn: v.checkIn, checkOut: v.checkOut, status: v.status, propertyId: v.propertyId, notes: v.notes, adults: v.adults, children: v.children }); setQuestVisitId(null); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button>
                           </div>
+                          {/* Edit panel */}
+                          {editVisitId === v.id && (
+                            <div style={{ marginTop: 16, padding: 20, background: "var(--bg3)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 16 }}>Edit Visit</div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Visit Name</div><input value={editVisitForm.visitName || ""} onChange={e => setEditVisitForm(f => ({ ...f, visitName: e.target.value }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Guest Name</div><input value={editVisitForm.guestName || ""} onChange={e => setEditVisitForm(f => ({ ...f, guestName: e.target.value }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Property</div><select value={editVisitForm.propertyId || ""} onChange={e => setEditVisitForm(f => ({ ...f, propertyId: e.target.value }))} style={sel}><option value="">— Select property —</option>{properties.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Visit Type</div><select value={editVisitForm.visitType || "Owner"} onChange={e => setEditVisitForm(f => ({ ...f, visitType: e.target.value }))} style={sel}><option>Owner</option><option>Rental</option><option>Guest</option></select></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Check-in</div><input type="date" value={editVisitForm.checkIn || ""} onChange={e => setEditVisitForm(f => ({ ...f, checkIn: e.target.value }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Check-out</div><input type="date" value={editVisitForm.checkOut || ""} onChange={e => setEditVisitForm(f => ({ ...f, checkOut: e.target.value }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Adults</div><input type="number" min={0} value={editVisitForm.adults ?? 0} onChange={e => setEditVisitForm(f => ({ ...f, adults: Number(e.target.value) }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Children</div><input type="number" min={0} value={editVisitForm.children ?? 0} onChange={e => setEditVisitForm(f => ({ ...f, children: Number(e.target.value) }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Status</div><select value={editVisitForm.status || "Upcoming"} onChange={e => setEditVisitForm(f => ({ ...f, status: e.target.value }))} style={sel}><option>Upcoming</option><option>Active</option><option>Completed</option><option>Cancelled</option></select></div>
+                              </div>
+                              <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Notes</div><textarea value={editVisitForm.notes || ""} onChange={e => setEditVisitForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ ...inp, resize: "vertical" as const }} /></div>
+                              <div style={{ display: "flex", gap: 10 }}>
+                                <button onClick={saveEditVisit} disabled={savingVisit} style={{ padding: "7px 16px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{savingVisit ? "Saving..." : "Save Changes"}</button>
+                                <button onClick={() => setEditVisitId(null)} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                              </div>
+                            </div>
+                          )}
                           {/* Questionnaire panel */}
                           {questVisitId === v.id && (
                             <div style={{ marginTop: 16, padding: 20, background: "var(--bg3)", borderRadius: 10, border: "1px solid var(--border)" }}>
