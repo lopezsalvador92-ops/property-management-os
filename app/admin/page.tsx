@@ -334,8 +334,8 @@ export default function AdminDashboard() {
   }, [activePage]);
 
   useEffect(() => {
-    if (activePage === "maintenance") {
-      setMaintLoading(true);
+    if (activePage === "maintenance" || activePage === "dashboard") {
+      if (activePage === "maintenance") setMaintLoading(true);
       Promise.all([
         fetch("/api/maintenance").then(r => r.json()),
         fetch("/api/maintenance-config").then(r => r.json()),
@@ -350,7 +350,7 @@ export default function AdminDashboard() {
   }, [activePage]);
 
   useEffect(() => {
-    if (activePage === "calendar" && visits.length === 0) {
+    if ((activePage === "calendar" || activePage === "dashboard") && visits.length === 0) {
       fetch("/api/visits").then(r => r.json()).then(d => setVisits(d.visits || [])).catch(() => {});
     }
   }, [activePage]);
@@ -370,10 +370,11 @@ export default function AdminDashboard() {
   }, [activePage]);
 
   useEffect(() => {
-    if (activePage === "concierge" && concTab === "builder" && selectedVisitId) {
-      fetch(`/api/itinerary?visitId=${selectedVisitId}`).then(r => r.json()).then(d => setItineraryEvents(d.events || [])).catch(() => {});
+    if (activePage === "concierge" && concTab === "builder") {
+      // Fetch all events (client-side filters by visitId since Airtable's ARRAYJOIN on linked fields returns names not IDs)
+      fetch(`/api/itinerary`).then(r => r.json()).then(d => setItineraryEvents(d.events || [])).catch(() => {});
     }
-  }, [activePage, concTab, selectedVisitId]);
+  }, [activePage, concTab]);
 
   async function createExpense() {
     if (!newExpProp || !newExpAmt || !newExpDate) return;
@@ -547,114 +548,234 @@ export default function AdminDashboard() {
       <main style={{ overflow: "auto", minWidth: 0 }}>
 
         {/* ====== DASHBOARD ====== */}
-        {activePage === "dashboard" && (
-          <div style={{ padding: "32px 40px" }}>
-            <h1 style={h1s}>Portfolio Dashboard</h1>
-            <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 28 }}>{loading ? "Loading..." : `${reportStatus.month || "March 2026"} · ${active.length} active properties`}</p>
+        {activePage === "dashboard" && (() => {
+          const todayStr = new Date().toISOString().split("T")[0];
+          const next30 = new Date(); next30.setDate(next30.getDate() + 30);
+          const next30Str = next30.toISOString().split("T")[0];
 
-            {/* ACTION REQUIRED */}
-            <h2 style={{ ...h2s, marginBottom: 12 }}>Action required</h2>
-            <div style={{ display: "grid", gap: 10, marginBottom: 32 }}>
+          const activeVisits = visits.filter(v => v.status === "Active");
+          const upcomingVisits = visits.filter(v => v.status === "Upcoming" && v.checkIn >= todayStr && v.checkIn <= next30Str).sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+          const openMaint = maintTasks.filter(t => t.status === "Open" || t.status === "In Progress");
+          const urgentMaint = openMaint.filter(t => t.priority === "High" || t.priority === "Urgent");
+          const dueMaintConfigs = maintConfigs.filter(c => c.active && c.nextDue && c.nextDue <= todayStr);
 
-              {/* Reports pending */}
-              {reportStatus.pending > 0 && (
-                <div onClick={() => setActivePage("reports")} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", background: "var(--accent-s)", border: "1px solid rgba(201,169,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
-                  <span style={{ fontSize: 18 }}>↗</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{reportStatus.pending} monthly {reportStatus.pending === 1 ? "report" : "reports"} pending</div>
-                    <div style={{ fontSize: 12, color: "var(--text3)" }}>{reportStatus.sent} of {reportStatus.total} sent for {reportStatus.month}</div>
-                  </div>
-                  <span style={{ fontSize: 12, color: "var(--text3)" }}>View reports →</span>
+          const greetingHour = new Date().getHours();
+          const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 17 ? "Good afternoon" : "Good evening";
+
+          return (
+            <div style={{ padding: "32px 40px" }}>
+              {/* Header */}
+              <div style={{ marginBottom: 28 }}>
+                <h1 style={{ ...h1s, marginBottom: 4 }}>{greeting}, {userName} 👋</h1>
+                <p style={{ fontSize: 14, color: "var(--text2)" }}>
+                  {loading ? "Loading..." : `${active.length} active properties · ${reportStatus.month || "March 2026"}`}
+                </p>
+              </div>
+
+              {/* STAT CARDS */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
+                <div onClick={() => setActivePage("properties")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Active Properties</div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text1)", marginBottom: 4 }}>{active.length}</div>
+                  <div style={{ fontSize: 12, color: "var(--text3)" }}>of {properties.length} total</div>
                 </div>
-              )}
-
-              {/* Negative balances */}
-              {negativeBalances.length > 0 && (
-                <div onClick={() => setActivePage("deposits")} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", background: "var(--red-s)", border: "1px solid rgba(207,110,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
-                  <span style={{ fontSize: 18 }}>⚠</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: "var(--red)" }}>{negativeBalances.length} {negativeBalances.length === 1 ? "property has" : "properties have"} a negative balance</div>
-                    <div style={{ fontSize: 12, color: "var(--text3)" }}>{negativeBalances.map(b => b.house).join(", ")}</div>
-                  </div>
-                  <span style={{ fontSize: 12, color: "var(--text3)" }}>View deposits →</span>
+                <div onClick={() => setActivePage("concierge")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Visits This Month</div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: "var(--teal)", marginBottom: 4 }}>{visits.filter(v => v.status !== "Cancelled").length}</div>
+                  <div style={{ fontSize: 12, color: "var(--text3)" }}>{activeVisits.length} active · {upcomingVisits.length} upcoming</div>
                 </div>
-              )}
-
-              {/* No deposit this month */}
-              {propertiesNoDeposit.length > 0 && (
-                <div onClick={() => setActivePage("deposits")} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, cursor: "pointer" }}>
-                  <span style={{ fontSize: 18 }}>↓</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{propertiesNoDeposit.length} {propertiesNoDeposit.length === 1 ? "property hasn't" : "properties haven't"} deposited this month</div>
-                    <div style={{ fontSize: 12, color: "var(--text3)" }}>{propertiesNoDeposit.slice(0, 5).map(p => p.name).join(", ")}{propertiesNoDeposit.length > 5 ? ` +${propertiesNoDeposit.length - 5} more` : ""}</div>
-                  </div>
-                  <span style={{ fontSize: 12, color: "var(--text3)" }}>View deposits →</span>
+                <div onClick={() => setActivePage("maintenance")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Open Maintenance</div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: openMaint.length > 0 ? "var(--orange)" : "var(--green)", marginBottom: 4 }}>{openMaint.length}</div>
+                  <div style={{ fontSize: 12, color: urgentMaint.length > 0 ? "var(--red)" : "var(--text3)" }}>{urgentMaint.length > 0 ? `${urgentMaint.length} high priority` : "No urgent items"}</div>
                 </div>
-              )}
-
-              {/* HSK placeholder */}
-              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 10, opacity: 0.5 }}>
-                <span style={{ fontSize: 18 }}>⌂</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>Housekeeping log approvals</div>
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>Coming soon — this will show pending HSK logs</div>
+                <div onClick={() => setActivePage("reports")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Pending Reports</div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: reportStatus.pending > 0 ? "var(--accent)" : "var(--green)", marginBottom: 4 }}>{loading ? "—" : reportStatus.pending}</div>
+                  <div style={{ fontSize: 12, color: "var(--text3)" }}>{loading ? "" : `${reportStatus.sent} of ${reportStatus.total} sent`}</div>
                 </div>
               </div>
 
-              {/* All clear */}
-              {negativeBalances.length === 0 && reportStatus.pending === 0 && propertiesNoDeposit.length === 0 && (
-                <div style={{ padding: "14px 20px", background: "var(--green-s)", border: "1px solid rgba(110,207,151,0.15)", borderRadius: 10 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: "var(--green)" }}>✓ All clear — no action items right now</div>
-                </div>
-              )}
-            </div>
+              {/* TWO COLUMN LAYOUT */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
 
-            {/* FINANCIAL PULSE */}
-            <h2 style={h2s}>Financial pulse, by property</h2>
-            <div style={{ ...card, padding: 0, marginBottom: 32 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 130px 120px 120px 140px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
-                <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600 }}>Property</div>
-                <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, textAlign: "right" as const }}>Starting Bal.</div>
-                <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, textAlign: "right" as const }}>Expenses</div>
-                <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, textAlign: "right" as const }}>Deposits</div>
-                <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, textAlign: "right" as const }}>Final Bal.</div>
-              </div>
-              {balances.map((b, i) => {
-                const isNeg = b.finalBalance < 0;
-                return (
-                  <div key={`fp-${b.houseId}-${i}`} style={{ display: "grid", gridTemplateColumns: "1fr 130px 120px 120px 140px", padding: "12px 20px", borderBottom: i < balances.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
-                    onClick={() => { setExpFilter(b.house); setActivePage("expenses"); }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{b.house}</div>
-                      <div style={{ fontSize: 11, color: "var(--text3)" }}>{b.month}</div>
+                {/* LEFT: ACTION REQUIRED */}
+                <div>
+                  <h2 style={{ ...h2s, marginBottom: 12 }}>Action required</h2>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {reportStatus.pending > 0 && (
+                      <div onClick={() => setActivePage("reports")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--accent-s)", border: "1px solid rgba(201,169,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
+                        <span style={{ fontSize: 16 }}>↗</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>{reportStatus.pending} monthly {reportStatus.pending === 1 ? "report" : "reports"} pending</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{reportStatus.sent} of {reportStatus.total} sent for {reportStatus.month}</div>
+                        </div>
+                        <span style={{ fontSize: 11, color: "var(--text3)" }}>→</span>
+                      </div>
+                    )}
+                    {negativeBalances.length > 0 && (
+                      <div onClick={() => setActivePage("deposits")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--red-s)", border: "1px solid rgba(207,110,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
+                        <span style={{ fontSize: 16 }}>⚠</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--red)" }}>{negativeBalances.length} {negativeBalances.length === 1 ? "property" : "properties"} with negative balance</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{negativeBalances.map(b => b.house).join(", ")}</div>
+                        </div>
+                        <span style={{ fontSize: 11, color: "var(--text3)" }}>→</span>
+                      </div>
+                    )}
+                    {propertiesNoDeposit.length > 0 && (
+                      <div onClick={() => setActivePage("deposits")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, cursor: "pointer" }}>
+                        <span style={{ fontSize: 16 }}>↓</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>{propertiesNoDeposit.length} {propertiesNoDeposit.length === 1 ? "property" : "properties"} missing deposit this month</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{propertiesNoDeposit.slice(0, 4).map(p => p.name).join(", ")}{propertiesNoDeposit.length > 4 ? ` +${propertiesNoDeposit.length - 4} more` : ""}</div>
+                        </div>
+                        <span style={{ fontSize: 11, color: "var(--text3)" }}>→</span>
+                      </div>
+                    )}
+                    {urgentMaint.length > 0 && (
+                      <div onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--red-s)", border: "1px solid rgba(207,110,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
+                        <span style={{ fontSize: 16 }}>🔧</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--red)" }}>{urgentMaint.length} high-priority maintenance {urgentMaint.length === 1 ? "item" : "items"} open</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{urgentMaint.slice(0, 2).map(t => t.title).join(" · ")}</div>
+                        </div>
+                        <span style={{ fontSize: 11, color: "var(--text3)" }}>→</span>
+                      </div>
+                    )}
+                    {dueMaintConfigs.length > 0 && (
+                      <div onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, cursor: "pointer" }}>
+                        <span style={{ fontSize: 16 }}>📅</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>{dueMaintConfigs.length} preventive {dueMaintConfigs.length === 1 ? "schedule" : "schedules"} past due</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{dueMaintConfigs.slice(0, 2).map(c => c.taskName).join(" · ")}</div>
+                        </div>
+                        <span style={{ fontSize: 11, color: "var(--text3)" }}>→</span>
+                      </div>
+                    )}
+                    {negativeBalances.length === 0 && reportStatus.pending === 0 && propertiesNoDeposit.length === 0 && urgentMaint.length === 0 && dueMaintConfigs.length === 0 && (
+                      <div style={{ padding: "12px 16px", background: "var(--green-s)", border: "1px solid rgba(110,207,151,0.15)", borderRadius: 10 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--green)" }}>✓ All clear — no action items right now</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* OPEN MAINTENANCE */}
+                  {openMaint.length > 0 && (
+                    <>
+                      <h2 style={{ ...h2s, marginTop: 24, marginBottom: 12 }}>Open maintenance</h2>
+                      <div style={{ ...card, padding: 0 }}>
+                        {openMaint.slice(0, 4).map((t, i) => {
+                          const pColor = t.priority === "Urgent" ? "var(--red)" : t.priority === "High" ? "var(--orange)" : t.priority === "Medium" ? "var(--accent)" : "var(--text3)";
+                          return (
+                            <div key={t.id} onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < Math.min(openMaint.length, 4) - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
+                              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
+                              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                              <span style={{ fontSize: 14 }}>🔧</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+                                <div style={{ fontSize: 11, color: "var(--text3)" }}>{t.propertyName || "—"}{t.vendorName ? ` · ${t.vendorName}` : ""}</div>
+                              </div>
+                              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: t.status === "In Progress" ? "rgba(100,160,255,0.12)" : "var(--orange-s)", color: t.status === "In Progress" ? "var(--blue)" : "var(--orange)", fontWeight: 600 }}>{t.status}</span>
+                                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "rgba(255,255,255,0.05)", color: pColor, fontWeight: 600 }}>{t.priority}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {openMaint.length > 4 && (
+                          <div onClick={() => setActivePage("maintenance")} style={{ padding: "10px 16px", textAlign: "center" as const, fontSize: 12, color: "var(--text3)", cursor: "pointer", borderTop: "1px solid var(--border)" }}>
+                            +{openMaint.length - 4} more → View all
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* RIGHT: UPCOMING VISITS + QUICK ACCESS */}
+                <div>
+                  <h2 style={{ ...h2s, marginBottom: 12 }}>Upcoming visits</h2>
+                  {visits.length === 0 ? (
+                    <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>Loading visits...</div>
+                  ) : [...activeVisits, ...upcomingVisits].length === 0 ? (
+                    <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>No upcoming visits scheduled.</div>
+                  ) : (
+                    <div style={{ ...card, padding: 0, marginBottom: 20 }}>
+                      {[...activeVisits, ...upcomingVisits].slice(0, 5).map((v, i, arr) => {
+                        const typeColor = v.visitType === "Owner" ? "var(--teal)" : v.visitType === "Rental" ? "var(--blue)" : "#9B8EC4";
+                        const typeBg = v.visitType === "Owner" ? "var(--teal-s)" : v.visitType === "Rental" ? "rgba(100,160,255,0.12)" : "rgba(155,142,196,0.12)";
+                        const nights = Math.round((new Date(v.checkOut).getTime() - new Date(v.checkIn).getTime()) / 86400000);
+                        return (
+                          <div key={v.id} onClick={() => { setActivePage("concierge"); setConcTab("visits"); setSelectedVisitId(v.id); }} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                            <div style={{ width: 40, height: 40, borderRadius: 10, background: typeBg, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: typeColor }}>{new Date(v.checkIn + "T12:00:00").toLocaleDateString("en-US", { month: "short" }).toUpperCase()}</div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: typeColor, lineHeight: 1 }}>{new Date(v.checkIn + "T12:00:00").getDate()}</div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{v.guestName || "Owner"}</div>
+                              <div style={{ fontSize: 11, color: "var(--text3)" }}>{v.propertyName} · {nights}n · {v.adults + v.children} guests</div>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "flex-start" }}>
+                              {v.status === "Active" && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", fontWeight: 600 }}>IN HOUSE</span>}
+                              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: typeBg, color: typeColor, fontWeight: 600 }}>{v.visitType}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div style={{ fontSize: 13, color: "var(--text2)", textAlign: "right" as const }}>{fmtCur(b.startingBalance, b.currency)}</div>
-                    <div style={{ fontSize: 13, color: "var(--red)", textAlign: "right" as const }}>${b.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-                    <div style={{ fontSize: 13, color: "var(--green)", textAlign: "right" as const }}>${b.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, textAlign: "right" as const, color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(b.finalBalance, b.currency)}</div>
-                  </div>
-                );
-              })}
-            </div>
+                  )}
 
-            {/* RECENT ACTIVITY */}
-            <h2 style={h2s}>Recent activity</h2>
-            <div style={{ ...card, padding: 0 }}>
-              {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity...</div>}
-              {recentActivity.map((a, i) => (
-                <div key={`act-${i}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: i < recentActivity.length - 1 ? "1px solid var(--border)" : "none" }}>
-                  <span style={{ fontSize: 13, width: 20, textAlign: "center" as const, color: a.type === "deposit" ? "var(--green)" : "var(--text3)" }}>{a.type === "deposit" ? "↓" : "⎙"}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13 }}><strong>{a.house}</strong> — {a.detail}</div>
-                    <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(a.date)}</div>
-                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* FINANCIAL PULSE */}
+              <h2 style={{ ...h2s, marginBottom: 12 }}>Financial pulse, by property</h2>
+              <div style={{ ...card, padding: 0, marginBottom: 32 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 130px 120px 120px 140px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
+                  {["Property", "Starting Bal.", "Expenses", "Deposits", "Final Bal."].map(h => (
+                    <div key={h} style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, textAlign: h === "Property" ? "left" as const : "right" as const }}>{h}</div>
+                  ))}
+                </div>
+                {balances.map((b, i) => {
+                  const isNeg = b.finalBalance < 0;
+                  return (
+                    <div key={`fp-${b.houseId}-${i}`} style={{ display: "grid", gridTemplateColumns: "1fr 130px 120px 120px 140px", padding: "12px 20px", borderBottom: i < balances.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
+                      onClick={() => { setExpFilter(b.house); setActivePage("expenses"); }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{b.house}</div>
+                        <div style={{ fontSize: 11, color: "var(--text3)" }}>{b.month}</div>
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--text2)", textAlign: "right" as const }}>{fmtCur(b.startingBalance, b.currency)}</div>
+                      <div style={{ fontSize: 13, color: "var(--red)", textAlign: "right" as const }}>${b.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                      <div style={{ fontSize: 13, color: "var(--green)", textAlign: "right" as const }}>${b.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, textAlign: "right" as const, color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(b.finalBalance, b.currency)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* RECENT ACTIVITY */}
+              <h2 style={{ ...h2s, marginBottom: 12 }}>Recent activity</h2>
+              <div style={{ ...card, padding: 0 }}>
+                {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity...</div>}
+                {recentActivity.map((a, i) => (
+                  <div key={`act-${i}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: i < recentActivity.length - 1 ? "1px solid var(--border)" : "none" }}>
+                    <span style={{ fontSize: 13, width: 20, textAlign: "center" as const, color: a.type === "deposit" ? "var(--green)" : "var(--text3)" }}>{a.type === "deposit" ? "↓" : "⎙"}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13 }}><strong>{a.house}</strong> — {a.detail}</div>
+                      <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(a.date)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
                 {/* ====== EXPENSES ====== */}
         {activePage === "expenses" && (
@@ -1563,7 +1684,7 @@ export default function AdminDashboard() {
           const activeVisits = visits.filter(v => v.status === "Active");
           const upcomingVisits = visits.filter(v => v.status === "Upcoming");
           const selectedVisit = visits.find(v => v.id === selectedVisitId);
-          const visitsForBuilder = selectedVisitId ? itineraryEvents : [];
+          const visitsForBuilder = selectedVisitId ? itineraryEvents.filter(e => e.visitId === selectedVisitId) : [];
           const eventsByDate: Record<string, ItineraryEvent[]> = {};
           for (const e of visitsForBuilder) {
             if (!eventsByDate[e.date]) eventsByDate[e.date] = [];
@@ -1646,7 +1767,7 @@ export default function AdminDashboard() {
             setAddingEvent(true);
             try {
               await fetch("/api/itinerary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName: newEventName, visitId: selectedVisitId, vendorId: newEventVendor || undefined, date: newEventDate, time: newEventTime, details: newEventDetails, status: newEventStatus }) });
-              const d = await fetch(`/api/itinerary?visitId=${selectedVisitId}`).then(r => r.json());
+              const d = await fetch(`/api/itinerary`).then(r => r.json());
               setItineraryEvents(d.events || []);
               setNewEventName(""); setNewEventDate(""); setNewEventTime(""); setNewEventDetails(""); setNewEventVendor(""); setNewEventStatus("Pending");
               setShowAddEvent(false);
@@ -1725,7 +1846,7 @@ export default function AdminDashboard() {
 
               {/* Sub-tabs */}
               <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content" }}>
-                {([["visits","Upcoming Visits"],["builder","Itinerary Builder"],["directory","Vendor Directory"]] as [string,string][]).map(([id, label]) => (
+                {([["visits","Visits"],["builder","Itinerary Builder"],["directory","Vendor Directory"]] as [string,string][]).map(([id, label]) => (
                   <button key={id} onClick={() => setConcTab(id as any)} style={{ padding: "8px 18px", borderRadius: 100, fontSize: 13, color: concTab === id ? "var(--accent)" : "var(--text3)", background: concTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, transition: "all 0.15s" }}>{label}</button>
                 ))}
               </div>
@@ -1777,7 +1898,11 @@ export default function AdminDashboard() {
                   {visits.length === 0 ? (
                     <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>No visits yet. Create the first one above.</div>
                   ) : (
-                    visits.map(v => {
+                    [...visits].sort((a, b) => {
+                      const order: Record<string, number> = { Active: 0, Upcoming: 1, Completed: 2, Cancelled: 3 };
+                      const diff = (order[a.status] ?? 2) - (order[b.status] ?? 2);
+                      return diff !== 0 ? diff : a.checkIn.localeCompare(b.checkIn);
+                    }).map(v => {
                       const daysLabel = visitDaysUntil(v.checkIn);
                       const sc = statusColor(v.status);
                       const nights = Math.round((new Date(v.checkOut + "T00:00:00").getTime() - new Date(v.checkIn + "T00:00:00").getTime()) / 86400000);
@@ -1879,6 +2004,21 @@ export default function AdminDashboard() {
                       {visits.map(v => <option key={v.id} value={v.id}>{v.visitName} · {v.checkIn} → {v.checkOut}</option>)}
                     </select>
                     {selectedVisitId && <button onClick={() => setShowAddEvent(true)} style={{ padding: "9px 18px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Event</button>}
+                    {selectedVisitId && visitsForBuilder.length > 0 && (() => {
+                      function publishItinerary() {
+                        const sv = visits.find(v => v.id === selectedVisitId);
+                        if (!sv) return;
+                        const header = `📅 ITINERARY — ${sv.visitName}\n${sv.propertyName} · ${sv.checkIn} → ${sv.checkOut}\n${"─".repeat(40)}\n`;
+                        const body = Object.keys(eventsByDate).sort().map(date => {
+                          const dayLabel = new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+                          const events = eventsByDate[date].map(ev => `  ${ev.time || "     "} · ${ev.eventName}${ev.vendorName ? ` (${ev.vendorName})` : ""}${ev.details ? `\n          ${ev.details}` : ""}${ev.status !== "Confirmed" ? ` [${ev.status}]` : ""}`).join("\n");
+                          return `\n${dayLabel}\n${events}`;
+                        }).join("\n");
+                        const footer = `\n${"─".repeat(40)}\nPrepared by Cape Property Management`;
+                        navigator.clipboard.writeText(header + body + footer).then(() => alert("✓ Itinerary copied to clipboard — ready to paste into an email or message!"));
+                      }
+                      return <button onClick={publishItinerary} style={{ padding: "9px 18px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.3)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>📤 Publish Itinerary</button>;
+                    })()}
                   </div>
 
                   {/* Add event form */}

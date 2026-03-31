@@ -40,9 +40,8 @@ export async function GET(request: Request) {
     params.set("sort[1][field]", "Time");
     params.set("sort[1][direction]", "asc");
 
-    if (visitId) {
-      params.set("filterByFormula", `FIND("${visitId}", ARRAYJOIN({Visit}, ","))`);
-    }
+    // Note: filterByFormula on linked record fields returns primary field values (names), not IDs.
+    // We fetch all events and filter client-side by visitId instead.
 
     const [data, vendorData] = await Promise.all([
       airtableFetch(`${ITINERARY_TABLE}?${params}`),
