@@ -596,10 +596,8 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* TWO COLUMN LAYOUT */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
-
-                {/* LEFT: ACTION REQUIRED */}
+              {/* ROW 1: ACTION REQUIRED + UPCOMING VISITS */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
                 <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Action required</h2>
                   <div style={{ display: "grid", gap: 8 }}>
@@ -659,41 +657,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                   </div>
-
-                  {/* OPEN MAINTENANCE */}
-                  {openMaint.length > 0 && (
-                    <>
-                      <h2 style={{ ...h2s, marginTop: 24, marginBottom: 12 }}>Open maintenance</h2>
-                      <div style={{ ...card, padding: 0 }}>
-                        {openMaint.slice(0, 4).map((t, i) => {
-                          const pColor = t.priority === "Urgent" ? "var(--red)" : t.priority === "High" ? "var(--orange)" : t.priority === "Medium" ? "var(--accent)" : "var(--text3)";
-                          return (
-                            <div key={t.id} onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < Math.min(openMaint.length, 4) - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
-                              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
-                              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                              <span style={{ fontSize: 14 }}>🔧</span>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
-                                <div style={{ fontSize: 11, color: "var(--text3)" }}>{t.propertyName || "—"}{t.vendorName ? ` · ${t.vendorName}` : ""}</div>
-                              </div>
-                              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: t.status === "In Progress" ? "rgba(100,160,255,0.12)" : "var(--orange-s)", color: t.status === "In Progress" ? "var(--blue)" : "var(--orange)", fontWeight: 600 }}>{t.status}</span>
-                                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "rgba(255,255,255,0.05)", color: pColor, fontWeight: 600 }}>{t.priority}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {openMaint.length > 4 && (
-                          <div onClick={() => setActivePage("maintenance")} style={{ padding: "10px 16px", textAlign: "center" as const, fontSize: 12, color: "var(--text3)", cursor: "pointer", borderTop: "1px solid var(--border)" }}>
-                            +{openMaint.length - 4} more → View all
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
                 </div>
-
-                {/* RIGHT: UPCOMING VISITS + QUICK ACCESS */}
                 <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Upcoming visits</h2>
                   {visits.length === 0 ? (
@@ -701,7 +665,7 @@ export default function AdminDashboard() {
                   ) : [...activeVisits, ...upcomingVisits].length === 0 ? (
                     <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>No upcoming visits scheduled.</div>
                   ) : (
-                    <div style={{ ...card, padding: 0, marginBottom: 20 }}>
+                    <div style={{ ...card, padding: 0 }}>
                       {[...activeVisits, ...upcomingVisits].slice(0, 5).map((v, i, arr) => {
                         const typeColor = v.visitType === "Owner" ? "var(--teal)" : v.visitType === "Rental" ? "var(--blue)" : "#9B8EC4";
                         const typeBg = v.visitType === "Owner" ? "var(--teal-s)" : v.visitType === "Rental" ? "rgba(100,160,255,0.12)" : "rgba(155,142,196,0.12)";
@@ -727,9 +691,45 @@ export default function AdminDashboard() {
                       })}
                     </div>
                   )}
+                </div>
+              </div>
 
-                  {/* RECENT ACTIVITY (in right column) */}
-                  <h2 style={{ ...h2s, marginTop: 24, marginBottom: 12 }}>Recent activity</h2>
+              {/* ROW 2: OPEN MAINTENANCE + RECENT ACTIVITY */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
+                <div>
+                  <h2 style={{ ...h2s, marginBottom: 12 }}>Open maintenance</h2>
+                  {openMaint.length === 0 ? (
+                    <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>No open maintenance items.</div>
+                  ) : (
+                    <div style={{ ...card, padding: 0 }}>
+                      {openMaint.slice(0, 4).map((t, i) => {
+                        const pColor = t.priority === "Urgent" ? "var(--red)" : t.priority === "High" ? "var(--orange)" : t.priority === "Medium" ? "var(--accent)" : "var(--text3)";
+                        return (
+                          <div key={t.id} onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < Math.min(openMaint.length, 4) - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                            <span style={{ fontSize: 14 }}>🔧</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+                              <div style={{ fontSize: 11, color: "var(--text3)" }}>{t.propertyName || "—"}{t.vendorName ? ` · ${t.vendorName}` : ""}</div>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: t.status === "In Progress" ? "rgba(100,160,255,0.12)" : "var(--orange-s)", color: t.status === "In Progress" ? "var(--blue)" : "var(--orange)", fontWeight: 600 }}>{t.status}</span>
+                              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "rgba(255,255,255,0.05)", color: pColor, fontWeight: 600 }}>{t.priority}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {openMaint.length > 4 && (
+                        <div onClick={() => setActivePage("maintenance")} style={{ padding: "10px 16px", textAlign: "center" as const, fontSize: 12, color: "var(--text3)", cursor: "pointer", borderTop: "1px solid var(--border)" }}>
+                          +{openMaint.length - 4} more → View all
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h2 style={{ ...h2s, marginBottom: 12 }}>Recent activity</h2>
                   <div style={{ ...card, padding: 0 }}>
                     {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity...</div>}
                     {recentActivity.slice(0, 8).map((a, i, arr) => (
