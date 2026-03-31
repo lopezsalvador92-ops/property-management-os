@@ -14,6 +14,9 @@ type HskSummary = { property: string; totalCleans: number; includedPerWeek: numb
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
 type ReportStatus = { pending: number; reviewed: number; sent: number; total: number; month: string };
+type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; propertyId: string; propertyName: string; notes: string; checklist: string };
+type Vendor = { id: string; name: string; category: string; contact: string; location: string; tags: string; notes: string };
+type ItineraryEvent = { id: string; eventName: string; visitId: string; vendorId: string; vendorName: string; date: string; time: string; details: string; status: string };
 
 const catColors: Record<string, { bg: string; text: string }> = {
   Utilities: { bg: "rgba(207,196,110,0.1)", text: "#CFC46E" },
@@ -32,6 +35,7 @@ const navItems = [
   { id: "housekeeping", icon: "⌂", label: "Housekeeping", badge: "3" },
   { id: "deposits", icon: "↓", label: "Deposits" },
   { id: "reports", icon: "↗", label: "Reports" },
+  { id: "concierge", icon: "✦", label: "Concierge" },
   { id: "properties", icon: "▦", label: "Properties" },
   { id: "users", icon: "◌", label: "Users" },
 ];
@@ -130,6 +134,45 @@ export default function AdminDashboard() {
   const [hskUpdating, setHskUpdating] = useState<string | null>(null);
   const [hskView, setHskView] = useState<"individual" | "weekly" | "summary">("individual");
   const [previewId, setPreviewId] = useState<string | null>(null);
+
+  // Concierge state
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [itineraryEvents, setItineraryEvents] = useState<ItineraryEvent[]>([]);
+  const [concLoading, setConcLoading] = useState(false);
+  const [concTab, setConcTab] = useState<"visits" | "builder" | "directory">("visits");
+  const [selectedVisitId, setSelectedVisitId] = useState<string>("");
+  const [vendorFilter, setVendorFilter] = useState("all");
+  const [vendorSearch, setVendorSearch] = useState("");
+  // Add visit form
+  const [showAddVisit, setShowAddVisit] = useState(false);
+  const [newVisitName, setNewVisitName] = useState("");
+  const [newVisitGuest, setNewVisitGuest] = useState("");
+  const [newVisitType, setNewVisitType] = useState("Owner");
+  const [newVisitProp, setNewVisitProp] = useState("");
+  const [newVisitCheckIn, setNewVisitCheckIn] = useState("");
+  const [newVisitCheckOut, setNewVisitCheckOut] = useState("");
+  const [newVisitNotes, setNewVisitNotes] = useState("");
+  const [addingVisit, setAddingVisit] = useState(false);
+  const [visitSuccess, setVisitSuccess] = useState(false);
+  // Add event form
+  const [showAddEvent, setShowAddEvent] = useState(false);
+  const [newEventName, setNewEventName] = useState("");
+  const [newEventDate, setNewEventDate] = useState("");
+  const [newEventTime, setNewEventTime] = useState("");
+  const [newEventDetails, setNewEventDetails] = useState("");
+  const [newEventVendor, setNewEventVendor] = useState("");
+  const [newEventStatus, setNewEventStatus] = useState("Pending");
+  const [addingEvent, setAddingEvent] = useState(false);
+  // Add vendor form
+  const [showAddVendor, setShowAddVendor] = useState(false);
+  const [newVendorName, setNewVendorName] = useState("");
+  const [newVendorCat, setNewVendorCat] = useState("Dining");
+  const [newVendorContact, setNewVendorContact] = useState("");
+  const [newVendorLocation, setNewVendorLocation] = useState("");
+  const [newVendorTags, setNewVendorTags] = useState("");
+  const [newVendorNotes, setNewVendorNotes] = useState("");
+  const [addingVendor, setAddingVendor] = useState(false);
 
   function monthToFilterValue(monthStr: string): string {
     const parts = monthStr.split(" ");
@@ -241,6 +284,26 @@ export default function AdminDashboard() {
       fetch("/api/properties-detail").then(r => r.json()).then(d => { setPropDetails(d.properties || []); setPropLoading(false); }).catch(() => setPropLoading(false));
     }
   }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "concierge") {
+      setConcLoading(true);
+      Promise.all([
+        fetch("/api/visits").then(r => r.json()),
+        fetch("/api/vendors").then(r => r.json()),
+      ]).then(([vData, vendData]) => {
+        setVisits(vData.visits || []);
+        setVendors(vendData.vendors || []);
+        setConcLoading(false);
+      }).catch(() => setConcLoading(false));
+    }
+  }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "concierge" && concTab === "builder" && selectedVisitId) {
+      fetch(`/api/itinerary?visitId=${selectedVisitId}`).then(r => r.json()).then(d => setItineraryEvents(d.events || [])).catch(() => {});
+    }
+  }, [activePage, concTab, selectedVisitId]);
 
   async function createExpense() {
     if (!newExpProp || !newExpAmt || !newExpDate) return;
@@ -1376,8 +1439,319 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* ====== CONCIERGE ====== */}
+        {activePage === "concierge" && (() => {
+          const activeVisits = visits.filter(v => v.status === "Active");
+          const upcomingVisits = visits.filter(v => v.status === "Upcoming");
+          const selectedVisit = visits.find(v => v.id === selectedVisitId);
+          const visitsForBuilder = selectedVisitId ? itineraryEvents : [];
+          const eventsByDate: Record<string, ItineraryEvent[]> = {};
+          for (const e of visitsForBuilder) {
+            if (!eventsByDate[e.date]) eventsByDate[e.date] = [];
+            eventsByDate[e.date].push(e);
+          }
+          const filteredVendors = vendors.filter(v => {
+            const matchCat = vendorFilter === "all" || v.category === vendorFilter;
+            const matchSearch = !vendorSearch || v.name.toLowerCase().includes(vendorSearch.toLowerCase()) || v.category.toLowerCase().includes(vendorSearch.toLowerCase());
+            return matchCat && matchSearch;
+          });
+
+          async function addVisit() {
+            if (!newVisitName || !newVisitCheckIn || !newVisitCheckOut) return;
+            setAddingVisit(true);
+            try {
+              await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visitName: newVisitName, guestName: newVisitGuest, visitType: newVisitType, checkIn: newVisitCheckIn, checkOut: newVisitCheckOut, propertyId: newVisitProp, notes: newVisitNotes, status: "Upcoming" }) });
+              const d = await fetch("/api/visits").then(r => r.json());
+              setVisits(d.visits || []);
+              setNewVisitName(""); setNewVisitGuest(""); setNewVisitProp(""); setNewVisitCheckIn(""); setNewVisitCheckOut(""); setNewVisitNotes("");
+              setShowAddVisit(false); setVisitSuccess(true); setTimeout(() => setVisitSuccess(false), 3000);
+            } catch (e) { console.error(e); }
+            setAddingVisit(false);
+          }
+
+          async function addEvent() {
+            if (!newEventName || !newEventDate || !selectedVisitId) return;
+            setAddingEvent(true);
+            try {
+              await fetch("/api/itinerary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName: newEventName, visitId: selectedVisitId, vendorId: newEventVendor || undefined, date: newEventDate, time: newEventTime, details: newEventDetails, status: newEventStatus }) });
+              const d = await fetch(`/api/itinerary?visitId=${selectedVisitId}`).then(r => r.json());
+              setItineraryEvents(d.events || []);
+              setNewEventName(""); setNewEventDate(""); setNewEventTime(""); setNewEventDetails(""); setNewEventVendor(""); setNewEventStatus("Pending");
+              setShowAddEvent(false);
+            } catch (e) { console.error(e); }
+            setAddingEvent(false);
+          }
+
+          async function addVendor() {
+            if (!newVendorName) return;
+            setAddingVendor(true);
+            try {
+              await fetch("/api/vendors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newVendorName, category: newVendorCat, contact: newVendorContact, location: newVendorLocation, tags: newVendorTags, notes: newVendorNotes }) });
+              const d = await fetch("/api/vendors").then(r => r.json());
+              setVendors(d.vendors || []);
+              setNewVendorName(""); setNewVendorCat("Dining"); setNewVendorContact(""); setNewVendorLocation(""); setNewVendorTags(""); setNewVendorNotes("");
+              setShowAddVendor(false);
+            } catch (e) { console.error(e); }
+            setAddingVendor(false);
+          }
+
+          function visitDaysUntil(checkIn: string) {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const ci = new Date(checkIn + "T00:00:00");
+            const diff = Math.round((ci.getTime() - today.getTime()) / 86400000);
+            if (diff < 0) return null;
+            if (diff === 0) return "Arriving today";
+            if (diff === 1) return "Tomorrow";
+            return `In ${diff} days`;
+          }
+
+          function statusColor(s: string) {
+            if (s === "Active") return { bg: "var(--green-s)", text: "var(--green)" };
+            if (s === "Upcoming") return { bg: "var(--blue-s)", text: "var(--blue)" };
+            if (s === "Completed") return { bg: "rgba(255,255,255,0.05)", text: "var(--text3)" };
+            if (s === "Cancelled") return { bg: "var(--red-s)", text: "var(--red)" };
+            return { bg: "var(--accent-s)", text: "var(--accent)" };
+          }
+
+          function eventStatusColor(s: string) {
+            if (s === "Confirmed") return { bg: "var(--green-s)", text: "var(--green)" };
+            if (s === "Pending") return { bg: "var(--accent-s)", text: "var(--accent)" };
+            return { bg: "var(--red-s)", text: "var(--red)" };
+          }
+
+          function catColor(cat: string) {
+            const m: Record<string, { bg: string; text: string }> = {
+              Dining: { bg: "var(--orange-s)", text: "var(--orange)" },
+              Activities: { bg: "var(--teal-s)", text: "var(--teal-l)" },
+              Transport: { bg: "var(--blue-s)", text: "var(--blue)" },
+              Wellness: { bg: "var(--green-s)", text: "var(--green)" },
+              "Private Chef": { bg: "rgba(207,196,110,0.1)", text: "#CFC46E" },
+              Maintenance: { bg: "var(--accent-s)", text: "var(--accent)" },
+              Other: { bg: "rgba(155,142,196,0.12)", text: "#9B8EC4" },
+            };
+            return m[cat] || { bg: "rgba(255,255,255,0.05)", text: "var(--text3)" };
+          }
+
+          return (
+            <div style={{ padding: "32px 40px", maxWidth: 1000 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+                <div>
+                  <h1 style={h1s}>Concierge</h1>
+                  <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 0 }}>Manage owner & guest visits, itineraries, and vendors</p>
+                </div>
+                {concTab === "visits" && <button onClick={() => setShowAddVisit(!showAddVisit)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Visit</button>}
+                {concTab === "directory" && <button onClick={() => setShowAddVendor(!showAddVendor)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Vendor</button>}
+              </div>
+
+              {/* Sub-tabs */}
+              <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content" }}>
+                {([["visits","Upcoming Visits"],["builder","Itinerary Builder"],["directory","Vendor Directory"]] as [string,string][]).map(([id, label]) => (
+                  <button key={id} onClick={() => setConcTab(id as any)} style={{ padding: "8px 18px", borderRadius: 100, fontSize: 13, color: concTab === id ? "var(--accent)" : "var(--text3)", background: concTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, transition: "all 0.15s" }}>{label}</button>
+                ))}
+              </div>
+
+              {concLoading && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20 }}>Loading...</div>}
+
+              {/* ---- VISITS TAB ---- */}
+              {!concLoading && concTab === "visits" && (
+                <>
+                  {/* Stats */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
+                    {[
+                      { label: "Active Visits", value: activeVisits.length, color: "var(--accent)" },
+                      { label: "Upcoming (30 days)", value: upcomingVisits.length, color: "var(--blue)" },
+                      { label: "Total Visits", value: visits.length, color: "var(--text)" },
+                    ].map(s => (
+                      <div key={s.label} style={{ padding: 20, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14 }}>
+                        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 8, fontWeight: 500 }}>{s.label}</div>
+                        <div style={{ fontFamily: "var(--fd)", fontSize: 26, color: s.color }}>{s.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Visit Form */}
+                  {showAddVisit && (
+                    <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>New Visit</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Visit Name *</div><input value={newVisitName} onChange={e => setNewVisitName(e.target.value)} placeholder="e.g. Smith Family Spring Visit" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Guest Name</div><input value={newVisitGuest} onChange={e => setNewVisitGuest(e.target.value)} placeholder="Mr. & Mrs. Smith" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Property</div><select value={newVisitProp} onChange={e => setNewVisitProp(e.target.value)} style={sel}><option value="">— Select property —</option>{properties.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Visit Type</div><select value={newVisitType} onChange={e => setNewVisitType(e.target.value)} style={sel}><option>Owner</option><option>Rental</option><option>Guest</option></select></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Check-in *</div><input type="date" value={newVisitCheckIn} onChange={e => setNewVisitCheckIn(e.target.value)} style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Check-out *</div><input type="date" value={newVisitCheckOut} onChange={e => setNewVisitCheckOut(e.target.value)} style={inp} /></div>
+                      </div>
+                      <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Notes</div><textarea value={newVisitNotes} onChange={e => setNewVisitNotes(e.target.value)} placeholder="Special requests, preferences..." rows={2} style={{ ...inp, resize: "vertical" as const }} /></div>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={addVisit} disabled={addingVisit} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{addingVisit ? "Saving..." : "Save Visit"}</button>
+                        <button onClick={() => setShowAddVisit(false)} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {visitSuccess && <div style={{ padding: "10px 16px", background: "var(--green-s)", color: "var(--green)", borderRadius: 8, fontSize: 13, marginBottom: 16 }}>Visit created successfully!</div>}
+
+                  {/* Visit cards */}
+                  {visits.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>No visits yet. Create the first one above.</div>
+                  ) : (
+                    visits.map(v => {
+                      const daysLabel = visitDaysUntil(v.checkIn);
+                      const sc = statusColor(v.status);
+                      const nights = Math.round((new Date(v.checkOut + "T00:00:00").getTime() - new Date(v.checkIn + "T00:00:00").getTime()) / 86400000);
+                      return (
+                        <div key={v.id} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 20, marginBottom: 14 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>{v.visitName}</div>
+                              <div style={{ fontSize: 12, color: "var(--text3)" }}>{v.propertyName || "No property"} · {v.guestName || v.visitType} · {nights} night{nights !== 1 ? "s" : ""}</div>
+                              <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>{v.checkIn} → {v.checkOut}</div>
+                            </div>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                              {daysLabel && <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)" }}>{daysLabel}</span>}
+                              <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: sc.bg, color: sc.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>{v.status}</span>
+                            </div>
+                          </div>
+                          {v.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12, padding: "8px 12px", background: "var(--bg3)", borderRadius: 8 }}>{v.notes}</div>}
+                          <button onClick={() => { setSelectedVisitId(v.id); setConcTab("builder"); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View Itinerary →</button>
+                        </div>
+                      );
+                    })
+                  )}
+                </>
+              )}
+
+              {/* ---- BUILDER TAB ---- */}
+              {!concLoading && concTab === "builder" && (
+                <>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 24, flexWrap: "wrap" }}>
+                    <select value={selectedVisitId} onChange={e => setSelectedVisitId(e.target.value)} style={{ ...sel, minWidth: 280 }}>
+                      <option value="">— Select a visit —</option>
+                      {visits.map(v => <option key={v.id} value={v.id}>{v.visitName} · {v.checkIn} → {v.checkOut}</option>)}
+                    </select>
+                    {selectedVisitId && <button onClick={() => setShowAddEvent(true)} style={{ padding: "9px 18px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Event</button>}
+                  </div>
+
+                  {/* Add event form */}
+                  {showAddEvent && selectedVisitId && (
+                    <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Add Itinerary Event</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Event Name *</div><input value={newEventName} onChange={e => setNewEventName(e.target.value)} placeholder="e.g. Sunset sailing" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Date *</div><input type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Time</div><input value={newEventTime} onChange={e => setNewEventTime(e.target.value)} placeholder="e.g. 4:00 PM" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Vendor</div><select value={newEventVendor} onChange={e => setNewEventVendor(e.target.value)} style={sel}><option value="">— None —</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+                        <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Details</div><input value={newEventDetails} onChange={e => setNewEventDetails(e.target.value)} placeholder="e.g. Table for 4, outdoor garden" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Status</div><select value={newEventStatus} onChange={e => setNewEventStatus(e.target.value)} style={sel}><option>Pending</option><option>Confirmed</option><option>Cancelled</option></select></div>
+                      </div>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={addEvent} disabled={addingEvent} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{addingEvent ? "Saving..." : "Save Event"}</button>
+                        <button onClick={() => setShowAddEvent(false)} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!selectedVisitId && <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>Select a visit above to view or build its itinerary.</div>}
+
+                  {selectedVisitId && selectedVisit && (
+                    <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: "4px 0", marginBottom: 20 }}>
+                      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div><div style={{ fontSize: 14, fontWeight: 500 }}>{selectedVisit.visitName}</div><div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>{selectedVisit.propertyName} · {selectedVisit.checkIn} → {selectedVisit.checkOut}</div></div>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, ...statusColor(selectedVisit.status) }}>{selectedVisit.status}</span>
+                      </div>
+                      {Object.keys(eventsByDate).length === 0 && <div style={{ padding: 24, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>No events yet. Click "+ Add Event" to build the itinerary.</div>}
+                      {Object.keys(eventsByDate).sort().map(date => {
+                        const dayLabel = new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+                        return (
+                          <div key={date} style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{dayLabel}</div>
+                            {eventsByDate[date].map(ev => {
+                              const ec = eventStatusColor(ev.status);
+                              return (
+                                <div key={ev.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 12 }}>
+                                  <div style={{ fontSize: 12, color: "var(--text3)", minWidth: 60, paddingTop: 2 }}>{ev.time || "—"}</div>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{ev.eventName}</div>
+                                    {(ev.details || ev.vendorName) && <div style={{ fontSize: 12, color: "var(--text3)" }}>{[ev.vendorName, ev.details].filter(Boolean).join(" · ")}</div>}
+                                  </div>
+                                  <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, textTransform: "uppercase", letterSpacing: "0.04em", background: ec.bg, color: ec.text, flexShrink: 0 }}>{ev.status}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ---- VENDOR DIRECTORY TAB ---- */}
+              {!concLoading && concTab === "directory" && (
+                <>
+                  <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20 }}>Cape PM's vendor and activity directory</div>
+
+                  {/* Add Vendor Form */}
+                  {showAddVendor && (
+                    <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Add Vendor</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Name *</div><input value={newVendorName} onChange={e => setNewVendorName(e.target.value)} placeholder="Vendor name" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Category</div><select value={newVendorCat} onChange={e => setNewVendorCat(e.target.value)} style={sel}><option>Dining</option><option>Activities</option><option>Transport</option><option>Wellness</option><option>Private Chef</option><option>Maintenance</option><option>Other</option></select></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Contact</div><input value={newVendorContact} onChange={e => setNewVendorContact(e.target.value)} placeholder="+52 624 xxx xxxx" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Location</div><input value={newVendorLocation} onChange={e => setNewVendorLocation(e.target.value)} placeholder="Cabo San Lucas" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Tags</div><input value={newVendorTags} onChange={e => setNewVendorTags(e.target.value)} placeholder="e.g. Outdoor, Sunset, Emergency" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Notes</div><input value={newVendorNotes} onChange={e => setNewVendorNotes(e.target.value)} placeholder="Additional details" style={inp} /></div>
+                      </div>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={addVendor} disabled={addingVendor} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{addingVendor ? "Saving..." : "Save Vendor"}</button>
+                        <button onClick={() => setShowAddVendor(false)} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Filters */}
+                  <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+                    <select value={vendorFilter} onChange={e => setVendorFilter(e.target.value)} style={{ ...sel, minWidth: 180 }}>
+                      <option value="all">All categories</option>
+                      {["Dining","Activities","Transport","Wellness","Private Chef","Maintenance","Other"].map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <input value={vendorSearch} onChange={e => setVendorSearch(e.target.value)} placeholder="Search vendors..." style={{ ...inp, maxWidth: 220 }} />
+                  </div>
+
+                  {/* Vendor list */}
+                  {filteredVendors.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>No vendors found. Add your first vendor above.</div>
+                  ) : (
+                    filteredVendors.map(v => {
+                      const cc = catColor(v.category);
+                      const tags = v.tags ? v.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
+                      return (
+                        <div key={v.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "14px 16px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: 10, background: cc.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                            {v.category === "Dining" ? "🍽" : v.category === "Activities" ? "⛵" : v.category === "Transport" ? "🚗" : v.category === "Wellness" ? "🧘" : v.category === "Private Chef" ? "👨‍🍳" : v.category === "Maintenance" ? "🔧" : "⭐"}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                              <span style={{ fontSize: 14, fontWeight: 500 }}>{v.name}</span>
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, textTransform: "uppercase", letterSpacing: "0.04em", background: cc.bg, color: cc.text }}>{v.category}</span>
+                            </div>
+                            {v.contact && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 2 }}>{v.contact}{v.location ? ` · ${v.location}` : ""}</div>}
+                            {v.notes && <div style={{ fontSize: 12, color: "var(--text3)" }}>{v.notes}</div>}
+                            {tags.length > 0 && <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>{tags.map(t => <span key={t} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "var(--teal-s)", color: "var(--teal-l)", fontWeight: 500 }}>{t}</span>)}</div>}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
+
         {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && (
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>
