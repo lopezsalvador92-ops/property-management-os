@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const month = searchParams.get("month") || "";
 
     const params = new URLSearchParams();
+    params.append("fields[]", "Receipt No");
     params.append("fields[]", "Description");
     params.append("fields[]", "Total");
     params.append("fields[]", "Total Amount (USD)");
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
     params.append("fields[]", "Date");
     params.append("fields[]", "Receipt URL");
     params.append("fields[]", "House Name");
+    params.append("fields[]", "House");
     params.append("fields[]", "Supplier");
     params.append("fields[]", "Currency");
     params.set("sort[0][field]", "Date");
@@ -46,6 +48,7 @@ export async function GET(request: Request) {
       const curRaw = f["Currency"];
       return {
         id: r.id,
+        receiptNo: f["Receipt No"] || "",
         description: f["Description"] || "",
         total: f["Total"] || 0,
         amountUSD: f["Total Amount (USD)"] || 0,
@@ -55,6 +58,7 @@ export async function GET(request: Request) {
         date: f["Date"] || "",
         receiptUrl: f["Receipt URL"] || "",
         house: Array.isArray(f["House Name"]) ? f["House Name"].join(", ") : f["House Name"] || "",
+        houseId: (f["House"] || [])[0] || "",
         supplier: f["Supplier"] || "",
       };
     });
@@ -102,5 +106,39 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Create expense error:", error);
     return NextResponse.json({ error: "Failed to create expense" }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, date, category, amount, currency, description, supplier, propertyId } = body;
+    if (!id) return NextResponse.json({ error: "Missing record id" }, { status: 400 });
+
+    const fields: Record<string, any> = {};
+    if (date) fields["Date"] = date;
+    if (category) fields["Expense Category"] = category;
+    if (amount !== undefined) fields["Total"] = parseFloat(amount);
+    if (currency) fields["Currency"] = currency;
+    if (description !== undefined) fields["Description"] = description;
+    if (supplier !== undefined) fields["Supplier"] = supplier;
+    if (propertyId) fields["House"] = [propertyId];
+
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${EXPENSES_TABLE}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ records: [{ id, fields }], typecast: true }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      console.error("Airtable update expense error:", errData);
+      return NextResponse.json({ error: "Failed to update expense" }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Update expense error:", error);
+    return NextResponse.json({ error: "Failed to update expense" }, { status: 500 });
   }
 }

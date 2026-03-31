@@ -12,8 +12,10 @@ async function airtableGet(tableId: string, params: URLSearchParams) {
   return res.json();
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const monthParam = searchParams.get("month"); // optional YYYY-MM
     // Step 1: Fetch properties with clean configs
     const propParams = new URLSearchParams();
     propParams.append("fields[]", "House Name");
@@ -76,8 +78,9 @@ export async function GET() {
 
     // Step 3: Compute monthly summary with per-week breakdown
     const now = new Date();
-    const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const currentMonthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const currentMonthPrefix = monthParam || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const [yr, mo] = currentMonthPrefix.split("-").map(Number);
+    const currentMonthLabel = new Date(yr, mo - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
     const monthLogs = logs.filter((l: any) => l.weekStart && l.weekStart.startsWith(currentMonthPrefix));
     const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
@@ -153,7 +156,19 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { action, recordIds } = body;
+    const { action, recordIds, recordId, comments } = body;
+
+    // Single record comment update
+    if (action === "editComment" && recordId) {
+      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${HSK_TABLE}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ records: [{ id: recordId, fields: { "Comments": comments || "" } }] }),
+      });
+      if (!res.ok) return NextResponse.json({ error: "Failed to update comment" }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+
     if (!action || !recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
       return NextResponse.json({ error: "Missing action or recordIds" }, { status: 400 });
     }
