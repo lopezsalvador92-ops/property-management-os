@@ -14,7 +14,7 @@ type HskSummary = { property: string; totalCleans: number; includedPerWeek: numb
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
 type ReportStatus = { pending: number; reviewed: number; sent: number; total: number; month: string };
-type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; propertyId: string; propertyName: string; notes: string; checklist: string };
+type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; propertyId: string; propertyName: string; notes: string; checklist: string; adults: number; children: number; questionnaire: Record<string, any> };
 type Vendor = { id: string; name: string; category: string; contact: string; location: string; tags: string; notes: string };
 type ItineraryEvent = { id: string; eventName: string; visitId: string; vendorId: string; vendorName: string; date: string; time: string; details: string; status: string };
 
@@ -153,8 +153,18 @@ export default function AdminDashboard() {
   const [newVisitCheckIn, setNewVisitCheckIn] = useState("");
   const [newVisitCheckOut, setNewVisitCheckOut] = useState("");
   const [newVisitNotes, setNewVisitNotes] = useState("");
+  const [newVisitAdults, setNewVisitAdults] = useState(2);
+  const [newVisitChildren, setNewVisitChildren] = useState(0);
+  const [newVisitQ, setNewVisitQ] = useState<Record<string, any>>({});
   const [addingVisit, setAddingVisit] = useState(false);
   const [visitSuccess, setVisitSuccess] = useState(false);
+  // Questionnaire panel
+  const [questVisitId, setQuestVisitId] = useState<string | null>(null);
+  const [questForm, setQuestForm] = useState<Record<string, any>>({});
+  const [savingQuest, setSavingQuest] = useState(false);
+  // CSV import
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvResult, setCsvResult] = useState<string | null>(null);
   // Add event form
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [newEventName, setNewEventName] = useState("");
@@ -1460,13 +1470,54 @@ export default function AdminDashboard() {
             if (!newVisitName || !newVisitCheckIn || !newVisitCheckOut) return;
             setAddingVisit(true);
             try {
-              await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visitName: newVisitName, guestName: newVisitGuest, visitType: newVisitType, checkIn: newVisitCheckIn, checkOut: newVisitCheckOut, propertyId: newVisitProp, notes: newVisitNotes, status: "Upcoming" }) });
+              await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visitName: newVisitName, guestName: newVisitGuest, visitType: newVisitType, checkIn: newVisitCheckIn, checkOut: newVisitCheckOut, propertyId: newVisitProp, notes: newVisitNotes, adults: newVisitAdults, children: newVisitChildren, questionnaire: newVisitQ, status: "Upcoming" }) });
               const d = await fetch("/api/visits").then(r => r.json());
               setVisits(d.visits || []);
-              setNewVisitName(""); setNewVisitGuest(""); setNewVisitProp(""); setNewVisitCheckIn(""); setNewVisitCheckOut(""); setNewVisitNotes("");
+              setNewVisitName(""); setNewVisitGuest(""); setNewVisitProp(""); setNewVisitCheckIn(""); setNewVisitCheckOut(""); setNewVisitNotes(""); setNewVisitAdults(2); setNewVisitChildren(0); setNewVisitQ({});
               setShowAddVisit(false); setVisitSuccess(true); setTimeout(() => setVisitSuccess(false), 3000);
             } catch (e) { console.error(e); }
             setAddingVisit(false);
+          }
+
+          async function saveQuestionnaire() {
+            if (!questVisitId) return;
+            setSavingQuest(true);
+            try {
+              await fetch("/api/visits", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: questVisitId, questionnaire: questForm }) });
+              const d = await fetch("/api/visits").then(r => r.json());
+              setVisits(d.visits || []);
+              setQuestVisitId(null);
+            } catch (e) { console.error(e); }
+            setSavingQuest(false);
+          }
+
+          async function importVendorCSV(e: React.ChangeEvent<HTMLInputElement>) {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setCsvImporting(true);
+            setCsvResult(null);
+            try {
+              const text = await file.text();
+              const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+              const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ""));
+              const rows = lines.slice(1);
+              let imported = 0;
+              for (const row of rows) {
+                const cols = row.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
+                const obj: Record<string, string> = {};
+                headers.forEach((h, i) => { obj[h] = cols[i] || ""; });
+                if (!obj.name) continue;
+                await fetch("/api/vendors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: obj.name, category: obj.category || "", contact: obj.contact || "", location: obj.location || "", tags: obj.tags || "", notes: obj.notes || "" }) });
+                imported++;
+              }
+              const d = await fetch("/api/vendors").then(r => r.json());
+              setVendors(d.vendors || []);
+              setCsvResult(`✓ Imported ${imported} vendor${imported !== 1 ? "s" : ""} successfully`);
+            } catch (err) {
+              setCsvResult("Error importing CSV. Check format and try again.");
+            }
+            setCsvImporting(false);
+            e.target.value = "";
           }
 
           async function addEvent() {
@@ -1540,7 +1591,15 @@ export default function AdminDashboard() {
                   <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 0 }}>Manage owner & guest visits, itineraries, and vendors</p>
                 </div>
                 {concTab === "visits" && <button onClick={() => setShowAddVisit(!showAddVisit)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Visit</button>}
-                {concTab === "directory" && <button onClick={() => setShowAddVendor(!showAddVendor)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Vendor</button>}
+                {concTab === "directory" && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setShowAddVendor(!showAddVendor)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Vendor</button>
+                    <label style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center" }}>
+                      {csvImporting ? "Importing..." : "⬆ Import CSV"}
+                      <input type="file" accept=".csv" onChange={importVendorCSV} style={{ display: "none" }} disabled={csvImporting} />
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Sub-tabs */}
@@ -1580,6 +1639,8 @@ export default function AdminDashboard() {
                         <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Visit Type</div><select value={newVisitType} onChange={e => setNewVisitType(e.target.value)} style={sel}><option>Owner</option><option>Rental</option><option>Guest</option></select></div>
                         <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Check-in *</div><input type="date" value={newVisitCheckIn} onChange={e => setNewVisitCheckIn(e.target.value)} style={inp} /></div>
                         <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Check-out *</div><input type="date" value={newVisitCheckOut} onChange={e => setNewVisitCheckOut(e.target.value)} style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Adults</div><input type="number" min={0} value={newVisitAdults} onChange={e => setNewVisitAdults(Number(e.target.value))} style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Children</div><input type="number" min={0} value={newVisitChildren} onChange={e => setNewVisitChildren(Number(e.target.value))} style={inp} /></div>
                       </div>
                       <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Notes</div><textarea value={newVisitNotes} onChange={e => setNewVisitNotes(e.target.value)} placeholder="Special requests, preferences..." rows={2} style={{ ...inp, resize: "vertical" as const }} /></div>
                       <div style={{ display: "flex", gap: 10 }}>
@@ -1605,7 +1666,7 @@ export default function AdminDashboard() {
                             <div>
                               <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>{v.visitName}</div>
                               <div style={{ fontSize: 12, color: "var(--text3)" }}>{v.propertyName || "No property"} · {v.guestName || v.visitType} · {nights} night{nights !== 1 ? "s" : ""}</div>
-                              <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>{v.checkIn} → {v.checkOut}</div>
+                              <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>{v.checkIn} → {v.checkOut}{(v.adults || v.children) ? ` · ${v.adults || 0} adult${(v.adults || 0) !== 1 ? "s" : ""}${v.children ? `, ${v.children} child${v.children !== 1 ? "ren" : ""}` : ""}` : ""}</div>
                             </div>
                             <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                               {daysLabel && <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)" }}>{daysLabel}</span>}
@@ -1613,7 +1674,51 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                           {v.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12, padding: "8px 12px", background: "var(--bg3)", borderRadius: 8 }}>{v.notes}</div>}
-                          <button onClick={() => { setSelectedVisitId(v.id); setConcTab("builder"); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View Itinerary →</button>
+                          {/* Questionnaire summary */}
+                          {Object.keys(v.questionnaire || {}).length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                              {v.questionnaire.dailyHousekeeping && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--teal-s)", color: "var(--teal-l)" }}>Daily housekeeping</span>}
+                              {v.questionnaire.celebration && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)" }}>🎉 {v.questionnaire.celebration}</span>}
+                              {v.questionnaire.airportTransfer && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--blue-s)", color: "var(--blue)" }}>Airport transfer</span>}
+                              {v.questionnaire.poolHeated && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--blue-s)", color: "var(--blue)" }}>Pool heated</span>}
+                              {v.questionnaire.kitchenStocked && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)" }}>Kitchen stocked</span>}
+                            </div>
+                          )}
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={() => { setSelectedVisitId(v.id); setConcTab("builder"); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View Itinerary →</button>
+                            <button onClick={() => { setQuestVisitId(v.id); setQuestForm({ ...v.questionnaire }); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>📋 Questionnaire</button>
+                          </div>
+                          {/* Questionnaire panel */}
+                          {questVisitId === v.id && (
+                            <div style={{ marginTop: 16, padding: 20, background: "var(--bg3)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 16 }}>Visit Questionnaire</div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text2)", cursor: "pointer" }}>
+                                  <input type="checkbox" checked={!!questForm.dailyHousekeeping} onChange={e => setQuestForm(f => ({ ...f, dailyHousekeeping: e.target.checked }))} />
+                                  Daily housekeeping needed?
+                                </label>
+                                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text2)", cursor: "pointer" }}>
+                                  <input type="checkbox" checked={!!questForm.airportTransfer} onChange={e => setQuestForm(f => ({ ...f, airportTransfer: e.target.checked }))} />
+                                  Airport transfer needed?
+                                </label>
+                                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text2)", cursor: "pointer" }}>
+                                  <input type="checkbox" checked={!!questForm.poolHeated} onChange={e => setQuestForm(f => ({ ...f, poolHeated: e.target.checked }))} />
+                                  Pool to be heated?
+                                </label>
+                                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text2)", cursor: "pointer" }}>
+                                  <input type="checkbox" checked={!!questForm.kitchenStocked} onChange={e => setQuestForm(f => ({ ...f, kitchenStocked: e.target.checked }))} />
+                                  Kitchen to be stocked?
+                                </label>
+                              </div>
+                              <div style={{ marginBottom: 12 }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Special celebration?</div><input value={questForm.celebration || ""} onChange={e => setQuestForm(f => ({ ...f, celebration: e.target.value }))} placeholder="e.g. Birthday, Anniversary" style={inp} /></div>
+                              <div style={{ marginBottom: 12 }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Dietary restrictions</div><input value={questForm.dietary || ""} onChange={e => setQuestForm(f => ({ ...f, dietary: e.target.value }))} placeholder="e.g. Vegetarian, gluten-free" style={inp} /></div>
+                              <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Other special requests</div><textarea value={questForm.otherRequests || ""} onChange={e => setQuestForm(f => ({ ...f, otherRequests: e.target.value }))} placeholder="Any other preferences or requests..." rows={2} style={{ ...inp, resize: "vertical" as const }} /></div>
+                              <div style={{ display: "flex", gap: 10 }}>
+                                <button onClick={saveQuestionnaire} disabled={savingQuest} style={{ padding: "7px 16px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{savingQuest ? "Saving..." : "Save"}</button>
+                                <button onClick={() => setQuestVisitId(null)} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -1689,7 +1794,8 @@ export default function AdminDashboard() {
               {/* ---- VENDOR DIRECTORY TAB ---- */}
               {!concLoading && concTab === "directory" && (
                 <>
-                  <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20 }}>Cape PM's vendor and activity directory</div>
+                  <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20 }}>Cape PM's vendor and activity directory · <span style={{ color: "var(--text3)" }}>CSV format: Name, Category, Contact, Location, Tags, Notes</span></div>
+                  {csvResult && <div style={{ padding: "10px 16px", background: csvResult.startsWith("✓") ? "var(--green-s)" : "var(--red-s)", color: csvResult.startsWith("✓") ? "var(--green)" : "var(--red)", borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{csvResult}</div>}
 
                   {/* Add Vendor Form */}
                   {showAddVendor && (
