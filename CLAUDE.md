@@ -48,6 +48,9 @@ cape-pm-os/
 - **Housekeeping Log:** tblG8udG0Wdo6Wms6 — Fields: Housekeeper Name, Start of the Week, Mon-Sun Houses (formulas), Approval Status, Expenses Created?, Comments
 - **Guest Rentals:** tblAG4GqV5jCgAC7x
 - **Platform Roles:** tblsc0oGX6dygiY3U — Fields: Role ID, Display Name, Modules (JSON array), Active (checkbox)
+- **Visits:** tblJ1iEgHCeJy2CnR — Fields: Visit Name, Guest Name, Visit Type, Check-in Date, Check-out Date, Status, Property (linked), Notes, Checklist
+- **Vendors:** tblqm6eBgSSYcGcyl — Fields: Name, Category, Contact, Location, Tags, Notes
+- **Itinerary Events:** tblppsIgEI1hrM3wR — Fields: Event Name, Visit (linked), Vendor (linked), Date, Time, Details, Status
 
 ### Expense Categories
 Cleaning Supplies, Groceries, Maintenance, Miscellaneous, Utilities, Villa Staff, Others, Rental Expenses
