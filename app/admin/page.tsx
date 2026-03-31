@@ -36,7 +36,8 @@ const navItems = [
   { id: "deposits", icon: "↓", label: "Deposits" },
   { id: "reports", icon: "↗", label: "Reports" },
   { id: "concierge", icon: "✦", label: "Concierge" },
-  { id: "properties", icon: "▦", label: "Properties" },
+  { id: "calendar", icon: "▦", label: "Calendar" },
+  { id: "properties", icon: "◫", label: "Properties" },
   { id: "users", icon: "◌", label: "Users" },
 ];
 
@@ -117,7 +118,8 @@ export default function AdminDashboard() {
   const [propDetails, setPropDetails] = useState<PropertyDetail[]>([]);
   const [propLoading, setPropLoading] = useState(false);
   const [selectedProp, setSelectedProp] = useState<string | null>(null);
-  const [propTab, setPropTab] = useState<"overview" | "fees" | "housekeeping" | "history">("overview");
+  const [propTab, setPropTab] = useState<"overview" | "fees" | "housekeeping" | "history" | "availability">("overview");
+  const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
   const [propSaving, setPropSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newPropName, setNewPropName] = useState("");
@@ -158,6 +160,10 @@ export default function AdminDashboard() {
   const [newVisitQ, setNewVisitQ] = useState<Record<string, any>>({});
   const [addingVisit, setAddingVisit] = useState(false);
   const [visitSuccess, setVisitSuccess] = useState(false);
+  // Edit visit
+  const [editVisitId, setEditVisitId] = useState<string | null>(null);
+  const [editVisitForm, setEditVisitForm] = useState<Partial<Visit>>({});
+  const [savingVisit, setSavingVisit] = useState(false);
   // Questionnaire panel
   const [questVisitId, setQuestVisitId] = useState<string | null>(null);
   const [questForm, setQuestForm] = useState<Record<string, any>>({});
@@ -292,6 +298,12 @@ export default function AdminDashboard() {
     if (activePage === "properties" || activePage === "users") {
       setPropLoading(true);
       fetch("/api/properties-detail").then(r => r.json()).then(d => { setPropDetails(d.properties || []); setPropLoading(false); }).catch(() => setPropLoading(false));
+    }
+  }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "calendar" && visits.length === 0) {
+      fetch("/api/visits").then(r => r.json()).then(d => setVisits(d.visits || [])).catch(() => {});
     }
   }, [activePage]);
 
@@ -1159,7 +1171,8 @@ export default function AdminDashboard() {
                   <button onClick={() => setPropTab("overview")} style={{ ...tabStyle(propTab === "overview"), borderRadius: "8px 0 0 8px" }}>Overview</button>
                   <button onClick={() => setPropTab("fees")} style={{ ...tabStyle(propTab === "fees"), borderLeft: "none" }}>Fee Config</button>
                   <button onClick={() => setPropTab("housekeeping")} style={{ ...tabStyle(propTab === "housekeeping"), borderLeft: "none" }}>Housekeeping</button>
-                  <button onClick={() => setPropTab("history")} style={{ ...tabStyle(propTab === "history"), borderLeft: "none", borderRadius: "0 8px 8px 0" }}>History</button>
+                  <button onClick={() => setPropTab("history")} style={{ ...tabStyle(propTab === "history"), borderLeft: "none" }}>History</button>
+                  <button onClick={() => setPropTab("availability")} style={{ ...tabStyle(propTab === "availability"), borderLeft: "none", borderRadius: "0 8px 8px 0" }}>Availability</button>
                 </div>
                 {propSaved && <div style={{ padding: "10px 16px", background: "var(--green-s)", border: "1px solid rgba(110,207,151,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "var(--green)" }}>✓ Changes saved to Airtable</div>}
 
@@ -1213,6 +1226,54 @@ export default function AdminDashboard() {
                     <p style={{ fontSize: 12, color: "var(--text3)", marginTop: 12 }}>Changes save automatically when you click away from a field.</p>
                   </div>
                 )}
+
+                {propTab === "availability" && (() => {
+                  const propVisits = visits.filter(v => v.propertyId === sel_prop.id);
+                  const upcoming = propVisits.filter(v => v.status !== "Completed" && v.status !== "Cancelled").sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+                  function visitTypeColor(type: string) {
+                    if (type === "Owner") return { bg: "var(--teal-s)", text: "var(--teal-l)", bar: "var(--teal)" };
+                    if (type === "Rental") return { bg: "var(--blue-s)", text: "var(--blue)", bar: "var(--blue)" };
+                    return { bg: "rgba(155,142,196,0.12)", text: "#9B8EC4", bar: "#9B8EC4" };
+                  }
+                  return (
+                    <div>
+                      <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
+                        <div style={{ padding: "14px 18px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, flex: 1, minWidth: 120 }}><div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, marginBottom: 6 }}>Upcoming Visits</div><div style={{ fontFamily: "var(--fd)", fontSize: 22, color: "var(--accent)" }}>{upcoming.length}</div></div>
+                        <div style={{ padding: "14px 18px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, flex: 1, minWidth: 120 }}><div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, marginBottom: 6 }}>Total Nights</div><div style={{ fontFamily: "var(--fd)", fontSize: 22, color: "var(--blue)" }}>{upcoming.reduce((sum, v) => sum + Math.max(0, Math.round((new Date(v.checkOut + "T00:00:00").getTime() - new Date(v.checkIn + "T00:00:00").getTime()) / 86400000)), 0)}</div></div>
+                      </div>
+                      {upcoming.length === 0 ? (
+                        <div style={{ padding: 24, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>No upcoming visits for this property.</div>
+                      ) : (
+                        upcoming.map(v => {
+                          const nights = Math.max(0, Math.round((new Date(v.checkOut + "T00:00:00").getTime() - new Date(v.checkIn + "T00:00:00").getTime()) / 86400000));
+                          const c = visitTypeColor(v.visitType);
+                          const today = new Date(); today.setHours(0,0,0,0);
+                          const ci = new Date(v.checkIn + "T00:00:00");
+                          const diff = Math.round((ci.getTime() - today.getTime()) / 86400000);
+                          const daysLabel = diff < 0 ? "In progress" : diff === 0 ? "Arriving today" : `In ${diff} day${diff !== 1 ? "s" : ""}`;
+                          return (
+                            <div key={v.id} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 0", borderBottom: "1px solid var(--border)" }}>
+                              <div style={{ width: 4, borderRadius: 4, alignSelf: "stretch", background: c.bar, flexShrink: 0 }} />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                  <div>
+                                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{v.visitName}</div>
+                                    <div style={{ fontSize: 12, color: "var(--text3)" }}>{v.guestName || v.visitType} · {v.checkIn} → {v.checkOut} · {nights} night{nights !== 1 ? "s" : ""}{(v.adults || v.children) ? ` · ${v.adults || 0}A${v.children ? `/${v.children}C` : ""}` : ""}</div>
+                                  </div>
+                                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: c.bg, color: c.text, textTransform: "uppercase" as const }}>{v.visitType}</span>
+                                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)" }}>{daysLabel}</span>
+                                  </div>
+                                </div>
+                                {v.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 6 }}>{v.notes}</div>}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {propTab === "history" && (
                   <div style={{ ...card, padding: 0 }}>
@@ -1479,6 +1540,18 @@ export default function AdminDashboard() {
             setAddingVisit(false);
           }
 
+          async function saveEditVisit() {
+            if (!editVisitId) return;
+            setSavingVisit(true);
+            try {
+              await fetch("/api/visits", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editVisitId, ...editVisitForm }) });
+              const d = await fetch("/api/visits").then(r => r.json());
+              setVisits(d.visits || []);
+              setEditVisitId(null);
+            } catch (e) { console.error(e); }
+            setSavingVisit(false);
+          }
+
           async function saveQuestionnaire() {
             if (!questVisitId) return;
             setSavingQuest(true);
@@ -1684,10 +1757,33 @@ export default function AdminDashboard() {
                               {v.questionnaire.kitchenStocked && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)" }}>Kitchen stocked</span>}
                             </div>
                           )}
-                          <div style={{ display: "flex", gap: 8 }}>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <button onClick={() => { setSelectedVisitId(v.id); setConcTab("builder"); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View Itinerary →</button>
-                            <button onClick={() => { setQuestVisitId(v.id); setQuestForm({ ...v.questionnaire }); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>📋 Questionnaire</button>
+                            <button onClick={() => { setQuestVisitId(questVisitId === v.id ? null : v.id); setQuestForm({ ...v.questionnaire }); setEditVisitId(null); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>📋 Questionnaire</button>
+                            <button onClick={() => { setEditVisitId(editVisitId === v.id ? null : v.id); setEditVisitForm({ visitName: v.visitName, guestName: v.guestName, visitType: v.visitType, checkIn: v.checkIn, checkOut: v.checkOut, status: v.status, propertyId: v.propertyId, notes: v.notes, adults: v.adults, children: v.children }); setQuestVisitId(null); }} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button>
                           </div>
+                          {/* Edit panel */}
+                          {editVisitId === v.id && (
+                            <div style={{ marginTop: 16, padding: 20, background: "var(--bg3)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 16 }}>Edit Visit</div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Visit Name</div><input value={editVisitForm.visitName || ""} onChange={e => setEditVisitForm(f => ({ ...f, visitName: e.target.value }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Guest Name</div><input value={editVisitForm.guestName || ""} onChange={e => setEditVisitForm(f => ({ ...f, guestName: e.target.value }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Property</div><select value={editVisitForm.propertyId || ""} onChange={e => setEditVisitForm(f => ({ ...f, propertyId: e.target.value }))} style={sel}><option value="">— Select property —</option>{properties.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Visit Type</div><select value={editVisitForm.visitType || "Owner"} onChange={e => setEditVisitForm(f => ({ ...f, visitType: e.target.value }))} style={sel}><option>Owner</option><option>Rental</option><option>Guest</option></select></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Check-in</div><input type="date" value={editVisitForm.checkIn || ""} onChange={e => setEditVisitForm(f => ({ ...f, checkIn: e.target.value }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Check-out</div><input type="date" value={editVisitForm.checkOut || ""} onChange={e => setEditVisitForm(f => ({ ...f, checkOut: e.target.value }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Adults</div><input type="number" min={0} value={editVisitForm.adults ?? 0} onChange={e => setEditVisitForm(f => ({ ...f, adults: Number(e.target.value) }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Children</div><input type="number" min={0} value={editVisitForm.children ?? 0} onChange={e => setEditVisitForm(f => ({ ...f, children: Number(e.target.value) }))} style={inp} /></div>
+                                <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Status</div><select value={editVisitForm.status || "Upcoming"} onChange={e => setEditVisitForm(f => ({ ...f, status: e.target.value }))} style={sel}><option>Upcoming</option><option>Active</option><option>Completed</option><option>Cancelled</option></select></div>
+                              </div>
+                              <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Notes</div><textarea value={editVisitForm.notes || ""} onChange={e => setEditVisitForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ ...inp, resize: "vertical" as const }} /></div>
+                              <div style={{ display: "flex", gap: 10 }}>
+                                <button onClick={saveEditVisit} disabled={savingVisit} style={{ padding: "7px 16px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{savingVisit ? "Saving..." : "Save Changes"}</button>
+                                <button onClick={() => setEditVisitId(null)} style={{ padding: "7px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                              </div>
+                            </div>
+                          )}
                           {/* Questionnaire panel */}
                           {questVisitId === v.id && (
                             <div style={{ marginTop: 16, padding: 20, background: "var(--bg3)", borderRadius: 10, border: "1px solid var(--border)" }}>
@@ -1856,8 +1952,146 @@ export default function AdminDashboard() {
           );
         })()}
 
+        {/* ====== CALENDAR ====== */}
+        {activePage === "calendar" && (() => {
+          const [year, month] = calMonth.split("-").map(Number);
+          const daysInMonth = new Date(year, month, 0).getDate();
+          const monthLabel = new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+          function prevMonth() {
+            const d = new Date(year, month - 2, 1);
+            setCalMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+          }
+          function nextMonth() {
+            const d = new Date(year, month, 1);
+            setCalMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+          }
+
+          function isOccupied(propId: string, day: number): Visit | null {
+            const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            return visits.find(v => v.propertyId === propId && v.status !== "Cancelled" && v.checkIn <= dateStr && v.checkOut > dateStr) || null;
+          }
+
+          function visitColor(type: string) {
+            if (type === "Owner") return "var(--teal)";
+            if (type === "Rental") return "var(--blue)";
+            return "#9B8EC4";
+          }
+
+          const activeProps = properties.filter(p => p.status === "Active");
+          const today = new Date();
+          const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+          // Summary stats for this month
+          const monthVisits = visits.filter(v => {
+            const start = `${year}-${String(month).padStart(2, "0")}-01`;
+            const end = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+            return v.status !== "Cancelled" && v.checkIn <= end && v.checkOut > start;
+          });
+          const ownerVisits = monthVisits.filter(v => v.visitType === "Owner").length;
+          const rentalVisits = monthVisits.filter(v => v.visitType === "Rental").length;
+          const occupiedProps = new Set(monthVisits.map(v => v.propertyId)).size;
+
+          return (
+            <div style={{ padding: "32px 40px" }}>
+              {/* Header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+                <div>
+                  <h1 style={h1s}>Availability Calendar</h1>
+                  <p style={{ fontSize: 14, color: "var(--text2)" }}>Portfolio occupancy across all active properties</p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <button onClick={prevMonth} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
+                  <span style={{ fontSize: 14, fontWeight: 500, minWidth: 140, textAlign: "center" as const }}>{monthLabel}</span>
+                  <button onClick={nextMonth} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+                {[
+                  { label: "Properties Occupied", value: occupiedProps, color: "var(--accent)" },
+                  { label: "Owner Visits", value: ownerVisits, color: "var(--teal-l)" },
+                  { label: "Rental Visits", value: rentalVisits, color: "var(--blue)" },
+                  { label: "Total Active Properties", value: activeProps.length, color: "var(--text)" },
+                ].map(s => (
+                  <div key={s.label} style={{ padding: 18, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12 }}>
+                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, marginBottom: 6 }}>{s.label}</div>
+                    <div style={{ fontFamily: "var(--fd)", fontSize: 24, color: s.color }}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Legend */}
+              <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "center" }}>
+                {[["Owner", "var(--teal)"], ["Rental", "var(--blue)"], ["Guest", "#9B8EC4"]].map(([label, color]) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
+                    <div style={{ width: 12, height: 12, borderRadius: 3, background: color as string }} />
+                    {label}
+                  </div>
+                ))}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
+                  <div style={{ width: 12, height: 12, borderRadius: 3, border: "2px solid var(--accent)" }} />
+                  Today
+                </div>
+              </div>
+
+              {/* Grid */}
+              <div style={{ overflowX: "auto" }}>
+                <div style={{ minWidth: 900 }}>
+                  {/* Day headers */}
+                  <div style={{ display: "grid", gridTemplateColumns: `180px repeat(${daysInMonth}, 1fr)`, gap: 1, marginBottom: 1 }}>
+                    <div />
+                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+                      const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                      const isToday = dateStr === todayStr;
+                      const dow = new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "short" })[0];
+                      return (
+                        <div key={day} style={{ textAlign: "center" as const, padding: "4px 0", fontSize: 10, color: isToday ? "var(--accent)" : "var(--text3)", fontWeight: isToday ? 700 : 400, borderBottom: isToday ? "2px solid var(--accent)" : "2px solid transparent" }}>
+                          <div>{dow}</div>
+                          <div>{day}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Property rows */}
+                  {activeProps.map((prop, ri) => (
+                    <div key={prop.id} style={{ display: "grid", gridTemplateColumns: `180px repeat(${daysInMonth}, 1fr)`, gap: 1, marginBottom: 1 }}>
+                      {/* Property name */}
+                      <div onClick={() => { setActivePage("properties"); setSelectedProp(prop.id); setPropTab("availability"); }} style={{ fontSize: 12, color: "var(--text2)", padding: "6px 8px", display: "flex", alignItems: "center", background: ri % 2 === 0 ? "var(--bg2)" : "transparent", cursor: "pointer", borderRadius: "4px 0 0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}
+                        title={prop.name}>
+                        {prop.name}
+                      </div>
+                      {/* Day cells */}
+                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+                        const v = isOccupied(prop.id, day);
+                        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                        const isToday = dateStr === todayStr;
+                        const isCheckIn = v?.checkIn === dateStr;
+                        const isCheckOut = v ? new Date(v.checkOut + "T00:00:00").toISOString().split("T")[0] === dateStr : false;
+                        return (
+                          <div key={day} title={v ? `${v.visitName} (${v.visitType})` : undefined} style={{
+                            height: 28,
+                            background: v ? visitColor(v.visitType) : ri % 2 === 0 ? "var(--bg2)" : "transparent",
+                            opacity: v ? 0.85 : 1,
+                            borderRadius: isCheckIn ? "4px 0 0 4px" : isCheckOut ? "0 4px 4px 0" : 0,
+                            outline: isToday ? "2px solid var(--accent)" : "none",
+                            outlineOffset: -1,
+                            cursor: v ? "pointer" : "default",
+                          }} />
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && (
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && activePage !== "calendar" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>
