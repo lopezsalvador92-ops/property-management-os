@@ -728,6 +728,20 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
+                  {/* RECENT ACTIVITY (in right column) */}
+                  <h2 style={{ ...h2s, marginTop: 24, marginBottom: 12 }}>Recent activity</h2>
+                  <div style={{ ...card, padding: 0 }}>
+                    {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity...</div>}
+                    {recentActivity.slice(0, 8).map((a, i, arr) => (
+                      <div key={`act-${i}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                        <span style={{ fontSize: 13, width: 20, textAlign: "center" as const, color: a.type === "deposit" ? "var(--green)" : "var(--text3)" }}>{a.type === "deposit" ? "↓" : "⎙"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}><strong>{a.house}</strong> — {a.detail}</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(a.date)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -757,21 +771,6 @@ export default function AdminDashboard() {
                     </div>
                   );
                 })}
-              </div>
-
-              {/* RECENT ACTIVITY */}
-              <h2 style={{ ...h2s, marginBottom: 12 }}>Recent activity</h2>
-              <div style={{ ...card, padding: 0 }}>
-                {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity...</div>}
-                {recentActivity.map((a, i) => (
-                  <div key={`act-${i}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: i < recentActivity.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <span style={{ fontSize: 13, width: 20, textAlign: "center" as const, color: a.type === "deposit" ? "var(--green)" : "var(--text3)" }}>{a.type === "deposit" ? "↓" : "⎙"}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13 }}><strong>{a.house}</strong> — {a.detail}</div>
-                      <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(a.date)}</div>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           );
