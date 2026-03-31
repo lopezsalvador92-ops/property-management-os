@@ -28,6 +28,18 @@ export default function OwnerPortal() {
   const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activePage, setActivePage] = useState("home");
   const [currentMonth, setCurrentMonth] = useState(0);
+  const [enabledModules, setEnabledModules] = useState<string[]>(["home", "financials"]);
+
+  useEffect(() => {
+    fetch("/api/platform-config").then(r => r.json()).then(d => {
+      const roles: { roleId: string; modules: string[]; active: boolean }[] = d.roles || [];
+      const ownerRole = roles.find(r => r.roleId === "owner");
+      if (ownerRole && ownerRole.active) {
+        const mods = ownerRole.modules.includes("home") ? ownerRole.modules : ["home", ...ownerRole.modules];
+        setEnabledModules(mods);
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!linkedProperty) { setLoading(false); return; }
@@ -143,7 +155,7 @@ export default function OwnerPortal() {
             <span style={{ fontSize: 13, fontWeight: 500 }}>{property?.name}</span>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {navItems.map(n => (
+            {navItems.filter(n => enabledModules.includes(n.id)).map(n => (
               <button key={n.id} onClick={() => setActivePage(n.id)} style={{ padding: "6px 12px", borderRadius: 6, border: activePage === n.id ? "1px solid var(--accent)" : "1px solid var(--border)", background: activePage === n.id ? "var(--accent-s)" : "transparent", color: activePage === n.id ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>{n.label}</button>
             ))}
           </div>
@@ -164,7 +176,7 @@ export default function OwnerPortal() {
           </div>
           <div style={{ padding: "16px 12px 8px" }}>
             <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "var(--text3)", padding: "0 12px 8px", fontWeight: 600 }}>Navigation</div>
-            {navItems.map(n => (
+            {navItems.filter(n => enabledModules.includes(n.id)).map(n => (
               <div key={n.id} onClick={() => setActivePage(n.id)}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, fontSize: 13, color: activePage === n.id ? "var(--accent)" : "var(--text2)", background: activePage === n.id ? "var(--accent-s)" : "transparent", cursor: "pointer", transition: "all 0.15s", marginBottom: 2 }}>
                 <span style={{ width: 18, textAlign: "center" as const, fontSize: 14, opacity: activePage === n.id ? 1 : 0.6 }}>{n.icon}</span> {n.label}

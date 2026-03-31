@@ -17,7 +17,10 @@ const ALL_ADMIN_MODULES = [
   { id: "deposits", label: "Deposits", description: "Record owner deposits and track balances" },
   { id: "reports", label: "Reports", description: "Monthly report management with status tracking" },
   { id: "housekeeping", label: "Housekeeping", description: "HSK logs, weekly overview, monthly summary" },
-  { id: "properties", label: "Properties", description: "Property details, fees, HSK config" },
+  { id: "concierge", label: "Concierge", description: "Visits, itinerary builder, vendor directory" },
+  { id: "maintenance", label: "Maintenance", description: "Reactive/preventive tasks, vendor management" },
+  { id: "calendar", label: "Availability Calendar", description: "Portfolio-wide occupancy grid, weekly/monthly views" },
+  { id: "properties", label: "Properties", description: "Property details, fees, HSK config, availability" },
   { id: "users", label: "Users", description: "Clerk user management, roles, passwords" },
   { id: "settings", label: "Settings", description: "System admin role and module configuration" },
 ];

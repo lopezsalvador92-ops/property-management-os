@@ -72,6 +72,8 @@ export default function AdminDashboard() {
   const router = useRouter();
   const userRole = (user?.publicMetadata as any)?.role || "admin";
   const userName = user?.firstName || "User";
+  const allModuleIds = navItems.map(n => n.id);
+  const [enabledModules, setEnabledModules] = useState<string[]>(allModuleIds);
   const [properties, setProperties] = useState<Property[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
@@ -267,6 +269,22 @@ export default function AdminDashboard() {
   })();
 
   useEffect(() => { fetch("/api/properties").then(r => r.json()).then(d => { setProperties(d.properties || []); setLoading(false); }).catch(() => setLoading(false)); }, []);
+
+  // Fetch feature flags — system_admin sees everything
+  useEffect(() => {
+    if (userRole === "system_admin") return;
+    fetch("/api/platform-config").then(r => r.json()).then(d => {
+      const roles: { roleId: string; modules: string[]; active: boolean }[] = d.roles || [];
+      const myRole = roles.find(r => r.roleId === userRole);
+      if (myRole && myRole.active) {
+        // Always include dashboard
+        const mods = myRole.modules.includes("dashboard") ? myRole.modules : ["dashboard", ...myRole.modules];
+        setEnabledModules(mods);
+        // If current page is disabled, redirect to dashboard
+        if (!mods.includes(activePage)) setActivePage("dashboard");
+      }
+    }).catch(() => {});
+  }, [userRole]);
 
   useEffect(() => {
     if (activePage === "expenses") {
@@ -552,7 +570,7 @@ export default function AdminDashboard() {
             <span style={{ fontSize: 13, fontWeight: 500 }}>Cape PM</span>
           </div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
-            {navItems.map(item => (
+            {navItems.filter(item => enabledModules.includes(item.id)).map(item => (
               <button key={item.id + "-mob"} onClick={() => setActivePage(item.id)} style={{ padding: "4px 10px", borderRadius: 6, border: activePage === item.id ? "1px solid var(--accent)" : "1px solid var(--border)", background: activePage === item.id ? "var(--accent-s)" : "transparent", color: activePage === item.id ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>{item.label}</button>
             ))}
           </div>
@@ -566,7 +584,7 @@ export default function AdminDashboard() {
         </div>
         <div style={{ padding: sidebarOpen ? "16px 12px 8px" : "16px 8px 8px", flex: 1, overflowY: "auto" as const, minHeight: 0 }}>
           {sidebarOpen && <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "var(--text3)", padding: "0 12px 8px", fontWeight: 600 }}>Management</div>}
-          {navItems.map(item => (
+          {navItems.filter(item => enabledModules.includes(item.id)).map(item => (
             <div key={item.id} onClick={() => setActivePage(item.id)} title={sidebarOpen ? undefined : item.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: sidebarOpen ? "10px 12px" : "10px 0", justifyContent: sidebarOpen ? "flex-start" : "center", borderRadius: 8, fontSize: 13, cursor: "pointer", position: "relative" as const, transition: "all 0.15s", userSelect: "none" as const, color: activePage === item.id ? "var(--accent)" : "var(--text2)", background: activePage === item.id ? "var(--accent-s)" : "transparent" }}>
               <span style={{ width: 18, textAlign: "center" as const, fontSize: 14, opacity: activePage === item.id ? 1 : 0.6, flexShrink: 0 }}>{item.icon}</span>
               {sidebarOpen && item.label}
@@ -617,16 +635,16 @@ export default function AdminDashboard() {
                   <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text1)", marginBottom: 4 }}>{active.length}</div>
                   <div style={{ fontSize: 12, color: "var(--text3)" }}>of {properties.length} total</div>
                 </div>
-                <div onClick={() => setActivePage("concierge")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
+                {enabledModules.includes("concierge") && <div onClick={() => setActivePage("concierge")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
                   <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Visits This Month</div>
                   <div style={{ fontSize: 28, fontWeight: 700, color: "var(--teal)", marginBottom: 4 }}>{visits.filter(v => v.status !== "Cancelled").length}</div>
                   <div style={{ fontSize: 12, color: "var(--text3)" }}>{activeVisits.length} active · {upcomingVisits.length} upcoming</div>
-                </div>
-                <div onClick={() => setActivePage("maintenance")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
+                </div>}
+                {enabledModules.includes("maintenance") && <div onClick={() => setActivePage("maintenance")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
                   <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Open Maintenance</div>
                   <div style={{ fontSize: 28, fontWeight: 700, color: openMaint.length > 0 ? "var(--orange)" : "var(--green)", marginBottom: 4 }}>{openMaint.length}</div>
                   <div style={{ fontSize: 12, color: urgentMaint.length > 0 ? "var(--red)" : "var(--text3)" }}>{urgentMaint.length > 0 ? `${urgentMaint.length} high priority` : "No urgent items"}</div>
-                </div>
+                </div>}
                 <div onClick={() => setActivePage("reports")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
                   <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Pending Reports</div>
                   <div style={{ fontSize: 28, fontWeight: 700, color: reportStatus.pending > 0 ? "var(--accent)" : "var(--green)", marginBottom: 4 }}>{loading ? "—" : reportStatus.pending}</div>
@@ -696,7 +714,7 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 </div>
-                <div>
+                {enabledModules.includes("concierge") ? <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Upcoming visits</h2>
                   {visits.length === 0 ? (
                     <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>Loading visits...</div>
@@ -729,12 +747,12 @@ export default function AdminDashboard() {
                       })}
                     </div>
                   )}
-                </div>
+                </div> : <div />}
               </div>
 
               {/* ROW 2: OPEN MAINTENANCE + RECENT ACTIVITY */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
-                <div>
+                {enabledModules.includes("maintenance") ? <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Open maintenance</h2>
                   {openMaint.length === 0 ? (
                     <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>No open maintenance items.</div>
@@ -765,7 +783,7 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   )}
-                </div>
+                </div> : <div />}
                 <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Recent activity</h2>
                   <div style={{ ...card, padding: 0 }}>
