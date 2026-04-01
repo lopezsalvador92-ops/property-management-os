@@ -710,7 +710,7 @@ export default function OwnerPortal() {
                           return (
                             <div key={day} style={{ width: "100%", aspectRatio: "1", display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", borderRadius: 8, fontSize: 12, fontWeight: 500, background: bg, color: clr, position: "relative" as const, overflow: "hidden" }}>
                               <span>{day}</span>
-                              {info.isCheckIn && info.visitLabel && <span style={{ fontSize: 7, lineHeight: "1", marginTop: 1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, padding: "0 2px" }}>{info.visitLabel}</span>}
+                              {info.isCheckIn && info.visitLabel && <span style={{ fontSize: 10, lineHeight: "1.2", marginTop: 2, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, padding: "0 2px", fontWeight: 600 }}>{info.visitLabel}</span>}
                             </div>
                           );
                         })}

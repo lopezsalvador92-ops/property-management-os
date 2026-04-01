@@ -1817,9 +1817,9 @@ export default function AdminDashboard() {
                                   <div key={day} title={v ? `${v.visitName} (${v.visitType})` : "Available"} style={{ minHeight: 64, background: v ? `${bg}18` : "var(--bg2)", border: `1px solid ${isToday ? "var(--accent)" : v ? bg : "var(--border)"}`, borderRadius: 8, padding: "4px 6px", position: "relative" as const }}>
                                     <div style={{ fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? "var(--accent)" : "var(--text)", marginBottom: 2 }}>{day}</div>
                                     {v && (
-                                      <div style={{ fontSize: 10, lineHeight: "1.3", color: bg, fontWeight: 500 }}>
+                                      <div style={{ fontSize: 11, lineHeight: "1.3", color: bg, fontWeight: 600 }}>
                                         {isCheckIn && <div>{v.visitName || v.guestName || v.visitType}</div>}
-                                        <div style={{ fontSize: 9, color: "var(--text3)" }}>{isCheckIn ? "Check-in" : "Occupied"}</div>
+                                        <div style={{ fontSize: 10, color: "var(--text3)" }}>{isCheckIn ? "Check-in" : "Occupied"}</div>
                                       </div>
                                     )}
                                   </div>
