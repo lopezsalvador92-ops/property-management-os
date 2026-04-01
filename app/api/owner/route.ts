@@ -219,7 +219,7 @@ export async function GET(request: Request) {
 
     // 7. Get visits for this property
     const visitParams = new URLSearchParams();
-    ["Visit Name", "Guest Name", "Visit Type", "Check-in Date", "Check-out Date", "Status", "Property", "Notes", "Adults", "Children"].forEach(f => visitParams.append("fields[]", f));
+    ["Visit Name", "Guest Name", "Visit Type", "Check-in Date", "Check-out Date", "Status", "Property", "Notes", "Adults", "Children", "Published"].forEach(f => visitParams.append("fields[]", f));
     visitParams.set("sort[0][field]", "Check-in Date");
     visitParams.set("sort[0][direction]", "desc");
     visitParams.set("pageSize", "100");
@@ -235,11 +235,13 @@ export async function GET(request: Request) {
           checkIn: f["Check-in Date"] || "", checkOut: f["Check-out Date"] || "",
           status: typeof statusRaw === "string" ? statusRaw : statusRaw?.name || "",
           notes: f["Notes"] || "", adults: safeNum(f["Adults"]), children: safeNum(f["Children"]),
+          published: !!f["Published"],
         };
       });
 
-    // 8. Get itinerary events for the property's visits
-    const visitIds = visits.map((v: any) => v.id);
+    // 8. Get itinerary events for the property's visits (only published visits)
+    const publishedVisits = visits.filter((v: any) => v.published);
+    const visitIds = publishedVisits.map((v: any) => v.id);
     const itiParams = new URLSearchParams();
     ["Event Name", "Visit", "Vendor", "Date", "Time", "Details", "Status"].forEach(f => itiParams.append("fields[]", f));
     itiParams.set("sort[0][field]", "Date");

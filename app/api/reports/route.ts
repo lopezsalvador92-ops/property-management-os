@@ -133,6 +133,75 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { action, recordIds, exchangeRate, recordId } = body;
 
+    // Handle refresh starting balance from previous month
+    if (action === "refreshBalance" && recordId && body.month) {
+      // Parse current month string like "March 2026" to find previous month
+      const [monthName, yearStr] = body.month.split(" ");
+      const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      const monthIdx = monthNames.indexOf(monthName);
+      if (monthIdx === -1) return NextResponse.json({ error: "Invalid month" }, { status: 400 });
+      const prevDate = new Date(parseInt(yearStr), monthIdx - 1, 1);
+      const prevMonthStr = `${monthNames[prevDate.getMonth()]} ${prevDate.getFullYear()}`;
+
+      // Get the current report to find its property
+      const curParams = new URLSearchParams();
+      curParams.append("fields[]", "House Name");
+      curParams.set("pageSize", "1");
+      curParams.set("filterByFormula", `RECORD_ID()="${recordId}"`);
+      const curData = await airtableGet(REPORTS_TABLE, curParams);
+      if (!curData.records || curData.records.length === 0) return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      const houseField = curData.records[0].fields["House Name"];
+      const houseId = Array.isArray(houseField) ? (typeof houseField[0] === "string" ? houseField[0] : houseField[0]?.id || "") : "";
+      if (!houseId) return NextResponse.json({ error: "No property linked" }, { status: 400 });
+
+      // Find previous month's report for the same property
+      const prevParams = new URLSearchParams();
+      prevParams.append("fields[]", "Final Balance MXN");
+      prevParams.append("fields[]", "Final Balance USD");
+      prevParams.append("fields[]", "House Name");
+      prevParams.append("fields[]", "Preferred Currency");
+      prevParams.set("pageSize", "100");
+      prevParams.set("filterByFormula", `{Month and Year}="${prevMonthStr}"`);
+      const prevData = await airtableGet(REPORTS_TABLE, prevParams);
+      const prevReport = prevData.records.find((r: any) => {
+        const h = r.fields["House Name"];
+        const linkedId = Array.isArray(h) ? (typeof h[0] === "string" ? h[0] : h[0]?.id || "") : "";
+        return linkedId === houseId;
+      });
+
+      if (!prevReport) return NextResponse.json({ error: `No report found for ${prevMonthStr}` }, { status: 404 });
+
+      // Determine currency to pick correct final balance
+      const prefRaw = prevReport.fields["Preferred Currency"];
+      let prevCurrency = "MXN";
+      if (prefRaw) {
+        if (Array.isArray(prefRaw)) { const f = prefRaw[0]; prevCurrency = typeof f === "string" ? f : f?.name || "MXN"; }
+        else if (typeof prefRaw === "string") prevCurrency = prefRaw;
+        else if (prefRaw.name) prevCurrency = prefRaw.name;
+      }
+      // Also check via property lookup
+      const propParams2 = new URLSearchParams();
+      propParams2.append("fields[]", "Preferred Currency");
+      propParams2.set("pageSize", "1");
+      propParams2.set("filterByFormula", `RECORD_ID()="${houseId}"`);
+      const propData2 = await airtableGet(PROPERTIES_TABLE, propParams2);
+      if (propData2.records && propData2.records.length > 0) {
+        const pc = propData2.records[0].fields["Preferred Currency"];
+        if (pc) prevCurrency = typeof pc === "string" ? pc : pc?.name || prevCurrency;
+      }
+
+      const prevFinalBalance = safeNum(prevCurrency === "USD" ? prevReport.fields["Final Balance USD"] : prevReport.fields["Final Balance MXN"]);
+
+      // Update current report's Starting Balance
+      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${REPORTS_TABLE}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ records: [{ id: recordId, fields: { "Starting Balance": prevFinalBalance } }] }),
+      });
+      if (!res.ok) return NextResponse.json({ error: "Failed to update starting balance" }, { status: 500 });
+      return NextResponse.json({ success: true, previousMonth: prevMonthStr, startingBalance: prevFinalBalance });
+    }
+
     // Handle exchange rate update (single record)
     if (action === "updateExchangeRate" && recordId && exchangeRate !== undefined) {
       const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${REPORTS_TABLE}`, {

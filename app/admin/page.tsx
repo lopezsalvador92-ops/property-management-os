@@ -14,11 +14,11 @@ type HskSummary = { property: string; totalCleans: number; includedPerWeek: numb
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
 type ReportStatus = { pending: number; reviewed: number; sent: number; total: number; month: string };
-type MaintenanceTask = { id: string; title: string; type: string; status: string; priority: string; propertyId: string; propertyName: string; vendorId: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean };
+type MaintenanceTask = { id: string; title: string; type: string; status: string; priority: string; propertyId: string; propertyName: string; vendorId: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean; attachments: { url: string; filename: string }[]; approvalStatus: string; approvedBy: string; approvalDate: string };
 type MaintenanceConfig = { id: string; taskName: string; category: string; propertyIds: string[]; propertyNames: string[]; frequency: string; vendorId: string; vendorName: string; lastCompleted: string; nextDue: string; notes: string; active: boolean };
-type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; propertyId: string; propertyName: string; notes: string; checklist: string; adults: number; children: number; questionnaire: Record<string, any> };
+type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; propertyId: string; propertyName: string; notes: string; checklist: string; adults: number; children: number; questionnaire: Record<string, any>; published: boolean };
 type Vendor = { id: string; name: string; category: string; contact: string; location: string; tags: string; notes: string };
-type ItineraryEvent = { id: string; eventName: string; visitId: string; vendorId: string; vendorName: string; date: string; time: string; details: string; status: string };
+type ItineraryEvent = { id: string; eventName: string; visitId: string; vendorId: string; vendorName: string; date: string; time: string; details: string; status: string; eventType: string; extraDetails: Record<string, any>; showVendor: boolean; chargeable: boolean; estimatedCost: number; expenseCreated: boolean };
 
 const catColors: Record<string, { bg: string; text: string }> = {
   Utilities: { bg: "rgba(207,196,110,0.1)", text: "#CFC46E" },
@@ -98,6 +98,8 @@ export default function AdminDashboard() {
   const [repLoading, setRepLoading] = useState(false);
   const [repMonth, setRepMonth] = useState(new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }));
   const [repUpdating, setRepUpdating] = useState<string | null>(null);
+  const [repView, setRepView] = useState<"status" | "preview">("status");
+  const [previewProp, setPreviewProp] = useState("");
 
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -154,11 +156,14 @@ export default function AdminDashboard() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [itineraryEvents, setItineraryEvents] = useState<ItineraryEvent[]>([]);
   const [concLoading, setConcLoading] = useState(false);
-  const [concTab, setConcTab] = useState<"visits" | "builder" | "directory">("visits");
+  const [concTab, setConcTab] = useState<"visits" | "builder" | "directory" | "charges">("visits");
   const [selectedVisitId, setSelectedVisitId] = useState<string>("");
   const [visitStatusFilter, setVisitStatusFilter] = useState<"all" | "Active" | "Upcoming" | "Completed">("all");
   const [vendorFilter, setVendorFilter] = useState("all");
   const [vendorSearch, setVendorSearch] = useState("");
+  const [editChargeId, setEditChargeId] = useState<string | null>(null);
+  const [editChargeForm, setEditChargeForm] = useState<{ amount: string; description: string }>({ amount: "", description: "" });
+  const [approvingCharge, setApprovingCharge] = useState<string | null>(null);
   const [editVendorId, setEditVendorId] = useState<string | null>(null);
   const [editVendorForm, setEditVendorForm] = useState<Record<string, any>>({});
   const [savingVendor, setSavingVendor] = useState(false);
@@ -221,6 +226,8 @@ export default function AdminDashboard() {
   const [expenseReview, setExpenseReview] = useState<{ task: MaintenanceTask; amount: string; date: string; property: string; category: string; description: string; supplier: string } | null>(null);
   const [calView, setCalView] = useState<"monthly" | "weekly">("monthly");
   const [calWeekStart, setCalWeekStart] = useState(() => { const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().split("T")[0]; });
+  const [propAvailView, setPropAvailView] = useState<"weekly" | "list" | "monthly">("weekly");
+  const [propCalMonth, setPropCalMonth] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
   const [editUserId, setEditUserId] = useState<string | null>(null);
   const [editUserForm, setEditUserForm] = useState<{ firstName: string; lastName: string; role: string; linkedProperty: string }>({ firstName: "", lastName: "", role: "", linkedProperty: "" });
   // Add event form
@@ -231,7 +238,13 @@ export default function AdminDashboard() {
   const [newEventDetails, setNewEventDetails] = useState("");
   const [newEventVendor, setNewEventVendor] = useState("");
   const [newEventStatus, setNewEventStatus] = useState("Pending");
+  const [newEventType, setNewEventType] = useState("");
+  const [newEventExtraDetails, setNewEventExtraDetails] = useState<Record<string, string>>({});
+  const [newEventShowVendor, setNewEventShowVendor] = useState(true);
+  const [newEventChargeable, setNewEventChargeable] = useState(false);
+  const [newEventEstCost, setNewEventEstCost] = useState("");
   const [addingEvent, setAddingEvent] = useState(false);
+  const [publishingVisit, setPublishingVisit] = useState(false);
   // Add vendor form
   const [showAddVendor, setShowAddVendor] = useState(false);
   const [showAddMaintVendor, setShowAddMaintVendor] = useState(false);
@@ -291,6 +304,9 @@ export default function AdminDashboard() {
       setExpLoading(true);
       fetch(expFilter === "all" ? "/api/expenses" : `/api/expenses?house=${encodeURIComponent(expFilter)}`)
         .then(r => r.json()).then(d => { setExpenses(d.expenses || []); setExpLoading(false); }).catch(() => setExpLoading(false));
+    }
+    if (activePage === "reports" && expenses.length === 0) {
+      fetch("/api/expenses").then(r => r.json()).then(d => setExpenses(d.expenses || [])).catch(() => {});
     }
   }, [activePage, expFilter]);
 
@@ -415,7 +431,7 @@ export default function AdminDashboard() {
   }, [activePage]);
 
   useEffect(() => {
-    if (activePage === "concierge" && concTab === "builder") {
+    if (activePage === "concierge" && (concTab === "builder" || concTab === "charges")) {
       // Fetch all events (client-side filters by visitId since Airtable's ARRAYJOIN on linked fields returns names not IDs)
       fetch(`/api/itinerary`).then(r => r.json()).then(d => setItineraryEvents(d.events || [])).catch(() => {});
     }
@@ -497,6 +513,20 @@ export default function AdminDashboard() {
     setRepUpdating(null);
   }
 
+  async function refreshBalance(recordId: string, month: string) {
+    setRepUpdating("refreshBalance-" + recordId);
+    try {
+      const res = await fetch("/api/reports", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refreshBalance", recordId, month }) });
+      if (res.ok) {
+        fetch(`/api/reports?month=${encodeURIComponent(repMonth)}`).then(r => r.json()).then(d => setReports(d.reports || []));
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to refresh balance");
+      }
+    } catch (e) { console.error(e); }
+    setRepUpdating(null);
+  }
+
   const active = properties.filter(p => p.status === "Active");
   const filteredExpenses = (() => {
     const base = monthFilter === "all" ? expenses : expenses.filter(e => e.date && e.date.startsWith(monthFilter));
@@ -547,6 +577,19 @@ export default function AdminDashboard() {
         .admin-mobile-bar{display:flex !important;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
       }
     `}</style>
+    {theme === "light" && <style>{`
+      :root {
+        --bg: #F5F7FA !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #F0F2F5 !important;
+        --text: #1A1A2E !important; --text2: #4A5568 !important; --text3: #8795A8 !important;
+        --border: rgba(0,0,0,0.08) !important; --border2: rgba(0,0,0,0.12) !important;
+        --accent: #B8942E !important; --accent-s: rgba(184,148,46,0.1) !important;
+        --teal: #2A8B9A !important; --teal-l: #1A7A8A !important; --teal-s: rgba(42,139,154,0.08) !important;
+        --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.08) !important;
+        --red: #C45555 !important; --red-s: rgba(196,85,85,0.08) !important;
+        --blue: #4A8BC4 !important; --blue-s: rgba(74,139,196,0.08) !important;
+        --orange: #C4804A !important; --orange-s: rgba(196,128,74,0.08) !important;
+      }
+    `}</style>}
     {theme === "light" && <style>{`
       :root {
         --bg: #F5F7FA !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #F0F2F5 !important;
@@ -989,11 +1032,20 @@ export default function AdminDashboard() {
                 <h1 style={h1s}>Monthly Reports</h1>
                 <p style={{ fontSize: 14, color: "var(--text2)" }}>{repLoading ? "Loading..." : `${repMonth} · Review, approve, and send to owners`}</p>
               </div>
-              <select value={repMonth} onChange={e => setRepMonth(e.target.value)} style={{ ...sel, minWidth: 180 }}>
-                {repMonthOptions.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 0 }}>
+                  <button onClick={() => setRepView("status")}
+                    style={{ padding: "7px 16px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border2)", background: repView === "status" ? "var(--accent-s)" : "transparent", color: repView === "status" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>By Status</button>
+                  <button onClick={() => setRepView("preview")}
+                    style={{ padding: "7px 16px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border2)", borderLeft: "none", background: repView === "preview" ? "var(--accent-s)" : "transparent", color: repView === "preview" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Owner Preview</button>
+                </div>
+                <select value={repMonth} onChange={e => setRepMonth(e.target.value)} style={{ ...sel, minWidth: 180 }}>
+                  {repMonthOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
             </div>
 
+            {repView === "status" && (<>
             {/* Stat cards */}
             {!repLoading && reports.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
@@ -1056,6 +1108,8 @@ export default function AdminDashboard() {
                         </div>
                       )}
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
+                          style={{ padding: "5px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "..." : "\u21BB Refresh"}</button>
                         {r.chargeStatus !== "Completed" && (
                           <button onClick={() => updateReports("generateCharges", [r.id])} disabled={repUpdating !== null}
                             style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--teal-l)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Gen. charges</button>
@@ -1130,6 +1184,10 @@ export default function AdminDashboard() {
                         </div>
                       )}
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
+                          style={{ padding: "5px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "..." : "\u21BB Refresh"}</button>
+                        <button onClick={() => updateReports("markPending", [r.id])} disabled={repUpdating !== null}
+                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{"\u2190"} Back to Pending</button>
                         <button onClick={() => setPreviewId(isOpen ? null : r.id)}
                           style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: isOpen ? "var(--accent-s)" : "transparent", color: "var(--accent)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Preview</button>
                         <button onClick={() => updateReports("markSent", [r.id])} disabled={repUpdating !== null}
@@ -1167,6 +1225,8 @@ export default function AdminDashboard() {
                         <div style={{ fontSize: 12, color: "var(--text3)" }}>Sent · Balance: <span style={{ color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</span></div>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
+                          style={{ padding: "5px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>{repUpdating === "refreshBalance-" + r.id ? "..." : "\u21BB Refresh"}</button>
                         <button onClick={() => updateReports("markPending", [r.id])} disabled={repUpdating !== null}
                           style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Reopen</button>
                         <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
@@ -1177,10 +1237,99 @@ export default function AdminDashboard() {
                 })}
               </div>
             </>)}
+            </>)}
+
+            {/* ====== OWNER PREVIEW ====== */}
+            {repView === "preview" && (() => {
+              const propReport = reports.find(r => r.house === previewProp);
+              const propExpenses = expenses.filter(e => e.house === previewProp && e.date && e.date.startsWith(monthToFilterValue(repMonth)));
+              const pmFee = propReport ? propReport.totalExpenses * 0.18 : 0;
+              const catIcons: Record<string, string> = { "Villa Staff": "\u{1F464}", Utilities: "\u26A1", Maintenance: "\u{1F527}", "Cleaning Supplies": "\u{1F9F9}", Groceries: "\u{1F6D2}", Miscellaneous: "\u{1F4E6}", "Rental Expenses": "\u{1F3E0}", Others: "\u{1F4CB}" };
+
+              return (
+                <div>
+                  <div style={{ marginBottom: 24 }}>
+                    <select value={previewProp} onChange={e => setPreviewProp(e.target.value)} style={{ ...sel, minWidth: 260 }}>
+                      <option value="">Select a property...</option>
+                      {active.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                    </select>
+                  </div>
+
+                  {previewProp && !propReport && !repLoading && (
+                    <div style={{ ...card, textAlign: "center" as const, padding: 40, color: "var(--text3)" }}>No report found for {previewProp} in {repMonth}</div>
+                  )}
+
+                  {previewProp && propReport && (<>
+                    <div style={{ display: "grid", gridTemplateColumns: propReport.currency === "USD" ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
+                      <div style={card}>
+                        <div style={lbl}>Deposits</div>
+                        <div style={{ fontFamily: "'Georgia', serif", fontSize: 22, color: "var(--green)" }}>{fmtCur(propReport.totalDeposits, propReport.currency)}</div>
+                      </div>
+                      <div style={card}>
+                        <div style={lbl}>Total Charges</div>
+                        <div style={{ fontFamily: "'Georgia', serif", fontSize: 22, color: "var(--red)" }}>{fmtCur(propReport.totalExpenses, propReport.currency)}</div>
+                      </div>
+                      {propReport.currency === "USD" && (
+                        <div style={card}>
+                          <div style={lbl}>Exchange Rate</div>
+                          <div style={{ fontFamily: "'Georgia', serif", fontSize: 22 }}>{propReport.exchangeRate ? propReport.exchangeRate.toFixed(2) : "\u2014"}</div>
+                        </div>
+                      )}
+                      <div style={card}>
+                        <div style={lbl}>Final Balance</div>
+                        <div style={{ fontFamily: "'Georgia', serif", fontSize: 22, color: propReport.finalBalance < 0 ? "var(--red)" : "var(--green)" }}>{propReport.finalBalance < 0 ? "-" : ""}{fmtCur(propReport.finalBalance, propReport.currency)}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ ...card, marginBottom: 24 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 16 }}>Account Summary</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 14, color: "var(--text2)" }}>Starting Balance</span>
+                        <span style={{ fontSize: 14, fontWeight: 500 }}>{fmtCur(propReport.startingBalance, propReport.currency)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 14, color: "var(--text2)" }}>Deposits</span>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--green)" }}>+{fmtCur(propReport.totalDeposits, propReport.currency)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 14, color: "var(--text2)" }}>Operating Expenses</span>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--red)" }}>-{fmtCur(propReport.totalExpenses, propReport.currency)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 14, color: "var(--text2)" }}>PM Fee (18%)</span>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text3)" }}>{fmtCur(pmFee, propReport.currency)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 4px" }}>
+                        <span style={{ fontSize: 15, fontWeight: 600 }}>Ending Balance</span>
+                        <span style={{ fontSize: 15, fontWeight: 600, color: propReport.finalBalance < 0 ? "var(--red)" : "var(--green)" }}>{propReport.finalBalance < 0 ? "-" : ""}{fmtCur(propReport.finalBalance, propReport.currency)}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ ...card }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 16 }}>Expense Breakdown</div>
+                      {propExpenses.length === 0 && (
+                        <div style={{ fontSize: 13, color: "var(--text3)", padding: "12px 0" }}>No individual expense records found for this month. Totals shown above come from report rollups.</div>
+                      )}
+                      {propExpenses.map((exp, i) => (
+                        <div key={exp.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < propExpenses.length - 1 ? "1px solid var(--border)" : "none" }}>
+                          <span style={{ fontSize: 16, width: 28, textAlign: "center" as const }}>{catIcons[exp.category] || "\u{1F4CB}"}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{exp.description || exp.category}</div>
+                            <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(exp.date)} {exp.category}{exp.supplier ? ` \u00B7 ${exp.supplier}` : ""}</div>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 500, flexShrink: 0 }}>{fmtCur(exp.total, exp.currency)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>)}
+                </div>
+              );
+            })()}
+
           </div>
         )}
 
-        
+
         {/* ====== HOUSEKEEPING ====== */}
         {activePage === "housekeeping" && (() => {
           const pending = hskLogs.filter(l => l.status === "Pending");
@@ -1528,13 +1677,14 @@ export default function AdminDashboard() {
                         <div style={{ padding: "14px 18px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, flex: 1, minWidth: 120 }}><div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, marginBottom: 6 }}>Upcoming Visits</div><div style={{ fontFamily: "var(--fd)", fontSize: 22, color: "var(--accent)" }}>{upcoming.length}</div></div>
                         <div style={{ padding: "14px 18px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, flex: 1, minWidth: 120 }}><div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, marginBottom: 6 }}>Total Nights</div><div style={{ fontFamily: "var(--fd)", fontSize: 22, color: "var(--blue)" }}>{upcoming.reduce((sum, v) => sum + Math.max(0, Math.round((new Date(v.checkOut + "T00:00:00").getTime() - new Date(v.checkIn + "T00:00:00").getTime()) / 86400000)), 0)}</div></div>
                         <div style={{ display: "flex", gap: 0 }}>
-                          <button onClick={() => setCalView("weekly")} style={{ padding: "8px 14px", borderRadius: "6px 0 0 6px", border: "1px solid var(--border2)", background: calView === "weekly" ? "var(--accent-s)" : "transparent", color: calView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Weekly Grid</button>
-                          <button onClick={() => setCalView("monthly")} style={{ padding: "8px 14px", borderRadius: "0 6px 6px 0", border: "1px solid var(--border2)", borderLeft: "none", background: calView === "monthly" ? "var(--accent-s)" : "transparent", color: calView === "monthly" ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>List View</button>
+                          <button onClick={() => setPropAvailView("weekly")} style={{ padding: "8px 14px", borderRadius: "6px 0 0 6px", border: "1px solid var(--border2)", background: propAvailView === "weekly" ? "var(--accent-s)" : "transparent", color: propAvailView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Weekly Grid</button>
+                          <button onClick={() => setPropAvailView("monthly")} style={{ padding: "8px 14px", border: "1px solid var(--border2)", borderLeft: "none", background: propAvailView === "monthly" ? "var(--accent-s)" : "transparent", color: propAvailView === "monthly" ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Monthly</button>
+                          <button onClick={() => setPropAvailView("list")} style={{ padding: "8px 14px", borderRadius: "0 6px 6px 0", border: "1px solid var(--border2)", borderLeft: "none", background: propAvailView === "list" ? "var(--accent-s)" : "transparent", color: propAvailView === "list" ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>List View</button>
                         </div>
                       </div>
 
                       {/* Weekly Grid */}
-                      {calView === "weekly" && (
+                      {propAvailView === "weekly" && (
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
                             <button onClick={() => { const d = new Date(calWeekStart); d.setDate(d.getDate() - 7); setCalWeekStart(d.toISOString().split("T")[0]); }} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
@@ -1566,7 +1716,7 @@ export default function AdminDashboard() {
                       )}
 
                       {/* List View (original) */}
-                      {calView === "monthly" && (
+                      {propAvailView === "list" && (
                         <>
                           {upcoming.length === 0 ? (
                             <div style={{ padding: 24, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>No upcoming visits for this property.</div>
@@ -1600,6 +1750,79 @@ export default function AdminDashboard() {
                           )}
                         </>
                       )}
+
+                      {/* Monthly Calendar Grid */}
+                      {propAvailView === "monthly" && (() => {
+                        const [pYear, pMonth] = propCalMonth.split("-").map(Number);
+                        const pDaysInMonth = new Date(pYear, pMonth, 0).getDate();
+                        const pMonthLabel = new Date(pYear, pMonth - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                        const firstDow = new Date(pYear, pMonth - 1, 1).getDay(); // 0=Sun
+                        const pTodayStr = new Date().toISOString().split("T")[0];
+
+                        function isOccMonth(day: number): Visit | null {
+                          const dateStr = `${pYear}-${String(pMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                          return propVisits.find(v => v.status !== "Cancelled" && v.checkIn <= dateStr && v.checkOut > dateStr) || null;
+                        }
+
+                        function propVisitColor(type: string) {
+                          if (type === "Owner") return "var(--teal)";
+                          if (type === "Rental") return "var(--blue)";
+                          return "#9B8EC4";
+                        }
+
+                        // Build grid cells: leading blanks + day cells
+                        const cells: (number | null)[] = (Array.from({ length: firstDow }, () => null) as (number | null)[]).concat(Array.from({ length: pDaysInMonth }, (_, i) => i + 1));
+                        // Pad trailing to fill last row
+                        while (cells.length % 7 !== 0) cells.push(null);
+
+                        return (
+                          <div>
+                            {/* Month nav */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                              <button onClick={() => { const d = new Date(pYear, pMonth - 2, 1); setPropCalMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); }} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>{"\u2039"}</button>
+                              <span style={{ fontSize: 13, fontWeight: 500 }}>{pMonthLabel}</span>
+                              <button onClick={() => { const d = new Date(pYear, pMonth, 1); setPropCalMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); }} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>{"\u203A"}</button>
+                            </div>
+                            {/* Legend */}
+                            <div style={{ display: "flex", gap: 14, marginBottom: 12 }}>
+                              {[["Owner", "var(--teal)"], ["Rental", "var(--blue)"], ["Guest", "#9B8EC4"]].map(([label, color]) => (
+                                <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--text3)" }}>
+                                  <div style={{ width: 10, height: 10, borderRadius: 3, background: color as string }} />
+                                  {label}
+                                </div>
+                              ))}
+                            </div>
+                            {/* Day-of-week headers */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+                              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+                                <div key={d} style={{ textAlign: "center" as const, fontSize: 10, fontWeight: 600, color: "var(--text3)", padding: "4px 0", textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>{d}</div>
+                              ))}
+                            </div>
+                            {/* Calendar grid */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+                              {cells.map((day, idx) => {
+                                if (day === null) return <div key={`blank-${idx}`} style={{ minHeight: 64 }} />;
+                                const dateStr = `${pYear}-${String(pMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                                const v = isOccMonth(day);
+                                const isToday = dateStr === pTodayStr;
+                                const isCheckIn = v?.checkIn === dateStr;
+                                const bg = v ? propVisitColor(v.visitType) : "var(--bg2)";
+                                return (
+                                  <div key={day} title={v ? `${v.visitName} (${v.visitType})` : "Available"} style={{ minHeight: 64, background: v ? `${bg}18` : "var(--bg2)", border: `1px solid ${isToday ? "var(--accent)" : v ? bg : "var(--border)"}`, borderRadius: 8, padding: "4px 6px", position: "relative" as const }}>
+                                    <div style={{ fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? "var(--accent)" : "var(--text)", marginBottom: 2 }}>{day}</div>
+                                    {v && (
+                                      <div style={{ fontSize: 10, lineHeight: "1.3", color: bg, fontWeight: 500 }}>
+                                        {isCheckIn && <div>{v.visitName || v.guestName || v.visitType}</div>}
+                                        <div style={{ fontSize: 9, color: "var(--text3)" }}>{isCheckIn ? "Check-in" : "Occupied"}</div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })()}
@@ -1941,13 +2164,24 @@ export default function AdminDashboard() {
             if (!newEventName || !newEventDate || !selectedVisitId) return;
             setAddingEvent(true);
             try {
-              await fetch("/api/itinerary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName: newEventName, visitId: selectedVisitId, vendorId: newEventVendor || undefined, date: newEventDate, time: newEventTime, details: newEventDetails, status: newEventStatus }) });
+              await fetch("/api/itinerary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName: newEventName, visitId: selectedVisitId, vendorId: newEventVendor || undefined, date: newEventDate, time: newEventTime, details: newEventDetails, status: newEventStatus, eventType: newEventType || undefined, extraDetails: Object.keys(newEventExtraDetails).length > 0 ? newEventExtraDetails : undefined, showVendor: newEventShowVendor, chargeable: newEventChargeable, estimatedCost: newEventChargeable && newEventEstCost ? Number(newEventEstCost) : undefined }) });
               const d = await fetch(`/api/itinerary`).then(r => r.json());
               setItineraryEvents(d.events || []);
               setNewEventName(""); setNewEventDate(""); setNewEventTime(""); setNewEventDetails(""); setNewEventVendor(""); setNewEventStatus("Pending");
+              setNewEventType(""); setNewEventExtraDetails({}); setNewEventShowVendor(true); setNewEventChargeable(false); setNewEventEstCost("");
               setShowAddEvent(false);
             } catch (e) { console.error(e); }
             setAddingEvent(false);
+          }
+
+          async function togglePublished(visitId: string, currentVal: boolean) {
+            setPublishingVisit(true);
+            try {
+              await fetch("/api/visits", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: visitId, published: !currentVal }) });
+              const d = await fetch("/api/visits").then(r => r.json());
+              setVisits(d.visits || []);
+            } catch (e) { console.error(e); }
+            setPublishingVisit(false);
           }
 
           async function addVendor() {
@@ -2021,7 +2255,7 @@ export default function AdminDashboard() {
 
               {/* Sub-tabs */}
               <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content" }}>
-                {([["visits","Visits"],["builder","Itinerary Builder"],["directory","Vendor Directory"]] as [string,string][]).map(([id, label]) => (
+                {([["visits","Visits"],["builder","Itinerary Builder"],["directory","Vendor Directory"],["charges","Charges"]] as [string,string][]).map(([id, label]) => (
                   <button key={id} onClick={() => setConcTab(id as any)} style={{ padding: "8px 18px", borderRadius: 100, fontSize: 13, color: concTab === id ? "var(--accent)" : "var(--text3)", background: concTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, transition: "all 0.15s" }}>{label}</button>
                 ))}
               </div>
@@ -2202,8 +2436,16 @@ export default function AdminDashboard() {
                     <div>
                   <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
                     {selectedVisitId && <button onClick={() => setShowAddEvent(true)} style={{ padding: "9px 18px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Event</button>}
+                    {selectedVisitId && selectedVisit && (
+                      <div onClick={() => !publishingVisit && togglePublished(selectedVisitId, selectedVisit.published)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: publishingVisit ? "wait" : "pointer", padding: "7px 14px", borderRadius: 100, border: `1px solid ${selectedVisit.published ? "rgba(110,207,151,0.3)" : "var(--border2)"}`, background: selectedVisit.published ? "var(--green-s)" : "transparent" }}>
+                        <div style={{ width: 34, height: 18, borderRadius: 9, background: selectedVisit.published ? "var(--green)" : "var(--text3)", position: "relative" as const, transition: "background 0.2s" }}>
+                          <div style={{ width: 14, height: 14, borderRadius: 7, background: "#fff", position: "absolute" as const, top: 2, left: selectedVisit.published ? 18 : 2, transition: "left 0.2s" }} />
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: selectedVisit.published ? "var(--green)" : "var(--text3)" }}>{selectedVisit.published ? "Published" : "Unpublished"}</span>
+                      </div>
+                    )}
                     {selectedVisitId && visitsForBuilder.length > 0 && (() => {
-                      function publishItinerary() {
+                      function copyItinerary() {
                         const sv = visits.find(v => v.id === selectedVisitId);
                         if (!sv) return;
                         const header = `📅 ITINERARY — ${sv.visitName}\n${sv.propertyName} · ${sv.checkIn} → ${sv.checkOut}\n${"─".repeat(40)}\n`;
@@ -2213,9 +2455,9 @@ export default function AdminDashboard() {
                           return `\n${dayLabel}\n${events}`;
                         }).join("\n");
                         const footer = `\n${"─".repeat(40)}\nPrepared by Cape Property Management`;
-                        navigator.clipboard.writeText(header + body + footer).then(() => alert("✓ Itinerary copied to clipboard — ready to paste into an email or message!"));
+                        navigator.clipboard.writeText(header + body + footer).then(() => alert("Itinerary copied to clipboard!"));
                       }
-                      return <button onClick={publishItinerary} style={{ padding: "9px 18px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.3)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>📤 Publish Itinerary</button>;
+                      return <button onClick={copyItinerary} style={{ padding: "9px 18px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.3)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>📋 Copy</button>;
                     })()}
                   </div>
 
@@ -2225,11 +2467,39 @@ export default function AdminDashboard() {
                       <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Add Itinerary Event</div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
                         <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Event Name *</div><input value={newEventName} onChange={e => setNewEventName(e.target.value)} placeholder="e.g. Sunset sailing" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Event Type</div><select value={newEventType} onChange={e => { setNewEventType(e.target.value); setNewEventExtraDetails({}); }} style={sel}><option value="">— Select —</option>{["Restaurant Reservation","Arrival Transportation","Departure Transportation","Private Transportation","Private Chef","Activity","Spa/Wellness","Other"].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
                         <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Date *</div><input type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} style={inp} /></div>
-                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Time</div><input value={newEventTime} onChange={e => setNewEventTime(e.target.value)} placeholder="e.g. 4:00 PM" style={inp} /></div>
+                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Time</div><input type="time" value={newEventTime} onChange={e => setNewEventTime(e.target.value)} style={inp} /></div>
                         <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Vendor</div><select value={newEventVendor} onChange={e => setNewEventVendor(e.target.value)} style={sel}><option value="">— None —</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
-                        <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Details</div><input value={newEventDetails} onChange={e => setNewEventDetails(e.target.value)} placeholder="e.g. Table for 4, outdoor garden" style={inp} /></div>
                         <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Status</div><select value={newEventStatus} onChange={e => setNewEventStatus(e.target.value)} style={sel}><option>Pending</option><option>Confirmed</option><option>Cancelled</option></select></div>
+                        {/* Conditional fields based on Event Type */}
+                        {(newEventType === "Arrival Transportation" || newEventType === "Departure Transportation" || newEventType === "Private Transportation") && (<>
+                          <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Flight Number</div><input value={newEventExtraDetails.flightNumber || ""} onChange={e => setNewEventExtraDetails(d => ({ ...d, flightNumber: e.target.value }))} placeholder="e.g. AA1234" style={inp} /></div>
+                          <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Pickup Location</div><input value={newEventExtraDetails.pickupLocation || ""} onChange={e => setNewEventExtraDetails(d => ({ ...d, pickupLocation: e.target.value }))} placeholder="e.g. SJD Airport" style={inp} /></div>
+                          <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Dropoff Location</div><input value={newEventExtraDetails.dropoffLocation || ""} onChange={e => setNewEventExtraDetails(d => ({ ...d, dropoffLocation: e.target.value }))} placeholder="e.g. Villa Esperanza" style={inp} /></div>
+                        </>)}
+                        {newEventType === "Restaurant Reservation" && (<>
+                          <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Allergies</div><input value={newEventExtraDetails.allergies || ""} onChange={e => setNewEventExtraDetails(d => ({ ...d, allergies: e.target.value }))} placeholder="e.g. Shellfish, nuts" style={inp} /></div>
+                          <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Special Celebration</div><input value={newEventExtraDetails.specialCelebration || ""} onChange={e => setNewEventExtraDetails(d => ({ ...d, specialCelebration: e.target.value }))} placeholder="e.g. Birthday, Anniversary" style={inp} /></div>
+                        </>)}
+                        {newEventType === "Private Chef" && (
+                          <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Menu Preferences</div><input value={newEventExtraDetails.menuPreferences || ""} onChange={e => setNewEventExtraDetails(d => ({ ...d, menuPreferences: e.target.value }))} placeholder="e.g. Mexican cuisine, seafood focus" style={inp} /></div>
+                        )}
+                        <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Details</div><input value={newEventDetails} onChange={e => setNewEventDetails(e.target.value)} placeholder="e.g. Table for 4, outdoor garden" style={inp} /></div>
+                        {/* Show Vendor & Chargeable toggles */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text2)" }}>
+                            <input type="checkbox" checked={newEventShowVendor} onChange={e => setNewEventShowVendor(e.target.checked)} style={{ accentColor: "var(--teal)" }} /> Show Vendor
+                          </label>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text2)" }}>
+                            <input type="checkbox" checked={newEventChargeable} onChange={e => setNewEventChargeable(e.target.checked)} style={{ accentColor: "var(--accent)" }} /> Chargeable
+                          </label>
+                          {newEventChargeable && (
+                            <div style={{ flex: 1 }}><input type="number" value={newEventEstCost} onChange={e => setNewEventEstCost(e.target.value)} placeholder="Estimated cost ($)" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                          )}
+                        </div>
                       </div>
                       <div style={{ display: "flex", gap: 10 }}>
                         <button onClick={addEvent} disabled={addingEvent} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{addingEvent ? "Saving..." : "Save Event"}</button>
@@ -2258,8 +2528,12 @@ export default function AdminDashboard() {
                                 <div key={ev.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 12 }}>
                                   <div style={{ fontSize: 12, color: "var(--text3)", minWidth: 60, paddingTop: 2 }}>{ev.time || "—"}</div>
                                   <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{ev.eventName}</div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                                      <span style={{ fontSize: 14, fontWeight: 500 }}>{ev.eventName}</span>
+                                      {ev.eventType && <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 6px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", textTransform: "uppercase" as const, letterSpacing: "0.04em", flexShrink: 0 }}>{ev.eventType}</span>}
+                                    </div>
                                     {(ev.details || ev.vendorName) && <div style={{ fontSize: 12, color: "var(--text3)" }}>{[ev.vendorName, ev.details].filter(Boolean).join(" · ")}</div>}
+                                    {ev.chargeable && ev.estimatedCost > 0 && <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}>$ {ev.estimatedCost.toFixed(2)} (chargeable)</div>}
                                   </div>
                                   <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, textTransform: "uppercase", letterSpacing: "0.04em", background: ec.bg, color: ec.text, flexShrink: 0 }}>{ev.status}</span>
                                 </div>
@@ -2355,6 +2629,130 @@ export default function AdminDashboard() {
                   )}
                 </>
               )}
+
+              {/* ---- CHARGES TAB ---- */}
+              {!concLoading && concTab === "charges" && (() => {
+                const chargeableEvents = itineraryEvents.filter(e => e.chargeable);
+                const pendingCharges = chargeableEvents.filter(e => !e.expenseCreated);
+                const processedCharges = chargeableEvents.filter(e => e.expenseCreated);
+                const pendingTotal = pendingCharges.reduce((sum, e) => sum + (e.estimatedCost || 0), 0);
+
+                async function approveCharge(ev: ItineraryEvent, overrideAmount?: number, overrideDesc?: string) {
+                  const visit = visits.find(v => v.id === ev.visitId);
+                  if (!visit) return;
+                  setApprovingCharge(ev.id);
+                  try {
+                    await fetch("/api/expenses", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        propertyId: visit.propertyId,
+                        date: ev.date,
+                        category: "Concierge",
+                        amount: overrideAmount ?? ev.estimatedCost,
+                        currency: "USD",
+                        description: overrideDesc ?? ev.eventName,
+                      }),
+                    });
+                    await fetch("/api/itinerary", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id: ev.id, expenseCreated: true }),
+                    });
+                    const d = await fetch("/api/itinerary").then(r => r.json());
+                    setItineraryEvents(d.events || []);
+                    setEditChargeId(null);
+                  } catch (e) { console.error(e); }
+                  setApprovingCharge(null);
+                }
+
+                return (
+                  <>
+                    {/* Summary */}
+                    <div style={{ padding: "16px 20px", background: "var(--bg2)", borderRadius: 12, marginBottom: 24, display: "flex", gap: 24, alignItems: "center" }}>
+                      <div style={{ fontSize: 13, color: "var(--text3)" }}>Pending: <span style={{ color: "var(--orange)", fontWeight: 600 }}>{pendingCharges.length}</span> charge{pendingCharges.length !== 1 ? "s" : ""} totaling <span style={{ color: "var(--orange)", fontWeight: 600 }}>${pendingTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                      <div style={{ fontSize: 13, color: "var(--text3)" }}>Processed: <span style={{ color: "var(--green)", fontWeight: 600 }}>{processedCharges.length}</span></div>
+                    </div>
+
+                    {/* Pending charges */}
+                    {pendingCharges.length > 0 && (
+                      <div style={{ marginBottom: 32 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)", marginBottom: 14 }}>Pending Charges</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                          {pendingCharges.map(ev => {
+                            const visit = visits.find(v => v.id === ev.visitId);
+                            const isEditing = editChargeId === ev.id;
+                            return (
+                              <div key={ev.id} style={{ padding: 18, background: "var(--bg2)", borderRadius: 12, border: "1px solid var(--border2)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)", marginBottom: 6 }}>{ev.eventName}</div>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12, color: "var(--text3)" }}>
+                                      <span>{ev.date}</span>
+                                      {visit && <span>{visit.visitName} · {visit.propertyName}</span>}
+                                      {ev.vendorName && <span>Vendor: {ev.vendorName}</span>}
+                                    </div>
+                                    <div style={{ marginTop: 8, fontSize: 15, fontWeight: 600, color: "var(--accent)" }}>${(ev.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                  </div>
+                                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                                    {!isEditing && (
+                                      <>
+                                        <button onClick={() => { setEditChargeId(ev.id); setEditChargeForm({ amount: String(ev.estimatedCost || 0), description: ev.eventName }); }} style={{ padding: "6px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
+                                        <button disabled={approvingCharge === ev.id} onClick={() => approveCharge(ev)} style={{ padding: "6px 16px", borderRadius: 100, border: "none", background: "var(--teal)", color: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, opacity: approvingCharge === ev.id ? 0.6 : 1 }}>{approvingCharge === ev.id ? "Processing..." : "Approve"}</button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                                {isEditing && (
+                                  <div style={{ marginTop: 14, padding: 14, background: "var(--bg1)", borderRadius: 10, border: "1px solid var(--border2)" }}>
+                                    <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+                                      <div style={{ flex: 1, minWidth: 120 }}>
+                                        <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Amount (USD)</label>
+                                        <input type="number" value={editChargeForm.amount} onChange={e => setEditChargeForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text1)", fontSize: 13, fontFamily: "inherit" }} />
+                                      </div>
+                                      <div style={{ flex: 3, minWidth: 200 }}>
+                                        <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Description</label>
+                                        <input type="text" value={editChargeForm.description} onChange={e => setEditChargeForm(f => ({ ...f, description: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text1)", fontSize: 13, fontFamily: "inherit" }} />
+                                      </div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                                      <button onClick={() => setEditChargeId(null)} style={{ padding: "6px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                                      <button disabled={approvingCharge === ev.id} onClick={() => approveCharge(ev, parseFloat(editChargeForm.amount) || ev.estimatedCost, editChargeForm.description || ev.eventName)} style={{ padding: "6px 16px", borderRadius: 100, border: "none", background: "var(--teal)", color: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, opacity: approvingCharge === ev.id ? 0.6 : 1 }}>{approvingCharge === ev.id ? "Processing..." : "Approve with Changes"}</button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {pendingCharges.length === 0 && <div style={{ fontSize: 13, color: "var(--text3)", marginBottom: 24 }}>No pending charges to process.</div>}
+
+                    {/* Processed charges */}
+                    {processedCharges.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)", marginBottom: 14 }}>Processed Charges</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {processedCharges.map(ev => {
+                            const visit = visits.find(v => v.id === ev.visitId);
+                            return (
+                              <div key={ev.id} style={{ padding: "10px 16px", background: "var(--bg2)", borderRadius: 8, display: "flex", alignItems: "center", gap: 12, fontSize: 13 }}>
+                                <span style={{ color: "var(--green)", fontSize: 15 }}>&#10003;</span>
+                                <span style={{ color: "var(--text1)", fontWeight: 500, flex: 1 }}>{ev.eventName}</span>
+                                <span style={{ color: "var(--text3)", fontSize: 12 }}>{ev.date}</span>
+                                {visit && <span style={{ color: "var(--text3)", fontSize: 12 }}>{visit.propertyName}</span>}
+                                <span style={{ color: "var(--text2)", fontWeight: 600 }}>${(ev.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           );
         })()}
@@ -2507,6 +2905,26 @@ export default function AdminDashboard() {
 
               {maintLoading && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20 }}>Loading...</div>}
 
+              {/* Expense Review Form — shown regardless of active tab */}
+              {!maintLoading && expenseReview && (
+                <div style={{ background: "var(--accent-s)", border: "1px solid var(--accent)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Review Expense Before Creating</div>
+                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 16 }}>From task: {expenseReview.task.title}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Amount *</div><input type="number" value={expenseReview.amount} onChange={e => setExpenseReview(r => r ? { ...r, amount: e.target.value } : r)} style={inp} /></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Date</div><input type="date" value={expenseReview.date} onChange={e => setExpenseReview(r => r ? { ...r, date: e.target.value } : r)} style={inp} /></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Property</div><select value={expenseReview.property} onChange={e => setExpenseReview(r => r ? { ...r, property: e.target.value } : r)} style={sel}>{properties.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Category</div><select value={expenseReview.category} onChange={e => setExpenseReview(r => r ? { ...r, category: e.target.value } : r)} style={sel}>{["Maintenance", "Utilities", "Villa Staff", "Cleaning Supplies", "Groceries", "Miscellaneous", "Others"].map(c => <option key={c}>{c}</option>)}</select></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Supplier</div><input value={expenseReview.supplier} onChange={e => setExpenseReview(r => r ? { ...r, supplier: e.target.value } : r)} style={inp} /></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Description</div><input value={expenseReview.description} onChange={e => setExpenseReview(r => r ? { ...r, description: e.target.value } : r)} style={inp} /></div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={confirmExpense} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Create Expense</button>
+                    <button onClick={() => setExpenseReview(null)} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                  </div>
+                </div>
+              )}
+
               {/* ---- SCHEDULE TAB ---- */}
               {!maintLoading && maintTab === "schedule" && (
                 <>
@@ -2524,26 +2942,6 @@ export default function AdminDashboard() {
                       </div>
                     ))}
                   </div>
-
-                  {/* Expense Review Form */}
-                  {expenseReview && (
-                    <div style={{ background: "var(--accent-s)", border: "1px solid var(--accent)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Review Expense Before Creating</div>
-                      <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 16 }}>From task: {expenseReview.task.title}</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Amount *</div><input type="number" value={expenseReview.amount} onChange={e => setExpenseReview(r => r ? { ...r, amount: e.target.value } : r)} style={inp} /></div>
-                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Date</div><input type="date" value={expenseReview.date} onChange={e => setExpenseReview(r => r ? { ...r, date: e.target.value } : r)} style={inp} /></div>
-                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Property</div><select value={expenseReview.property} onChange={e => setExpenseReview(r => r ? { ...r, property: e.target.value } : r)} style={sel}>{properties.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Category</div><select value={expenseReview.category} onChange={e => setExpenseReview(r => r ? { ...r, category: e.target.value } : r)} style={sel}>{["Maintenance", "Utilities", "Villa Staff", "Cleaning Supplies", "Groceries", "Miscellaneous", "Others"].map(c => <option key={c}>{c}</option>)}</select></div>
-                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Supplier</div><input value={expenseReview.supplier} onChange={e => setExpenseReview(r => r ? { ...r, supplier: e.target.value } : r)} style={inp} /></div>
-                        <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Description</div><input value={expenseReview.description} onChange={e => setExpenseReview(r => r ? { ...r, description: e.target.value } : r)} style={inp} /></div>
-                      </div>
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <button onClick={confirmExpense} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Create Expense</button>
-                        <button onClick={() => setExpenseReview(null)} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Add Task Form */}
                   {showAddTask && (
@@ -2616,8 +3014,31 @@ export default function AdminDashboard() {
                               </div>
                             ) : (
                               <>
+                                {/* Approval status */}
+                                {t.approvalStatus && t.approvalStatus !== "Pending Approval" ? (
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: t.approvalStatus === "Approved" ? "var(--green-s)" : t.approvalStatus === "Rejected" ? "var(--red-s)" : "rgba(207,196,110,0.12)", color: t.approvalStatus === "Approved" ? "var(--green)" : t.approvalStatus === "Rejected" ? "var(--red)" : "#CFC46E" }}>{t.approvalStatus}</span>
+                                    {t.approvalStatus === "Approved" && t.approvedBy && <span style={{ fontSize: 11, color: "var(--text3)" }}>by {t.approvedBy}{t.approvalDate ? ` on ${t.approvalDate}` : ""}</span>}
+                                  </div>
+                                ) : (
+                                  <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: "rgba(207,196,110,0.12)", color: "#CFC46E" }}>Pending Approval</span>
+                                    <button onClick={async () => { setTaskUpdating(t.id); try { await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, approvalStatus: "Approved", approvedBy: userName, approvalDate: new Date().toISOString().split("T")[0] }) }); const d = await fetch("/api/maintenance").then(r => r.json()); setMaintTasks(d.tasks || []); } catch (e) { console.error(e); } setTaskUpdating(null); }} disabled={taskUpdating === t.id} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", border: "1px solid rgba(110,207,151,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{taskUpdating === t.id ? "..." : "✓ Approve"}</button>
+                                  </div>
+                                )}
                                 {t.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>{t.notes}</div>}
                                 {t.cost > 0 && <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 12 }}>Estimated cost: <strong>${t.cost.toFixed(2)}</strong></div>}
+                                {/* Attachments */}
+                                {t.attachments && t.attachments.length > 0 && (
+                                  <div style={{ marginBottom: 12 }}>
+                                    <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Attachments</div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                      {t.attachments.map((att, i) => (
+                                        <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--teal-l)", textDecoration: "none", padding: "4px 10px", borderRadius: 6, background: "var(--teal-s)", border: "1px solid rgba(110,207,190,0.2)" }}>{att.filename || `Attachment ${i + 1}`}</a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                   <button onClick={(e) => { e.stopPropagation(); setEditMaintId(t.id); setEditMaintForm({ title: t.title, status: t.status, priority: t.priority, scheduledDate: t.scheduledDate, vendorId: t.vendorId, cost: t.cost, notes: t.notes }); }} style={{ padding: "6px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button>
                                   {t.status !== "Completed" && t.status !== "Cancelled" && (

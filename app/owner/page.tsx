@@ -12,7 +12,7 @@ type Report = {
 type Expense = { id: string; description: string; amount: number; category: string; date: string; receiptUrl: string; monthYear: string };
 type Deposit = { id: string; amount: number; date: string; notes: string; monthYear: string };
 type MaintTask = { id: string; title: string; type: string; status: string; priority: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean };
-type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; notes: string; adults: number; children: number };
+type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; notes: string; adults: number; children: number; published: boolean };
 type ItineraryEvent = { id: string; eventName: string; visitId: string; date: string; time: string; details: string; status: string };
 
 export default function OwnerPortal() {
@@ -724,7 +724,7 @@ export default function OwnerPortal() {
               </div>
 
               {(() => {
-                const nextVisit = visits.find(v => v.status === "Active" || v.status === "Upcoming");
+                const nextVisit = visits.find(v => (v.status === "Active" || v.status === "Upcoming") && v.published);
                 if (!nextVisit) {
                   return (
                     <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, padding: 40, textAlign: "center" as const, color: "var(--text3)" }}>

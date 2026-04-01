@@ -37,6 +37,7 @@ export async function GET() {
     params.append("fields[]", "Adults");
     params.append("fields[]", "Children");
     params.append("fields[]", "Questionnaire");
+    params.append("fields[]", "Published");
     params.set("sort[0][field]", "Check-in Date");
     params.set("sort[0][direction]", "asc");
 
@@ -70,6 +71,7 @@ export async function GET() {
         adults: r.fields["Adults"] || 0,
         children: r.fields["Children"] || 0,
         questionnaire,
+        published: !!r.fields["Published"],
       };
     });
 
@@ -136,6 +138,7 @@ export async function PATCH(request: Request) {
     if (fields.adults !== undefined) airtableFields["Adults"] = fields.adults;
     if (fields.children !== undefined) airtableFields["Children"] = fields.children;
     if (fields.questionnaire !== undefined) airtableFields["Questionnaire"] = JSON.stringify(fields.questionnaire);
+    if (fields.published !== undefined) airtableFields["Published"] = fields.published;
 
     await airtableFetch(VISITS_TABLE, {
       method: "PATCH",

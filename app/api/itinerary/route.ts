@@ -35,6 +35,12 @@ export async function GET(request: Request) {
     params.append("fields[]", "Time");
     params.append("fields[]", "Details");
     params.append("fields[]", "Status");
+    params.append("fields[]", "Event Type");
+    params.append("fields[]", "Extra Details");
+    params.append("fields[]", "Show Vendor");
+    params.append("fields[]", "Chargeable");
+    params.append("fields[]", "Estimated Cost");
+    params.append("fields[]", "Expense Created");
     params.set("sort[0][field]", "Date");
     params.set("sort[0][direction]", "asc");
     params.set("sort[1][field]", "Time");
@@ -65,6 +71,12 @@ export async function GET(request: Request) {
         time: r.fields["Time"] || "",
         details: r.fields["Details"] || "",
         status: r.fields["Status"] || "Pending",
+        eventType: r.fields["Event Type"] || "",
+        extraDetails: (() => { try { return JSON.parse(r.fields["Extra Details"] || "{}"); } catch { return {}; } })(),
+        showVendor: r.fields["Show Vendor"] !== undefined ? !!r.fields["Show Vendor"] : true,
+        chargeable: !!r.fields["Chargeable"],
+        estimatedCost: r.fields["Estimated Cost"] || 0,
+        expenseCreated: !!r.fields["Expense Created"],
       };
     });
 
@@ -78,7 +90,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { eventName, visitId, vendorId, date, time, details, status } = body;
+    const { eventName, visitId, vendorId, date, time, details, status, eventType, extraDetails, showVendor, chargeable, estimatedCost, expenseCreated } = body;
 
     if (!eventName || !visitId || !date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -93,6 +105,12 @@ export async function POST(request: Request) {
       "Status": status || "Pending",
     };
     if (vendorId) fields["Vendor"] = [vendorId];
+    if (eventType) fields["Event Type"] = eventType;
+    if (extraDetails !== undefined) fields["Extra Details"] = typeof extraDetails === "string" ? extraDetails : JSON.stringify(extraDetails);
+    if (showVendor !== undefined) fields["Show Vendor"] = showVendor;
+    if (chargeable !== undefined) fields["Chargeable"] = chargeable;
+    if (estimatedCost !== undefined) fields["Estimated Cost"] = estimatedCost;
+    if (expenseCreated !== undefined) fields["Expense Created"] = expenseCreated;
 
     const data = await airtableFetch(ITINERARY_TABLE, {
       method: "POST",
@@ -109,7 +127,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { id, eventName, vendorId, date, time, details, status } = body;
+    const { id, eventName, vendorId, date, time, details, status, eventType, extraDetails, showVendor, chargeable, estimatedCost, expenseCreated } = body;
 
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
@@ -120,6 +138,12 @@ export async function PATCH(request: Request) {
     if (details !== undefined) fields["Details"] = details;
     if (status !== undefined) fields["Status"] = status;
     if (vendorId !== undefined) fields["Vendor"] = vendorId ? [vendorId] : [];
+    if (eventType !== undefined) fields["Event Type"] = eventType;
+    if (extraDetails !== undefined) fields["Extra Details"] = typeof extraDetails === "string" ? extraDetails : JSON.stringify(extraDetails);
+    if (showVendor !== undefined) fields["Show Vendor"] = showVendor;
+    if (chargeable !== undefined) fields["Chargeable"] = chargeable;
+    if (estimatedCost !== undefined) fields["Estimated Cost"] = estimatedCost;
+    if (expenseCreated !== undefined) fields["Expense Created"] = expenseCreated;
 
     await airtableFetch(ITINERARY_TABLE, {
       method: "PATCH",
