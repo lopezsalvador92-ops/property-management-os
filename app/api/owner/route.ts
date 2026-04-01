@@ -9,6 +9,7 @@ const DEPOSITS_TABLE = "tblVrgidgJKKfdFQ2";
 const MAINTENANCE_TABLE = "tblC5Muegq8fVfuQf";
 const VISITS_TABLE = "tblJ1iEgHCeJy2CnR";
 const ITINERARY_TABLE = "tblppsIgEI1hrM3wR";
+const VENDORS_TABLE = "tblqm6eBgSSYcGcyl";
 
 function safeNum(val: any): number {
   if (typeof val === "number" && isFinite(val)) return val;
@@ -196,7 +197,7 @@ export async function GET(request: Request) {
 
     // 6. Get maintenance tasks for this property
     const maintParams = new URLSearchParams();
-    ["Title", "Type", "Status", "Priority", "Property", "Vendor", "Scheduled Date", "Completed Date", "Cost", "Notes", "Expense Created"].forEach(f => maintParams.append("fields[]", f));
+    ["Title", "Type", "Status", "Priority", "Property", "Vendor", "Scheduled Date", "Completed Date", "Cost", "Notes", "Expense Created", "Attachments", "Approval Status", "Approved By", "Approval Date"].forEach(f => maintParams.append("fields[]", f));
     maintParams.set("sort[0][field]", "Scheduled Date");
     maintParams.set("sort[0][direction]", "desc");
     maintParams.set("pageSize", "100");
@@ -214,6 +215,10 @@ export async function GET(request: Request) {
           vendorName: "", scheduledDate: f["Scheduled Date"] || "",
           completedDate: f["Completed Date"] || "", cost: safeNum(f["Cost"]),
           notes: f["Notes"] || "", expenseCreated: !!f["Expense Created"],
+          attachments: (f["Attachments"] || []).map((a: any) => ({ url: a.url || "", filename: a.filename || "" })),
+          approvalStatus: f["Approval Status"] || "",
+          approvedBy: f["Approved By"] || "",
+          approvalDate: f["Approval Date"] || "",
         };
       });
 
@@ -243,21 +248,34 @@ export async function GET(request: Request) {
     const publishedVisits = visits.filter((v: any) => v.published);
     const visitIds = publishedVisits.map((v: any) => v.id);
     const itiParams = new URLSearchParams();
-    ["Event Name", "Visit", "Vendor", "Date", "Time", "Details", "Status"].forEach(f => itiParams.append("fields[]", f));
+    ["Event Name", "Visit", "Vendor", "Date", "Time", "Details", "Status", "Event Type", "Show Vendor", "Total", "Currency", "Extra Details"].forEach(f => itiParams.append("fields[]", f));
     itiParams.set("sort[0][field]", "Date");
     itiParams.set("sort[0][direction]", "asc");
     itiParams.set("pageSize", "100");
-    const itiData = await airtableGet(ITINERARY_TABLE, itiParams);
+    const [itiData, vendorData] = await Promise.all([
+      airtableGet(ITINERARY_TABLE, itiParams),
+      airtableGet(VENDORS_TABLE, new URLSearchParams([["fields[]", "Name"], ["pageSize", "100"]])),
+    ]);
+    const vendorMap: Record<string, string> = {};
+    for (const vr of vendorData.records) vendorMap[vr.id] = vr.fields["Name"] || "";
+
     const itineraryEvents = itiData.records
       .filter((r: any) => { const vids = r.fields["Visit"] || []; return vids.some((vid: string) => visitIds.includes(vid)); })
       .map((r: any) => {
         const f = r.fields;
         const statusRaw = f["Status"];
+        const vendorIds: string[] = f["Vendor"] || [];
         return {
           id: r.id, eventName: f["Event Name"] || "",
           visitId: (f["Visit"] || [])[0] || "", date: f["Date"] || "",
           time: f["Time"] || "", details: f["Details"] || "",
           status: typeof statusRaw === "string" ? statusRaw : statusRaw?.name || "",
+          eventType: f["Event Type"] || "",
+          showVendor: f["Show Vendor"] !== undefined ? !!f["Show Vendor"] : true,
+          vendorName: vendorMap[vendorIds[0]] || "",
+          total: safeNum(f["Total"]),
+          currency: (() => { const raw = f["Currency"]; return typeof raw === "string" ? raw : raw?.name || ""; })(),
+          extraDetails: (() => { try { return JSON.parse(f["Extra Details"] || "{}"); } catch { return {}; } })(),
         };
       });
 

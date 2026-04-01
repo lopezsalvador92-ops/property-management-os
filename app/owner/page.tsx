@@ -11,9 +11,9 @@ type Report = {
 };
 type Expense = { id: string; description: string; amount: number; category: string; date: string; receiptUrl: string; monthYear: string };
 type Deposit = { id: string; amount: number; date: string; notes: string; monthYear: string };
-type MaintTask = { id: string; title: string; type: string; status: string; priority: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean };
+type MaintTask = { id: string; title: string; type: string; status: string; priority: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean; attachments: { url: string; filename: string }[]; approvalStatus: string; approvedBy: string; approvalDate: string };
 type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; notes: string; adults: number; children: number; published: boolean };
-type ItineraryEvent = { id: string; eventName: string; visitId: string; date: string; time: string; details: string; status: string };
+type ItineraryEvent = { id: string; eventName: string; visitId: string; date: string; time: string; details: string; status: string; eventType: string; showVendor: boolean; vendorName: string; total: number; currency: string; extraDetails: Record<string, any> };
 
 export default function OwnerPortal() {
   const { user } = useUser();
@@ -42,8 +42,12 @@ export default function OwnerPortal() {
   const [newVisitCheckOut, setNewVisitCheckOut] = useState("");
   const [newVisitAdults, setNewVisitAdults] = useState(2);
   const [newVisitChildren, setNewVisitChildren] = useState(0);
+  const [newVisitName, setNewVisitName] = useState("");
+  const [newVisitGuestName, setNewVisitGuestName] = useState("");
+  const [newVisitType, setNewVisitType] = useState("Owner");
   const [newVisitNotes, setNewVisitNotes] = useState("");
   const [addingVisit, setAddingVisit] = useState(false);
+  const [approvingMaint, setApprovingMaint] = useState<string | null>(null);
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
 
@@ -514,8 +518,8 @@ export default function OwnerPortal() {
                     return (
                       <div key={t.id} style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
                         <div
-                          onClick={() => t.status === "Completed" ? setExpandedMaintId(isExpanded ? null : t.id) : undefined}
-                          style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", cursor: t.status === "Completed" ? "pointer" : "default" }}
+                          onClick={() => setExpandedMaintId(isExpanded ? null : t.id)}
+                          style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", cursor: "pointer" }}
                         >
                           <div style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, background: statusColor }} />
                           <div style={{ flex: 1 }}>
@@ -523,14 +527,53 @@ export default function OwnerPortal() {
                             <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(t.scheduledDate)}{t.priority ? ` · ${t.priority}` : ""}</div>
                           </div>
                           <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, color: statusColor, background: t.status === "Completed" ? "var(--green-s)" : t.status === "Scheduled" ? "var(--accent-s)" : "var(--blue-s)" }}>{t.status}</span>
-                          {t.status === "Completed" && <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4 }}>{isExpanded ? "▾" : "▸"}</span>}
+                          <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4 }}>{isExpanded ? "▾" : "▸"}</span>
                         </div>
                         {isExpanded && (
-                          <div style={{ padding: "0 0 14px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                            {t.vendorName && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Vendor</div><div style={{ fontSize: 13 }}>{t.vendorName}</div></div>}
-                            {t.completedDate && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Completed</div><div style={{ fontSize: 13 }}>{fmtDate(t.completedDate)}</div></div>}
-                            {t.cost > 0 && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Cost</div><div style={{ fontSize: 13 }}>{fmt(t.cost)} {cur}</div></div>}
-                            {t.notes && <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Notes</div><div style={{ fontSize: 13, color: "var(--text2)" }}>{t.notes}</div></div>}
+                          <div style={{ padding: "0 0 14px 24px" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                              {t.vendorName && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Vendor</div><div style={{ fontSize: 13 }}>{t.vendorName}</div></div>}
+                              {t.scheduledDate && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Scheduled</div><div style={{ fontSize: 13 }}>{fmtDate(t.scheduledDate)}</div></div>}
+                              {t.completedDate && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Completed</div><div style={{ fontSize: 13 }}>{fmtDate(t.completedDate)}</div></div>}
+                              {t.cost > 0 && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Cost</div><div style={{ fontSize: 13 }}>{fmt(t.cost)} {cur}</div></div>}
+                              {t.notes && <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Notes</div><div style={{ fontSize: 13, color: "var(--text2)" }}>{t.notes}</div></div>}
+                            </div>
+                            {t.attachments && t.attachments.length > 0 && (
+                              <div style={{ marginTop: 10 }}>
+                                <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Attachments</div>
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                                  {t.attachments.map((a, ai) => (
+                                    <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", padding: "4px 10px", background: "var(--accent-s)", borderRadius: 6 }}>{a.filename || "Attachment"}</a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+                              {t.approvalStatus === "Approved" ? (
+                                <div style={{ fontSize: 12, color: "var(--green)", fontWeight: 500 }}>Approved by {t.approvedBy || "owner"}{t.approvalDate ? ` on ${fmtDate(t.approvalDate)}` : ""}</div>
+                              ) : (
+                                <button
+                                  disabled={approvingMaint === t.id}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    setApprovingMaint(t.id);
+                                    try {
+                                      const today = new Date().toISOString().slice(0, 10);
+                                      const res = await fetch("/api/maintenance", {
+                                        method: "PATCH",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ id: t.id, approvalStatus: "Approved", approvedBy: ownerName, approvalDate: today }),
+                                      });
+                                      if (res.ok) {
+                                        setMaintTasks(prev => prev.map(m => m.id === t.id ? { ...m, approvalStatus: "Approved", approvedBy: ownerName, approvalDate: today } : m));
+                                      }
+                                    } catch { /* ignore */ }
+                                    setApprovingMaint(null);
+                                  }}
+                                  style={{ padding: "6px 16px", borderRadius: 6, border: "none", background: "var(--green)", color: "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", opacity: approvingMaint === t.id ? 0.6 : 1 }}
+                                >{approvingMaint === t.id ? "Approving..." : "\u2713 Approve"}</button>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -553,8 +596,8 @@ export default function OwnerPortal() {
                       return (
                         <div key={t.id} style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
                           <div
-                            onClick={() => t.status === "Completed" ? setExpandedMaintId(isExpanded ? null : t.id) : undefined}
-                            style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", cursor: t.status === "Completed" ? "pointer" : "default" }}
+                            onClick={() => setExpandedMaintId(isExpanded ? null : t.id)}
+                            style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", cursor: "pointer" }}
                           >
                             <div style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, background: statusColor }} />
                             <div style={{ flex: 1 }}>
@@ -562,14 +605,53 @@ export default function OwnerPortal() {
                               <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 3 }}>{fmtDate(t.scheduledDate)}{t.priority ? ` · ${t.priority}` : ""}</div>
                             </div>
                             <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, color: statusColor, background: t.status === "Completed" ? "var(--green-s)" : t.status === "Scheduled" ? "var(--accent-s)" : "var(--blue-s)" }}>{t.status}</span>
-                            {t.status === "Completed" && <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4 }}>{isExpanded ? "▾" : "▸"}</span>}
+                            <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4 }}>{isExpanded ? "▾" : "▸"}</span>
                           </div>
                           {isExpanded && (
-                            <div style={{ padding: "0 0 14px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                              {t.vendorName && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Vendor</div><div style={{ fontSize: 13 }}>{t.vendorName}</div></div>}
-                              {t.completedDate && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Completed</div><div style={{ fontSize: 13 }}>{fmtDate(t.completedDate)}</div></div>}
-                              {t.cost > 0 && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Cost</div><div style={{ fontSize: 13 }}>{fmt(t.cost)} {cur}</div></div>}
-                              {t.notes && <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Notes</div><div style={{ fontSize: 13, color: "var(--text2)" }}>{t.notes}</div></div>}
+                            <div style={{ padding: "0 0 14px 24px" }}>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                                {t.vendorName && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Vendor</div><div style={{ fontSize: 13 }}>{t.vendorName}</div></div>}
+                                {t.scheduledDate && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Scheduled</div><div style={{ fontSize: 13 }}>{fmtDate(t.scheduledDate)}</div></div>}
+                                {t.completedDate && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Completed</div><div style={{ fontSize: 13 }}>{fmtDate(t.completedDate)}</div></div>}
+                                {t.cost > 0 && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Cost</div><div style={{ fontSize: 13 }}>{fmt(t.cost)} {cur}</div></div>}
+                                {t.notes && <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Notes</div><div style={{ fontSize: 13, color: "var(--text2)" }}>{t.notes}</div></div>}
+                              </div>
+                              {t.attachments && t.attachments.length > 0 && (
+                                <div style={{ marginTop: 10 }}>
+                                  <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Attachments</div>
+                                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                                    {t.attachments.map((a, ai) => (
+                                      <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", padding: "4px 10px", background: "var(--accent-s)", borderRadius: 6 }}>{a.filename || "Attachment"}</a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+                                {t.approvalStatus === "Approved" ? (
+                                  <div style={{ fontSize: 12, color: "var(--green)", fontWeight: 500 }}>Approved by {t.approvedBy || "owner"}{t.approvalDate ? ` on ${fmtDate(t.approvalDate)}` : ""}</div>
+                                ) : (
+                                  <button
+                                    disabled={approvingMaint === t.id}
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setApprovingMaint(t.id);
+                                      try {
+                                        const today = new Date().toISOString().slice(0, 10);
+                                        const res = await fetch("/api/maintenance", {
+                                          method: "PATCH",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ id: t.id, approvalStatus: "Approved", approvedBy: ownerName, approvalDate: today }),
+                                        });
+                                        if (res.ok) {
+                                          setMaintTasks(prev => prev.map(m => m.id === t.id ? { ...m, approvalStatus: "Approved", approvedBy: ownerName, approvalDate: today } : m));
+                                        }
+                                      } catch { /* ignore */ }
+                                      setApprovingMaint(null);
+                                    }}
+                                    style={{ padding: "6px 16px", borderRadius: 6, border: "none", background: "var(--green)", color: "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", opacity: approvingMaint === t.id ? 0.6 : 1 }}
+                                  >{approvingMaint === t.id ? "Approving..." : "\u2713 Approve"}</button>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -593,14 +675,16 @@ export default function OwnerPortal() {
                 const firstDay = new Date(calYear, calMonth, 1).getDay();
                 const monthName = new Date(calYear, calMonth).toLocaleString("en-US", { month: "long", year: "numeric" });
 
-                const getDayStatus = (day: number): "owner" | "rental" | "available" => {
+                const getDayInfo = (day: number): { status: "owner" | "rental" | "guest" | "available"; visitLabel: string; isCheckIn: boolean } => {
                   const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                   for (const v of visits) {
                     if (v.checkIn && v.checkOut && dateStr >= v.checkIn.slice(0, 10) && dateStr <= v.checkOut.slice(0, 10)) {
-                      return v.visitType === "Rental" ? "rental" : "owner";
+                      const status = v.visitType === "Rental" ? "rental" as const : v.visitType === "Guest" ? "guest" as const : "owner" as const;
+                      const isCheckIn = dateStr === v.checkIn.slice(0, 10);
+                      return { status, visitLabel: v.guestName || v.visitName || v.visitType, isCheckIn };
                     }
                   }
-                  return "available";
+                  return { status: "available", visitLabel: "", isCheckIn: false };
                 };
 
                 return (
@@ -620,17 +704,21 @@ export default function OwnerPortal() {
                         {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
                         {Array.from({ length: daysInMonth }).map((_, i) => {
                           const day = i + 1;
-                          const st = getDayStatus(day);
-                          const bg = st === "owner" ? "var(--accent)" : st === "rental" ? "var(--teal)" : "var(--bg4)";
-                          const clr = st === "available" ? "var(--text3)" : "#fff";
+                          const info = getDayInfo(day);
+                          const bg = info.status === "owner" ? "var(--accent)" : info.status === "rental" ? "var(--teal)" : info.status === "guest" ? "#9B8EC4" : "var(--bg4)";
+                          const clr = info.status === "available" ? "var(--text3)" : "#fff";
                           return (
-                            <div key={day} style={{ width: "100%", aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, fontSize: 12, fontWeight: 500, background: bg, color: clr }}>{day}</div>
+                            <div key={day} style={{ width: "100%", aspectRatio: "1", display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", borderRadius: 8, fontSize: 12, fontWeight: 500, background: bg, color: clr, position: "relative" as const, overflow: "hidden" }}>
+                              <span>{day}</span>
+                              {info.isCheckIn && info.visitLabel && <span style={{ fontSize: 7, lineHeight: "1", marginTop: 1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, padding: "0 2px" }}>{info.visitLabel}</span>}
+                            </div>
                           );
                         })}
                       </div>
-                      <div style={{ display: "flex", gap: 16, marginTop: 14, justifyContent: "center" }}>
+                      <div style={{ display: "flex", gap: 16, marginTop: 14, justifyContent: "center", flexWrap: "wrap" as const }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text3)" }}><div style={{ width: 10, height: 10, borderRadius: 3, background: "var(--accent)" }} /> Owner visit</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text3)" }}><div style={{ width: 10, height: 10, borderRadius: 3, background: "var(--teal)" }} /> Rental</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text3)" }}><div style={{ width: 10, height: 10, borderRadius: 3, background: "#9B8EC4" }} /> Guest</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text3)" }}><div style={{ width: 10, height: 10, borderRadius: 3, background: "var(--bg4)" }} /> Available</div>
                       </div>
                     </div>
