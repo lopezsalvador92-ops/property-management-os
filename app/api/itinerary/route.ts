@@ -41,6 +41,8 @@ export async function GET(request: Request) {
     params.append("fields[]", "Chargeable");
     params.append("fields[]", "Estimated Cost");
     params.append("fields[]", "Expense Created");
+    params.append("fields[]", "Total");
+    params.append("fields[]", "Currency");
     params.set("sort[0][field]", "Date");
     params.set("sort[0][direction]", "asc");
     params.set("sort[1][field]", "Time");
@@ -77,6 +79,8 @@ export async function GET(request: Request) {
         chargeable: !!r.fields["Chargeable"],
         estimatedCost: r.fields["Estimated Cost"] || 0,
         expenseCreated: !!r.fields["Expense Created"],
+        total: r.fields["Total"] || 0,
+        currency: (() => { const raw = r.fields["Currency"]; return typeof raw === "string" ? raw : raw?.name || ""; })(),
       };
     });
 
@@ -90,7 +94,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { eventName, visitId, vendorId, date, time, details, status, eventType, extraDetails, showVendor, chargeable, estimatedCost, expenseCreated } = body;
+    const { eventName, visitId, vendorId, date, time, details, status, eventType, extraDetails, showVendor, chargeable, estimatedCost, expenseCreated, total, currency } = body;
 
     if (!eventName || !visitId || !date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -111,6 +115,8 @@ export async function POST(request: Request) {
     if (chargeable !== undefined) fields["Chargeable"] = chargeable;
     if (estimatedCost !== undefined) fields["Estimated Cost"] = estimatedCost;
     if (expenseCreated !== undefined) fields["Expense Created"] = expenseCreated;
+    if (total !== undefined) fields["Total"] = total;
+    if (currency !== undefined) fields["Currency"] = currency;
 
     const data = await airtableFetch(ITINERARY_TABLE, {
       method: "POST",
@@ -127,7 +133,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { id, eventName, vendorId, date, time, details, status, eventType, extraDetails, showVendor, chargeable, estimatedCost, expenseCreated } = body;
+    const { id, eventName, vendorId, date, time, details, status, eventType, extraDetails, showVendor, chargeable, estimatedCost, expenseCreated, total, currency } = body;
 
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
@@ -144,6 +150,8 @@ export async function PATCH(request: Request) {
     if (chargeable !== undefined) fields["Chargeable"] = chargeable;
     if (estimatedCost !== undefined) fields["Estimated Cost"] = estimatedCost;
     if (expenseCreated !== undefined) fields["Expense Created"] = expenseCreated;
+    if (total !== undefined) fields["Total"] = total;
+    if (currency !== undefined) fields["Currency"] = currency;
 
     await airtableFetch(ITINERARY_TABLE, {
       method: "PATCH",

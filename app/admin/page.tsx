@@ -18,7 +18,7 @@ type MaintenanceTask = { id: string; title: string; type: string; status: string
 type MaintenanceConfig = { id: string; taskName: string; category: string; propertyIds: string[]; propertyNames: string[]; frequency: string; vendorId: string; vendorName: string; lastCompleted: string; nextDue: string; notes: string; active: boolean };
 type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; propertyId: string; propertyName: string; notes: string; checklist: string; adults: number; children: number; questionnaire: Record<string, any>; published: boolean };
 type Vendor = { id: string; name: string; category: string; contact: string; location: string; tags: string; notes: string };
-type ItineraryEvent = { id: string; eventName: string; visitId: string; vendorId: string; vendorName: string; date: string; time: string; details: string; status: string; eventType: string; extraDetails: Record<string, any>; showVendor: boolean; chargeable: boolean; estimatedCost: number; expenseCreated: boolean };
+type ItineraryEvent = { id: string; eventName: string; visitId: string; vendorId: string; vendorName: string; date: string; time: string; details: string; status: string; eventType: string; extraDetails: Record<string, any>; showVendor: boolean; chargeable: boolean; estimatedCost: number; expenseCreated: boolean; total: number; currency: string };
 
 const catColors: Record<string, { bg: string; text: string }> = {
   Utilities: { bg: "rgba(207,196,110,0.1)", text: "#CFC46E" },
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
   const [vendorFilter, setVendorFilter] = useState("all");
   const [vendorSearch, setVendorSearch] = useState("");
   const [editChargeId, setEditChargeId] = useState<string | null>(null);
-  const [editChargeForm, setEditChargeForm] = useState<{ amount: string; description: string }>({ amount: "", description: "" });
+  const [editChargeForm, setEditChargeForm] = useState<{ amount: string; description: string; currency: string }>({ amount: "", description: "", currency: "USD" });
   const [approvingCharge, setApprovingCharge] = useState<string | null>(null);
   const [editVendorId, setEditVendorId] = useState<string | null>(null);
   const [editVendorForm, setEditVendorForm] = useState<Record<string, any>>({});
@@ -247,6 +247,8 @@ export default function AdminDashboard() {
   const [newEventShowVendor, setNewEventShowVendor] = useState(true);
   const [newEventChargeable, setNewEventChargeable] = useState(false);
   const [newEventEstCost, setNewEventEstCost] = useState("");
+  const [newEventTotal, setNewEventTotal] = useState("");
+  const [newEventCurrency, setNewEventCurrency] = useState("USD");
   const [addingEvent, setAddingEvent] = useState(false);
   const [publishingVisit, setPublishingVisit] = useState(false);
   // Add vendor form
@@ -2168,11 +2170,12 @@ export default function AdminDashboard() {
             if (!newEventName || !newEventDate || !selectedVisitId) return;
             setAddingEvent(true);
             try {
-              await fetch("/api/itinerary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName: newEventName, visitId: selectedVisitId, vendorId: newEventVendor || undefined, date: newEventDate, time: newEventTime, details: newEventDetails, status: newEventStatus, eventType: newEventType || undefined, extraDetails: Object.keys(newEventExtraDetails).length > 0 ? newEventExtraDetails : undefined, showVendor: newEventShowVendor, chargeable: newEventChargeable, estimatedCost: newEventChargeable && newEventEstCost ? Number(newEventEstCost) : undefined }) });
+              await fetch("/api/itinerary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName: newEventName, visitId: selectedVisitId, vendorId: newEventVendor || undefined, date: newEventDate, time: newEventTime, details: newEventDetails, status: newEventStatus, eventType: newEventType || undefined, extraDetails: Object.keys(newEventExtraDetails).length > 0 ? newEventExtraDetails : undefined, showVendor: newEventShowVendor, chargeable: newEventChargeable, estimatedCost: newEventChargeable && newEventEstCost ? Number(newEventEstCost) : undefined, total: newEventTotal ? Number(newEventTotal) : undefined, currency: newEventCurrency || undefined }) });
               const d = await fetch(`/api/itinerary`).then(r => r.json());
               setItineraryEvents(d.events || []);
               setNewEventName(""); setNewEventDate(""); setNewEventTime(""); setNewEventDetails(""); setNewEventVendor(""); setNewEventStatus("Pending");
               setNewEventType(""); setNewEventExtraDetails({}); setNewEventShowVendor(true); setNewEventChargeable(false); setNewEventEstCost("");
+              setNewEventTotal(""); setNewEventCurrency("USD");
               setShowAddEvent(false);
             } catch (e) { console.error(e); }
             setAddingEvent(false);
@@ -2490,6 +2493,11 @@ export default function AdminDashboard() {
                           <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Menu Preferences</div><input value={newEventExtraDetails.menuPreferences || ""} onChange={e => setNewEventExtraDetails(d => ({ ...d, menuPreferences: e.target.value }))} placeholder="e.g. Mexican cuisine, seafood focus" style={inp} /></div>
                         )}
                         <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Details</div><input value={newEventDetails} onChange={e => setNewEventDetails(e.target.value)} placeholder="e.g. Table for 4, outdoor garden" style={inp} /></div>
+                        {/* Total & Currency — hidden for Restaurant Reservation */}
+                        {newEventType !== "Restaurant Reservation" && (<>
+                          <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Total</div><input type="number" value={newEventTotal} onChange={e => setNewEventTotal(e.target.value)} placeholder="0.00" style={inp} /></div>
+                          <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Currency</div><select value={newEventCurrency} onChange={e => setNewEventCurrency(e.target.value)} style={sel}><option value="USD">USD</option><option value="MXN">MXN</option></select></div>
+                        </>)}
                         {/* Show Vendor & Chargeable toggles */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text2)" }}>
@@ -2554,6 +2562,11 @@ export default function AdminDashboard() {
                                         <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Menu Preferences</div><input value={(editEventForm.extraDetails || {}).menuPreferences || ""} onChange={e => setEditEventForm(f => ({ ...f, extraDetails: { ...(f.extraDetails || {}), menuPreferences: e.target.value } }))} placeholder="e.g. Mexican cuisine, seafood focus" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
                                       )}
                                       <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Details</div><input value={editEventForm.details || ""} onChange={e => setEditEventForm(f => ({ ...f, details: e.target.value }))} placeholder="e.g. Table for 4, outdoor garden" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                      {/* Total & Currency — hidden for Restaurant Reservation */}
+                                      {editEventForm.eventType !== "Restaurant Reservation" && (<>
+                                        <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Total</div><input type="number" value={editEventForm.total ?? ""} onChange={e => setEditEventForm(f => ({ ...f, total: e.target.value }))} placeholder="0.00" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                        <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Currency</div><select value={editEventForm.currency || "USD"} onChange={e => setEditEventForm(f => ({ ...f, currency: e.target.value }))} style={{ ...sel, padding: "6px 10px", fontSize: 12 }}><option value="USD">USD</option><option value="MXN">MXN</option></select></div>
+                                      </>)}
                                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                         <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text2)" }}>
                                           <input type="checkbox" checked={editEventForm.showVendor ?? true} onChange={e => setEditEventForm(f => ({ ...f, showVendor: e.target.checked }))} style={{ accentColor: "var(--teal)" }} /> Show Vendor
@@ -2569,7 +2582,7 @@ export default function AdminDashboard() {
                                       </div>
                                     </div>
                                     <div style={{ display: "flex", gap: 8 }}>
-                                      <button onClick={async () => { setSavingEvent(true); try { await fetch("/api/itinerary", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: ev.id, eventName: editEventForm.eventName, date: editEventForm.date, time: editEventForm.time, eventType: editEventForm.eventType || undefined, vendorId: editEventForm.vendorId || undefined, details: editEventForm.details, status: editEventForm.status, showVendor: editEventForm.showVendor, chargeable: editEventForm.chargeable, estimatedCost: editEventForm.chargeable && editEventForm.estimatedCost ? Number(editEventForm.estimatedCost) : 0, extraDetails: editEventForm.extraDetails && Object.keys(editEventForm.extraDetails).length > 0 ? editEventForm.extraDetails : undefined }) }); const d = await fetch("/api/itinerary").then(r => r.json()); setItineraryEvents(d.events || []); setEditEventId(null); } catch (e) { console.error(e); } setSavingEvent(false); }} disabled={savingEvent} style={{ padding: "6px 16px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{savingEvent ? "..." : "Save"}</button>
+                                      <button onClick={async () => { setSavingEvent(true); try { await fetch("/api/itinerary", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: ev.id, eventName: editEventForm.eventName, date: editEventForm.date, time: editEventForm.time, eventType: editEventForm.eventType || undefined, vendorId: editEventForm.vendorId || undefined, details: editEventForm.details, status: editEventForm.status, showVendor: editEventForm.showVendor, chargeable: editEventForm.chargeable, estimatedCost: editEventForm.chargeable && editEventForm.estimatedCost ? Number(editEventForm.estimatedCost) : 0, extraDetails: editEventForm.extraDetails && Object.keys(editEventForm.extraDetails).length > 0 ? editEventForm.extraDetails : undefined, total: editEventForm.total ? Number(editEventForm.total) : 0, currency: editEventForm.currency || "" }) }); const d = await fetch("/api/itinerary").then(r => r.json()); setItineraryEvents(d.events || []); setEditEventId(null); } catch (e) { console.error(e); } setSavingEvent(false); }} disabled={savingEvent} style={{ padding: "6px 16px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{savingEvent ? "..." : "Save"}</button>
                                       <button onClick={() => setEditEventId(null)} style={{ padding: "6px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
                                     </div>
                                   </div>
@@ -2582,9 +2595,10 @@ export default function AdminDashboard() {
                                       {ev.eventType && <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 6px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", textTransform: "uppercase" as const, letterSpacing: "0.04em", flexShrink: 0 }}>{ev.eventType}</span>}
                                     </div>
                                     {(ev.details || ev.vendorName) && <div style={{ fontSize: 12, color: "var(--text3)" }}>{[ev.vendorName, ev.details].filter(Boolean).join(" · ")}</div>}
-                                    {ev.chargeable && ev.estimatedCost > 0 && <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}>$ {ev.estimatedCost.toFixed(2)} (chargeable)</div>}
+                                    {ev.total > 0 && <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}>${ev.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {ev.currency || "USD"}{ev.chargeable ? " (chargeable)" : ""}</div>}
+                                    {!ev.total && ev.chargeable && ev.estimatedCost > 0 && <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}>$ {ev.estimatedCost.toFixed(2)} (chargeable)</div>}
                                   </div>
-                                  <button onClick={() => { setEditEventId(ev.id); setEditEventForm({ eventName: ev.eventName, date: ev.date, time: ev.time, eventType: ev.eventType, vendorId: ev.vendorId, details: ev.details, status: ev.status, showVendor: ev.showVendor, chargeable: ev.chargeable, estimatedCost: ev.estimatedCost, extraDetails: ev.extraDetails || {} }); }} style={{ padding: "4px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>✎ Edit</button>
+                                  <button onClick={() => { setEditEventId(ev.id); setEditEventForm({ eventName: ev.eventName, date: ev.date, time: ev.time, eventType: ev.eventType, vendorId: ev.vendorId, details: ev.details, status: ev.status, showVendor: ev.showVendor, chargeable: ev.chargeable, estimatedCost: ev.estimatedCost, extraDetails: ev.extraDetails || {}, total: ev.total, currency: ev.currency }); }} style={{ padding: "4px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>✎ Edit</button>
                                   <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, textTransform: "uppercase", letterSpacing: "0.04em", background: ec.bg, color: ec.text, flexShrink: 0 }}>{ev.status}</span>
                                 </div>
                                 )}
@@ -2687,9 +2701,9 @@ export default function AdminDashboard() {
                 const chargeableEvents = itineraryEvents.filter(e => e.chargeable);
                 const pendingCharges = chargeableEvents.filter(e => !e.expenseCreated);
                 const processedCharges = chargeableEvents.filter(e => e.expenseCreated);
-                const pendingTotal = pendingCharges.reduce((sum, e) => sum + (e.estimatedCost || 0), 0);
+                const pendingTotal = pendingCharges.reduce((sum, e) => sum + (e.total || e.estimatedCost || 0), 0);
 
-                async function approveCharge(ev: ItineraryEvent, overrideAmount?: number, overrideDesc?: string) {
+                async function approveCharge(ev: ItineraryEvent, overrideAmount?: number, overrideDesc?: string, overrideCurrency?: string) {
                   const visit = visits.find(v => v.id === ev.visitId);
                   if (!visit) return;
                   setApprovingCharge(ev.id);
@@ -2701,8 +2715,8 @@ export default function AdminDashboard() {
                         propertyId: visit.propertyId,
                         date: ev.date,
                         category: "Concierge",
-                        amount: overrideAmount ?? ev.estimatedCost,
-                        currency: "USD",
+                        amount: overrideAmount ?? ev.total ?? ev.estimatedCost,
+                        currency: overrideCurrency ?? (ev.currency || "USD"),
                         description: overrideDesc ?? ev.eventName,
                       }),
                     });
@@ -2744,12 +2758,12 @@ export default function AdminDashboard() {
                                       {visit && <span>{visit.visitName} · {visit.propertyName}</span>}
                                       {ev.vendorName && <span>Vendor: {ev.vendorName}</span>}
                                     </div>
-                                    <div style={{ marginTop: 8, fontSize: 15, fontWeight: 600, color: "var(--accent)" }}>${(ev.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                    <div style={{ marginTop: 8, fontSize: 15, fontWeight: 600, color: "var(--accent)" }}>${(ev.total || ev.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {ev.currency || "USD"}</div>
                                   </div>
                                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                                     {!isEditing && (
                                       <>
-                                        <button onClick={() => { setEditChargeId(ev.id); setEditChargeForm({ amount: String(ev.estimatedCost || 0), description: ev.eventName }); }} style={{ padding: "6px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
+                                        <button onClick={() => { setEditChargeId(ev.id); setEditChargeForm({ amount: String(ev.total || ev.estimatedCost || 0), description: ev.eventName, currency: ev.currency || "USD" }); }} style={{ padding: "6px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
                                         <button disabled={approvingCharge === ev.id} onClick={() => approveCharge(ev)} style={{ padding: "6px 16px", borderRadius: 100, border: "none", background: "var(--teal)", color: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, opacity: approvingCharge === ev.id ? 0.6 : 1 }}>{approvingCharge === ev.id ? "Processing..." : "Approve"}</button>
                                       </>
                                     )}
@@ -2759,8 +2773,12 @@ export default function AdminDashboard() {
                                   <div style={{ marginTop: 14, padding: 14, background: "var(--bg1)", borderRadius: 10, border: "1px solid var(--border2)" }}>
                                     <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
                                       <div style={{ flex: 1, minWidth: 120 }}>
-                                        <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Amount (USD)</label>
+                                        <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Amount</label>
                                         <input type="number" value={editChargeForm.amount} onChange={e => setEditChargeForm(f => ({ ...f, amount: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text1)", fontSize: 13, fontFamily: "inherit" }} />
+                                      </div>
+                                      <div style={{ flex: 1, minWidth: 90 }}>
+                                        <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Currency</label>
+                                        <select value={editChargeForm.currency} onChange={e => setEditChargeForm(f => ({ ...f, currency: e.target.value }))} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text1)", fontSize: 13, fontFamily: "inherit" }}><option value="USD">USD</option><option value="MXN">MXN</option></select>
                                       </div>
                                       <div style={{ flex: 3, minWidth: 200 }}>
                                         <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Description</label>
@@ -2769,7 +2787,7 @@ export default function AdminDashboard() {
                                     </div>
                                     <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                                       <button onClick={() => setEditChargeId(null)} style={{ padding: "6px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
-                                      <button disabled={approvingCharge === ev.id} onClick={() => approveCharge(ev, parseFloat(editChargeForm.amount) || ev.estimatedCost, editChargeForm.description || ev.eventName)} style={{ padding: "6px 16px", borderRadius: 100, border: "none", background: "var(--teal)", color: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, opacity: approvingCharge === ev.id ? 0.6 : 1 }}>{approvingCharge === ev.id ? "Processing..." : "Approve with Changes"}</button>
+                                      <button disabled={approvingCharge === ev.id} onClick={() => approveCharge(ev, parseFloat(editChargeForm.amount) || ev.total || ev.estimatedCost, editChargeForm.description || ev.eventName, editChargeForm.currency || ev.currency || "USD")} style={{ padding: "6px 16px", borderRadius: 100, border: "none", background: "var(--teal)", color: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, opacity: approvingCharge === ev.id ? 0.6 : 1 }}>{approvingCharge === ev.id ? "Processing..." : "Approve with Changes"}</button>
                                     </div>
                                   </div>
                                 )}
@@ -2795,7 +2813,7 @@ export default function AdminDashboard() {
                                 <span style={{ color: "var(--text1)", fontWeight: 500, flex: 1 }}>{ev.eventName}</span>
                                 <span style={{ color: "var(--text3)", fontSize: 12 }}>{ev.date}</span>
                                 {visit && <span style={{ color: "var(--text3)", fontSize: 12 }}>{visit.propertyName}</span>}
-                                <span style={{ color: "var(--text2)", fontWeight: 600 }}>${(ev.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span style={{ color: "var(--text2)", fontWeight: 600 }}>${(ev.total || ev.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {ev.currency || "USD"}</span>
                               </div>
                             );
                           })}
