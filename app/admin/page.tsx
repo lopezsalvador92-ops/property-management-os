@@ -34,7 +34,7 @@ const catColors: Record<string, { bg: string; text: string }> = {
 const navItems = [
   { id: "dashboard", icon: "◈", label: "Dashboard" },
   { id: "expenses", icon: "⎙", label: "Expenses" },
-  { id: "housekeeping", icon: "⌂", label: "Housekeeping", badge: "3" },
+  { id: "housekeeping", icon: "⌂", label: "Housekeeping" },
   { id: "deposits", icon: "↓", label: "Deposits" },
   { id: "reports", icon: "↗", label: "Reports" },
   { id: "concierge", icon: "✦", label: "Concierge" },
