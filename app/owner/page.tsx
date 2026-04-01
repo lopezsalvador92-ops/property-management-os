@@ -149,6 +149,7 @@ export default function OwnerPortal() {
           .exp-cat-cell,.exp-receipt-cell{display:none !important;}
           .fin-section-title{font-size:24px !important;}
           .month-selector{align-self:flex-start !important;}
+          .owner-2col{grid-template-columns:1fr !important;}
         }
         @media(max-width:480px){
           .fin-stats{grid-template-columns:1fr !important;}
@@ -253,7 +254,7 @@ export default function OwnerPortal() {
               </div>
 
               {/* Two-column layout: Upcoming maintenance + Recent activity */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="owner-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 {/* Upcoming maintenance */}
                 <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
                   <div style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>

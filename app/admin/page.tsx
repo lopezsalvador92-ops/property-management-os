@@ -578,9 +578,12 @@ export default function AdminDashboard() {
     <style>{`
       .admin-mobile-bar{display:none}
       @media(max-width:900px){
-        .admin-shell{grid-template-columns:0px 1fr !important;}
+        .admin-shell{grid-template-columns:1fr !important;}
         .admin-sidebar-wrap{display:none !important;}
         .admin-mobile-bar{display:flex !important;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+        .admin-main{padding:20px 16px !important;}
+        .admin-stats-4{grid-template-columns:repeat(2,1fr) !important;}
+        .admin-2col{grid-template-columns:1fr !important;}
       }
     `}</style>
     {theme === "light" && <style>{`
@@ -626,7 +629,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* SIDEBAR */}
-      <div style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", height: "100vh", position: "sticky" as const, top: 0, display: "flex", flexDirection: "column" as const, overflow: "hidden", transition: "width 0.2s ease", width: sidebarWidth }}>
+      <div className="admin-sidebar-wrap" style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", height: "100vh", position: "sticky" as const, top: 0, display: "flex", flexDirection: "column" as const, overflow: "hidden", transition: "width 0.2s ease", width: sidebarWidth }}>
         <div style={{ padding: sidebarOpen ? "24px 20px 20px" : "24px 12px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, minHeight: 78 }}>
           <img src="/cape-logo.png" alt="Cape PM" style={{ height: 28 }} />
           {sidebarOpen && <div><div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text2)" }}>Cape PM</div><div style={{ fontSize: 10, color: "var(--text3)" }}>Admin Panel</div></div>}
@@ -677,7 +680,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* STAT CARDS */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
+              <div className="admin-stats-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
                 <div onClick={() => setActivePage("properties")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
                   <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Active Properties</div>
                   <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text1)", marginBottom: 4 }}>{active.length}</div>
@@ -701,7 +704,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* ROW 1: ACTION REQUIRED + UPCOMING VISITS */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+              <div className="admin-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
                 <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Action required</h2>
                   <div style={{ display: "grid", gap: 8 }}>
@@ -799,7 +802,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* ROW 2: OPEN MAINTENANCE + RECENT ACTIVITY */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
+              <div className="admin-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
                 {enabledModules.includes("maintenance") ? <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Open maintenance</h2>
                   {openMaint.length === 0 ? (
