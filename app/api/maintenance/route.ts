@@ -125,6 +125,7 @@ export async function PATCH(request: Request) {
     if (rest.approvalStatus !== undefined) fields["Approval Status"] = rest.approvalStatus;
     if (rest.approvedBy !== undefined) fields["Approved By"] = rest.approvedBy;
     if (rest.approvalDate !== undefined) fields["Approval Date"] = rest.approvalDate;
+    if (rest.attachments !== undefined) fields["Attachments"] = rest.attachments.map((a: any) => ({ url: a.url }));
 
     await airtableFetch(TASKS_TABLE, {
       method: "PATCH",

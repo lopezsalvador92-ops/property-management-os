@@ -2507,9 +2507,7 @@ export default function AdminDashboard() {
                           <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text2)" }}>
                             <input type="checkbox" checked={newEventChargeable} onChange={e => setNewEventChargeable(e.target.checked)} style={{ accentColor: "var(--accent)" }} /> Chargeable
                           </label>
-                          {newEventChargeable && (
-                            <div style={{ flex: 1 }}><input type="number" value={newEventEstCost} onChange={e => setNewEventEstCost(e.target.value)} placeholder="Estimated cost ($)" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
-                          )}
+                          {newEventChargeable && <span style={{ fontSize: 11, color: "var(--text3)" }}>Uses Total + Currency fields above</span>}
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 10 }}>
@@ -2575,9 +2573,7 @@ export default function AdminDashboard() {
                                         <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text2)" }}>
                                           <input type="checkbox" checked={editEventForm.chargeable ?? false} onChange={e => setEditEventForm(f => ({ ...f, chargeable: e.target.checked }))} style={{ accentColor: "var(--accent)" }} /> Chargeable
                                         </label>
-                                        {editEventForm.chargeable && (
-                                          <div style={{ flex: 1 }}><input type="number" value={editEventForm.estimatedCost ?? ""} onChange={e => setEditEventForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="Estimated cost ($)" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
-                                        )}
+                                        {editEventForm.chargeable && <span style={{ fontSize: 11, color: "var(--text3)" }}>Uses Total + Currency fields</span>}
                                       </div>
                                     </div>
                                     <div style={{ display: "flex", gap: 8 }}>
@@ -2717,6 +2713,7 @@ export default function AdminDashboard() {
                         amount: overrideAmount ?? ev.total ?? ev.estimatedCost,
                         currency: overrideCurrency ?? (ev.currency || "USD"),
                         description: overrideDesc ?? ev.eventName,
+                        supplier: ev.vendorName || "",
                       }),
                     });
                     await fetch("/api/itinerary", {
@@ -3098,16 +3095,34 @@ export default function AdminDashboard() {
                                 {t.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>{t.notes}</div>}
                                 {t.cost > 0 && <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 12 }}>Estimated cost: <strong>${t.cost.toFixed(2)}</strong></div>}
                                 {/* Attachments */}
-                                {t.attachments && t.attachments.length > 0 && (
-                                  <div style={{ marginBottom: 12 }}>
-                                    <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Attachments</div>
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                <div style={{ marginBottom: 12 }}>
+                                  <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Attachments & Photos</div>
+                                  {t.attachments && t.attachments.length > 0 && (
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                                       {t.attachments.map((att, i) => (
                                         <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--teal-l)", textDecoration: "none", padding: "4px 10px", borderRadius: 6, background: "var(--teal-s)", border: "1px solid rgba(110,207,190,0.2)" }}>{att.filename || `Attachment ${i + 1}`}</a>
                                       ))}
                                     </div>
+                                  )}
+                                  {(!t.attachments || t.attachments.length === 0) && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>No attachments yet.</div>}
+                                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <input id={`att-url-${t.id}`} placeholder="Paste file URL (invoice, photo, quote...)" style={{ ...inp, padding: "6px 10px", fontSize: 12, flex: 1 }} />
+                                    <button onClick={async () => {
+                                      const urlInput = document.getElementById(`att-url-${t.id}`) as HTMLInputElement;
+                                      const url = urlInput?.value?.trim();
+                                      if (!url) return;
+                                      setTaskUpdating(t.id);
+                                      try {
+                                        const existing = (t.attachments || []).map(a => ({ url: a.url }));
+                                        await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, attachments: [...existing, { url }] }) });
+                                        const d = await fetch("/api/maintenance").then(r => r.json());
+                                        setMaintTasks(d.tasks || []);
+                                        if (urlInput) urlInput.value = "";
+                                      } catch (e) { console.error(e); }
+                                      setTaskUpdating(null);
+                                    }} disabled={taskUpdating === t.id} style={{ padding: "6px 14px", borderRadius: 100, background: "var(--teal-s)", color: "var(--teal-l)", border: "1px solid rgba(110,207,190,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>+ Add</button>
                                   </div>
-                                )}
+                                </div>
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                   <button onClick={(e) => { e.stopPropagation(); setEditMaintId(t.id); setEditMaintForm({ title: t.title, status: t.status, priority: t.priority, scheduledDate: t.scheduledDate, vendorId: t.vendorId, cost: t.cost, notes: t.notes }); }} style={{ padding: "6px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button>
                                   {t.status !== "Completed" && t.status !== "Cancelled" && (
