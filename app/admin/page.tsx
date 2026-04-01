@@ -3106,21 +3106,31 @@ export default function AdminDashboard() {
                                   )}
                                   {(!t.attachments || t.attachments.length === 0) && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>No attachments yet.</div>}
                                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                    <input id={`att-url-${t.id}`} placeholder="Paste file URL (invoice, photo, quote...)" style={{ ...inp, padding: "6px 10px", fontSize: 12, flex: 1 }} />
-                                    <button onClick={async () => {
-                                      const urlInput = document.getElementById(`att-url-${t.id}`) as HTMLInputElement;
-                                      const url = urlInput?.value?.trim();
-                                      if (!url) return;
-                                      setTaskUpdating(t.id);
-                                      try {
-                                        const existing = (t.attachments || []).map(a => ({ url: a.url }));
-                                        await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, attachments: [...existing, { url }] }) });
-                                        const d = await fetch("/api/maintenance").then(r => r.json());
-                                        setMaintTasks(d.tasks || []);
-                                        if (urlInput) urlInput.value = "";
-                                      } catch (e) { console.error(e); }
-                                      setTaskUpdating(null);
-                                    }} disabled={taskUpdating === t.id} style={{ padding: "6px 14px", borderRadius: 100, background: "var(--teal-s)", color: "var(--teal-l)", border: "1px solid rgba(110,207,190,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>+ Add</button>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 100, background: "var(--teal-s)", color: "var(--teal-l)", border: "1px solid rgba(110,207,190,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>
+                                      📎 Upload File / Photo
+                                      <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple style={{ display: "none" }} onChange={async (e) => {
+                                        const files = e.target.files;
+                                        if (!files || files.length === 0) return;
+                                        setTaskUpdating(t.id);
+                                        try {
+                                          const existing = (t.attachments || []).map(a => ({ url: a.url }));
+                                          const newAtts = [...existing];
+                                          for (const file of Array.from(files)) {
+                                            const fd = new FormData();
+                                            fd.append("file", file);
+                                            const res = await fetch("/api/upload", { method: "POST", body: fd });
+                                            const data = await res.json();
+                                            if (data.url) newAtts.push({ url: data.url });
+                                          }
+                                          await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, attachments: newAtts }) });
+                                          const d = await fetch("/api/maintenance").then(r => r.json());
+                                          setMaintTasks(d.tasks || []);
+                                        } catch (err) { console.error(err); alert("Upload failed. Please try again."); }
+                                        setTaskUpdating(null);
+                                        e.target.value = "";
+                                      }} />
+                                    </label>
+                                    {taskUpdating === t.id && <span style={{ fontSize: 11, color: "var(--text3)" }}>Uploading...</span>}
                                   </div>
                                 </div>
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
