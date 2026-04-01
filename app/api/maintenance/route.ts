@@ -26,7 +26,7 @@ async function airtableFetch(path: string, options?: RequestInit) {
 export async function GET() {
   try {
     const params = new URLSearchParams();
-    ["Title","Type","Status","Priority","Property","Vendor","Scheduled Date","Completed Date","Cost","Notes","Expense Created","Attachments","Approval Status","Approved By","Approval Date"].forEach(f => params.append("fields[]", f));
+    ["Title","Type","Status","Priority","Property","Vendor","Scheduled Date","Completed Date","Cost","Notes","Expense Created","Attachments","Photos","Approval Status","Approved By","Approval Date"].forEach(f => params.append("fields[]", f));
     params.set("sort[0][field]", "Scheduled Date");
     params.set("sort[0][direction]", "asc");
     params.set("pageSize", "100");
@@ -61,6 +61,7 @@ export async function GET() {
         notes: r.fields["Notes"] || "",
         expenseCreated: r.fields["Expense Created"] || false,
         attachments: (r.fields["Attachments"] || []).map((a: any) => ({ url: a.url || "", filename: a.filename || "" })),
+        photos: (r.fields["Photos"] || []).map((a: any) => ({ url: a.url || "", filename: a.filename || "" })),
         approvalStatus: r.fields["Approval Status"] || "",
         approvedBy: r.fields["Approved By"] || "",
         approvalDate: r.fields["Approval Date"] || "",
@@ -126,6 +127,7 @@ export async function PATCH(request: Request) {
     if (rest.approvedBy !== undefined) fields["Approved By"] = rest.approvedBy;
     if (rest.approvalDate !== undefined) fields["Approval Date"] = rest.approvalDate;
     if (rest.attachments !== undefined) fields["Attachments"] = rest.attachments.map((a: any) => ({ url: a.url }));
+    if (rest.photos !== undefined) fields["Photos"] = rest.photos.map((a: any) => ({ url: a.url }));
 
     await airtableFetch(TASKS_TABLE, {
       method: "PATCH",

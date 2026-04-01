@@ -14,7 +14,7 @@ type HskSummary = { property: string; totalCleans: number; includedPerWeek: numb
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
 type ReportStatus = { pending: number; reviewed: number; sent: number; total: number; month: string };
-type MaintenanceTask = { id: string; title: string; type: string; status: string; priority: string; propertyId: string; propertyName: string; vendorId: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean; attachments: { url: string; filename: string }[]; approvalStatus: string; approvedBy: string; approvalDate: string };
+type MaintenanceTask = { id: string; title: string; type: string; status: string; priority: string; propertyId: string; propertyName: string; vendorId: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean; attachments: { url: string; filename: string }[]; photos: { url: string; filename: string }[]; approvalStatus: string; approvedBy: string; approvalDate: string };
 type MaintenanceConfig = { id: string; taskName: string; category: string; propertyIds: string[]; propertyNames: string[]; frequency: string; vendorId: string; vendorName: string; lastCompleted: string; nextDue: string; notes: string; active: boolean };
 type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; propertyId: string; propertyName: string; notes: string; checklist: string; adults: number; children: number; questionnaire: Record<string, any>; published: boolean };
 type Vendor = { id: string; name: string; category: string; contact: string; location: string; tags: string; notes: string };
@@ -227,7 +227,7 @@ export default function AdminDashboard() {
   const [maintFilter, setMaintFilter] = useState<"all" | "today" | "week" | "month">("all");
   const [editMaintId, setEditMaintId] = useState<string | null>(null);
   const [editMaintForm, setEditMaintForm] = useState<Record<string, any>>({});
-  const [expenseReview, setExpenseReview] = useState<{ task: MaintenanceTask; amount: string; date: string; property: string; category: string; description: string; supplier: string } | null>(null);
+  const [expenseReview, setExpenseReview] = useState<{ task: MaintenanceTask; amount: string; date: string; property: string; category: string; description: string; supplier: string; receiptUrl: string } | null>(null);
   const [calView, setCalView] = useState<"monthly" | "weekly">("monthly");
   const [calWeekStart, setCalWeekStart] = useState(() => { const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().split("T")[0]; });
   const [propAvailView, setPropAvailView] = useState<"weekly" | "list" | "monthly">("weekly");
@@ -2925,6 +2925,7 @@ export default function AdminDashboard() {
 
           function generateExpense(task: MaintenanceTask) {
             // Show review form instead of creating directly
+            const firstAttUrl = task.attachments && task.attachments.length > 0 ? task.attachments[0].url : "";
             setExpenseReview({
               task,
               amount: String(task.cost || 0),
@@ -2933,13 +2934,14 @@ export default function AdminDashboard() {
               category: "Maintenance",
               description: task.title + (task.vendorName ? ` (${task.vendorName})` : ""),
               supplier: task.vendorName || "",
+              receiptUrl: firstAttUrl,
             });
           }
 
           async function confirmExpense() {
             if (!expenseReview) return;
             try {
-              await fetch("/api/expenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId: expenseReview.property, date: expenseReview.date, category: expenseReview.category, amount: expenseReview.amount, currency: "MXN", description: expenseReview.description, supplier: expenseReview.supplier }) });
+              await fetch("/api/expenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId: expenseReview.property, date: expenseReview.date, category: expenseReview.category, amount: expenseReview.amount, currency: "MXN", description: expenseReview.description, supplier: expenseReview.supplier, receiptUrl: expenseReview.receiptUrl || "" }) });
               await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: expenseReview.task.id, expenseCreated: true }) });
               const d = await fetch("/api/maintenance").then(r => r.json());
               setMaintTasks(d.tasks || []);
@@ -3094,21 +3096,62 @@ export default function AdminDashboard() {
                                 )}
                                 {t.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>{t.notes}</div>}
                                 {t.cost > 0 && <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 12 }}>Estimated cost: <strong>${t.cost.toFixed(2)}</strong></div>}
-                                {/* Attachments */}
+                                {/* Photos */}
                                 <div style={{ marginBottom: 12 }}>
-                                  <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Attachments & Photos</div>
-                                  {t.attachments && t.attachments.length > 0 && (
+                                  <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Photos</div>
+                                  {t.photos && t.photos.length > 0 && (
                                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                                      {t.attachments.map((att, i) => (
-                                        <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--teal-l)", textDecoration: "none", padding: "4px 10px", borderRadius: 6, background: "var(--teal-s)", border: "1px solid rgba(110,207,190,0.2)" }}>{att.filename || `Attachment ${i + 1}`}</a>
+                                      {t.photos.map((ph, i) => (
+                                        <a key={i} href={ph.url} target="_blank" rel="noopener noreferrer" title={ph.filename || `Photo ${i + 1}`}>
+                                          <img src={ph.url} alt={ph.filename || `Photo ${i + 1}`} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border2)" }} />
+                                        </a>
                                       ))}
                                     </div>
                                   )}
-                                  {(!t.attachments || t.attachments.length === 0) && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>No attachments yet.</div>}
+                                  {(!t.photos || t.photos.length === 0) && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>No photos yet.</div>}
                                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                     <label style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 100, background: "var(--teal-s)", color: "var(--teal-l)", border: "1px solid rgba(110,207,190,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>
-                                      📎 Upload File / Photo
-                                      <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple style={{ display: "none" }} onChange={async (e) => {
+                                      Add Photos
+                                      <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={async (e) => {
+                                        const files = e.target.files;
+                                        if (!files || files.length === 0) return;
+                                        setTaskUpdating(t.id);
+                                        try {
+                                          const existing = (t.photos || []).map(a => ({ url: a.url }));
+                                          const newPhotos = [...existing];
+                                          for (const file of Array.from(files)) {
+                                            const fd = new FormData();
+                                            fd.append("file", file);
+                                            const res = await fetch("/api/upload", { method: "POST", body: fd });
+                                            const data = await res.json();
+                                            if (data.url) newPhotos.push({ url: data.url });
+                                          }
+                                          await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, photos: newPhotos }) });
+                                          const d = await fetch("/api/maintenance").then(r => r.json());
+                                          setMaintTasks(d.tasks || []);
+                                        } catch (err) { console.error(err); alert("Upload failed. Please try again."); }
+                                        setTaskUpdating(null);
+                                        e.target.value = "";
+                                      }} />
+                                    </label>
+                                    {taskUpdating === t.id && <span style={{ fontSize: 11, color: "var(--text3)" }}>Uploading...</span>}
+                                  </div>
+                                </div>
+                                {/* Documents */}
+                                <div style={{ marginBottom: 12 }}>
+                                  <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Documents</div>
+                                  {t.attachments && t.attachments.length > 0 && (
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                                      {t.attachments.map((att, i) => (
+                                        <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--teal-l)", textDecoration: "none", padding: "4px 10px", borderRadius: 6, background: "var(--teal-s)", border: "1px solid rgba(110,207,190,0.2)" }}>{att.filename || `Document ${i + 1}`}</a>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {(!t.attachments || t.attachments.length === 0) && <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 8 }}>No documents yet.</div>}
+                                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 100, background: "var(--teal-s)", color: "var(--teal-l)", border: "1px solid rgba(110,207,190,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>
+                                      Add Documents
+                                      <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" multiple style={{ display: "none" }} onChange={async (e) => {
                                         const files = e.target.files;
                                         if (!files || files.length === 0) return;
                                         setTaskUpdating(t.id);

@@ -11,7 +11,7 @@ type Report = {
 };
 type Expense = { id: string; description: string; amount: number; category: string; date: string; receiptUrl: string; monthYear: string };
 type Deposit = { id: string; amount: number; date: string; notes: string; monthYear: string };
-type MaintTask = { id: string; title: string; type: string; status: string; priority: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean; attachments: { url: string; filename: string }[]; approvalStatus: string; approvedBy: string; approvalDate: string };
+type MaintTask = { id: string; title: string; type: string; status: string; priority: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean; attachments: { url: string; filename: string }[]; photos: { url: string; filename: string }[]; approvalStatus: string; approvedBy: string; approvalDate: string };
 type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; notes: string; adults: number; children: number; published: boolean };
 type ItineraryEvent = { id: string; eventName: string; visitId: string; date: string; time: string; details: string; status: string; eventType: string; showVendor: boolean; vendorName: string; total: number; currency: string; extraDetails: Record<string, any> };
 
@@ -538,12 +538,24 @@ export default function OwnerPortal() {
                               {t.cost > 0 && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Cost</div><div style={{ fontSize: 13 }}>{fmt(t.cost)} {cur}</div></div>}
                               {t.notes && <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Notes</div><div style={{ fontSize: 13, color: "var(--text2)" }}>{t.notes}</div></div>}
                             </div>
+                            {t.photos && t.photos.length > 0 && (
+                              <div style={{ marginTop: 10 }}>
+                                <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Photos</div>
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                                  {t.photos.map((ph, pi) => (
+                                    <a key={pi} href={ph.url} target="_blank" rel="noopener noreferrer" title={ph.filename || `Photo ${pi + 1}`}>
+                                      <img src={ph.url} alt={ph.filename || `Photo ${pi + 1}`} style={{ width: 80, height: 60, objectFit: "cover" as const, borderRadius: 6, border: "1px solid var(--border2)" }} />
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             {t.attachments && t.attachments.length > 0 && (
                               <div style={{ marginTop: 10 }}>
-                                <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Attachments</div>
+                                <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Documents</div>
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
                                   {t.attachments.map((a, ai) => (
-                                    <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", padding: "4px 10px", background: "var(--accent-s)", borderRadius: 6 }}>{a.filename || "Attachment"}</a>
+                                    <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", padding: "4px 10px", background: "var(--accent-s)", borderRadius: 6 }}>{a.filename || "Document"}</a>
                                   ))}
                                 </div>
                               </div>
@@ -616,12 +628,24 @@ export default function OwnerPortal() {
                                 {t.cost > 0 && <div><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Cost</div><div style={{ fontSize: 13 }}>{fmt(t.cost)} {cur}</div></div>}
                                 {t.notes && <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 2 }}>Notes</div><div style={{ fontSize: 13, color: "var(--text2)" }}>{t.notes}</div></div>}
                               </div>
+                              {t.photos && t.photos.length > 0 && (
+                                <div style={{ marginTop: 10 }}>
+                                  <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Photos</div>
+                                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                                    {t.photos.map((ph, pi) => (
+                                      <a key={pi} href={ph.url} target="_blank" rel="noopener noreferrer" title={ph.filename || `Photo ${pi + 1}`}>
+                                        <img src={ph.url} alt={ph.filename || `Photo ${pi + 1}`} style={{ width: 80, height: 60, objectFit: "cover" as const, borderRadius: 6, border: "1px solid var(--border2)" }} />
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                               {t.attachments && t.attachments.length > 0 && (
                                 <div style={{ marginTop: 10 }}>
-                                  <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Attachments</div>
+                                  <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.06em", color: "var(--text3)", marginBottom: 4 }}>Documents</div>
                                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
                                     {t.attachments.map((a, ai) => (
-                                      <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", padding: "4px 10px", background: "var(--accent-s)", borderRadius: 6 }}>{a.filename || "Attachment"}</a>
+                                      <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", padding: "4px 10px", background: "var(--accent-s)", borderRadius: 6 }}>{a.filename || "Document"}</a>
                                     ))}
                                   </div>
                                 </div>

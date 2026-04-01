@@ -197,7 +197,7 @@ export async function GET(request: Request) {
 
     // 6. Get maintenance tasks for this property
     const maintParams = new URLSearchParams();
-    ["Title", "Type", "Status", "Priority", "Property", "Vendor", "Scheduled Date", "Completed Date", "Cost", "Notes", "Expense Created", "Attachments", "Approval Status", "Approved By", "Approval Date"].forEach(f => maintParams.append("fields[]", f));
+    ["Title", "Type", "Status", "Priority", "Property", "Vendor", "Scheduled Date", "Completed Date", "Cost", "Notes", "Expense Created", "Attachments", "Photos", "Approval Status", "Approved By", "Approval Date"].forEach(f => maintParams.append("fields[]", f));
     maintParams.set("sort[0][field]", "Scheduled Date");
     maintParams.set("sort[0][direction]", "desc");
     maintParams.set("pageSize", "100");
@@ -216,6 +216,7 @@ export async function GET(request: Request) {
           completedDate: f["Completed Date"] || "", cost: safeNum(f["Cost"]),
           notes: f["Notes"] || "", expenseCreated: !!f["Expense Created"],
           attachments: (f["Attachments"] || []).map((a: any) => ({ url: a.url || "", filename: a.filename || "" })),
+          photos: (f["Photos"] || []).map((a: any) => ({ url: a.url || "", filename: a.filename || "" })),
           approvalStatus: f["Approval Status"] || "",
           approvedBy: f["Approved By"] || "",
           approvalDate: f["Approval Date"] || "",
