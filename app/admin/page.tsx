@@ -167,6 +167,10 @@ export default function AdminDashboard() {
   const [editVendorId, setEditVendorId] = useState<string | null>(null);
   const [editVendorForm, setEditVendorForm] = useState<Record<string, any>>({});
   const [savingVendor, setSavingVendor] = useState(false);
+  // Edit itinerary event
+  const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [editEventForm, setEditEventForm] = useState<Record<string, any>>({});
+  const [savingEvent, setSavingEvent] = useState(false);
   // Add visit form
   const [showAddVisit, setShowAddVisit] = useState(false);
   const [newVisitName, setNewVisitName] = useState("");
@@ -2524,8 +2528,53 @@ export default function AdminDashboard() {
                             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{dayLabel}</div>
                             {eventsByDate[date].map(ev => {
                               const ec = eventStatusColor(ev.status);
+                              const isEditing = editEventId === ev.id;
                               return (
-                                <div key={ev.id} style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 12 }}>
+                                <div key={ev.id} style={{ marginBottom: 12, background: isEditing ? "var(--accent-s)" : "transparent", border: isEditing ? "1px solid var(--accent)" : "none", borderRadius: isEditing ? 10 : 0, padding: isEditing ? 14 : 0 }}>
+                                {isEditing ? (
+                                  <div>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                                      <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Event Name *</div><input value={editEventForm.eventName || ""} onChange={e => setEditEventForm(f => ({ ...f, eventName: e.target.value }))} style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                      <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Event Type</div><select value={editEventForm.eventType || ""} onChange={e => setEditEventForm(f => ({ ...f, eventType: e.target.value, extraDetails: {} }))} style={{ ...sel, padding: "6px 10px", fontSize: 12 }}><option value="">-- Select --</option>{["Restaurant Reservation","Arrival Transportation","Departure Transportation","Private Transportation","Private Chef","Activity","Spa/Wellness","Other"].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+                                      <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Date *</div><input type="date" value={editEventForm.date || ""} onChange={e => setEditEventForm(f => ({ ...f, date: e.target.value }))} style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                      <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Time</div><input type="time" value={editEventForm.time || ""} onChange={e => setEditEventForm(f => ({ ...f, time: e.target.value }))} style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                      <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Vendor</div><select value={editEventForm.vendorId || ""} onChange={e => setEditEventForm(f => ({ ...f, vendorId: e.target.value }))} style={{ ...sel, padding: "6px 10px", fontSize: 12 }}><option value="">-- None --</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+                                      <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Status</div><select value={editEventForm.status || "Pending"} onChange={e => setEditEventForm(f => ({ ...f, status: e.target.value }))} style={{ ...sel, padding: "6px 10px", fontSize: 12 }}><option>Pending</option><option>Confirmed</option><option>Cancelled</option></select></div>
+                                      {/* Conditional fields based on event type */}
+                                      {(editEventForm.eventType === "Arrival Transportation" || editEventForm.eventType === "Departure Transportation" || editEventForm.eventType === "Private Transportation") && (<>
+                                        <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Flight Number</div><input value={(editEventForm.extraDetails || {}).flightNumber || ""} onChange={e => setEditEventForm(f => ({ ...f, extraDetails: { ...(f.extraDetails || {}), flightNumber: e.target.value } }))} placeholder="e.g. AA1234" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                        <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Pickup Location</div><input value={(editEventForm.extraDetails || {}).pickupLocation || ""} onChange={e => setEditEventForm(f => ({ ...f, extraDetails: { ...(f.extraDetails || {}), pickupLocation: e.target.value } }))} placeholder="e.g. SJD Airport" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                        <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Dropoff Location</div><input value={(editEventForm.extraDetails || {}).dropoffLocation || ""} onChange={e => setEditEventForm(f => ({ ...f, extraDetails: { ...(f.extraDetails || {}), dropoffLocation: e.target.value } }))} placeholder="e.g. Villa Esperanza" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                      </>)}
+                                      {editEventForm.eventType === "Restaurant Reservation" && (<>
+                                        <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Allergies</div><input value={(editEventForm.extraDetails || {}).allergies || ""} onChange={e => setEditEventForm(f => ({ ...f, extraDetails: { ...(f.extraDetails || {}), allergies: e.target.value } }))} placeholder="e.g. Shellfish, nuts" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                        <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Special Celebration</div><input value={(editEventForm.extraDetails || {}).specialCelebration || ""} onChange={e => setEditEventForm(f => ({ ...f, extraDetails: { ...(f.extraDetails || {}), specialCelebration: e.target.value } }))} placeholder="e.g. Birthday, Anniversary" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                      </>)}
+                                      {editEventForm.eventType === "Private Chef" && (
+                                        <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Menu Preferences</div><input value={(editEventForm.extraDetails || {}).menuPreferences || ""} onChange={e => setEditEventForm(f => ({ ...f, extraDetails: { ...(f.extraDetails || {}), menuPreferences: e.target.value } }))} placeholder="e.g. Mexican cuisine, seafood focus" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                      )}
+                                      <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Details</div><input value={editEventForm.details || ""} onChange={e => setEditEventForm(f => ({ ...f, details: e.target.value }))} placeholder="e.g. Table for 4, outdoor garden" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text2)" }}>
+                                          <input type="checkbox" checked={editEventForm.showVendor ?? true} onChange={e => setEditEventForm(f => ({ ...f, showVendor: e.target.checked }))} style={{ accentColor: "var(--teal)" }} /> Show Vendor
+                                        </label>
+                                      </div>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text2)" }}>
+                                          <input type="checkbox" checked={editEventForm.chargeable ?? false} onChange={e => setEditEventForm(f => ({ ...f, chargeable: e.target.checked }))} style={{ accentColor: "var(--accent)" }} /> Chargeable
+                                        </label>
+                                        {editEventForm.chargeable && (
+                                          <div style={{ flex: 1 }}><input type="number" value={editEventForm.estimatedCost ?? ""} onChange={e => setEditEventForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="Estimated cost ($)" style={{ ...inp, padding: "6px 10px", fontSize: 12 }} /></div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                      <button onClick={async () => { setSavingEvent(true); try { await fetch("/api/itinerary", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: ev.id, eventName: editEventForm.eventName, date: editEventForm.date, time: editEventForm.time, eventType: editEventForm.eventType || undefined, vendorId: editEventForm.vendorId || undefined, details: editEventForm.details, status: editEventForm.status, showVendor: editEventForm.showVendor, chargeable: editEventForm.chargeable, estimatedCost: editEventForm.chargeable && editEventForm.estimatedCost ? Number(editEventForm.estimatedCost) : 0, extraDetails: editEventForm.extraDetails && Object.keys(editEventForm.extraDetails).length > 0 ? editEventForm.extraDetails : undefined }) }); const d = await fetch("/api/itinerary").then(r => r.json()); setItineraryEvents(d.events || []); setEditEventId(null); } catch (e) { console.error(e); } setSavingEvent(false); }} disabled={savingEvent} style={{ padding: "6px 16px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{savingEvent ? "..." : "Save"}</button>
+                                      <button onClick={() => setEditEventId(null)} style={{ padding: "6px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
                                   <div style={{ fontSize: 12, color: "var(--text3)", minWidth: 60, paddingTop: 2 }}>{ev.time || "—"}</div>
                                   <div style={{ flex: 1 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
@@ -2535,7 +2584,10 @@ export default function AdminDashboard() {
                                     {(ev.details || ev.vendorName) && <div style={{ fontSize: 12, color: "var(--text3)" }}>{[ev.vendorName, ev.details].filter(Boolean).join(" · ")}</div>}
                                     {ev.chargeable && ev.estimatedCost > 0 && <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}>$ {ev.estimatedCost.toFixed(2)} (chargeable)</div>}
                                   </div>
+                                  <button onClick={() => { setEditEventId(ev.id); setEditEventForm({ eventName: ev.eventName, date: ev.date, time: ev.time, eventType: ev.eventType, vendorId: ev.vendorId, details: ev.details, status: ev.status, showVendor: ev.showVendor, chargeable: ev.chargeable, estimatedCost: ev.estimatedCost, extraDetails: ev.extraDetails || {} }); }} style={{ padding: "4px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>✎ Edit</button>
                                   <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, textTransform: "uppercase", letterSpacing: "0.04em", background: ec.bg, color: ec.text, flexShrink: 0 }}>{ev.status}</span>
+                                </div>
+                                )}
                                 </div>
                               );
                             })}
@@ -3079,6 +3131,20 @@ export default function AdminDashboard() {
                             <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{t.title}</div>
                             <div style={{ fontSize: 12, color: "var(--text3)" }}>{t.propertyName || "—"}{t.scheduledDate ? ` · ${t.scheduledDate}` : ""}</div>
                             {t.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>{t.notes}</div>}
+                            {/* Approval status */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                              {t.approvalStatus && t.approvalStatus !== "Pending Approval" ? (
+                                <>
+                                  <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: t.approvalStatus === "Approved" ? "var(--green-s)" : t.approvalStatus === "Rejected" ? "var(--red-s)" : "rgba(207,196,110,0.12)", color: t.approvalStatus === "Approved" ? "var(--green)" : t.approvalStatus === "Rejected" ? "var(--red)" : "#CFC46E" }}>{t.approvalStatus}</span>
+                                  {t.approvalStatus === "Approved" && t.approvedBy && <span style={{ fontSize: 11, color: "var(--text3)" }}>by {t.approvedBy}{t.approvalDate ? ` on ${t.approvalDate}` : ""}</span>}
+                                </>
+                              ) : (
+                                <>
+                                  <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: "rgba(207,196,110,0.12)", color: "#CFC46E" }}>Pending Approval</span>
+                                  <button onClick={async () => { setTaskUpdating(t.id); try { await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, approvalStatus: "Approved", approvedBy: userName, approvalDate: new Date().toISOString().split("T")[0] }) }); const d = await fetch("/api/maintenance").then(r => r.json()); setMaintTasks(d.tasks || []); } catch (e) { console.error(e); } setTaskUpdating(null); }} disabled={taskUpdating === t.id} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", border: "1px solid rgba(110,207,151,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{taskUpdating === t.id ? "..." : "✓ Approve"}</button>
+                                </>
+                              )}
+                            </div>
                           </div>
                           <div style={{ display: "flex", gap: 6, flexDirection: "column" as const, alignItems: "flex-end", flexShrink: 0 }}>
                             <div style={{ display: "flex", gap: 6 }}>
@@ -3108,18 +3174,34 @@ export default function AdminDashboard() {
                   {recentlyResolved.length === 0 ? (
                     <div style={{ padding: 20, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>No resolved tasks yet.</div>
                   ) : recentlyResolved.map(t => (
-                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8, opacity: 0.7 }}>
-                      <div style={{ width: 4, height: 32, borderRadius: 4, background: "var(--green)", flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{t.title}</div>
-                        <div style={{ fontSize: 12, color: "var(--text3)" }}>{t.propertyName || "—"}{t.completedDate ? ` · Completed ${t.completedDate}` : ""}{t.vendorName ? ` · ${t.vendorName}` : ""}</div>
-                      </div>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        {t.expenseCreated ? (
-                          <span style={{ fontSize: 11, color: "var(--green)" }}>✓ Expense created</span>
-                        ) : (
-                          <button onClick={() => generateExpense(t)} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>⎙ Generate Expense</button>
-                        )}
+                    <div key={t.id} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8, opacity: 0.7 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px" }}>
+                        <div style={{ width: 4, height: 32, borderRadius: 4, background: "var(--green)", flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>{t.title}</div>
+                          <div style={{ fontSize: 12, color: "var(--text3)" }}>{t.propertyName || "—"}{t.completedDate ? ` · Completed ${t.completedDate}` : ""}{t.vendorName ? ` · ${t.vendorName}` : ""}</div>
+                          {/* Approval status */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                            {t.approvalStatus && t.approvalStatus !== "Pending Approval" ? (
+                              <>
+                                <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: t.approvalStatus === "Approved" ? "var(--green-s)" : t.approvalStatus === "Rejected" ? "var(--red-s)" : "rgba(207,196,110,0.12)", color: t.approvalStatus === "Approved" ? "var(--green)" : t.approvalStatus === "Rejected" ? "var(--red)" : "#CFC46E" }}>{t.approvalStatus}</span>
+                                {t.approvalStatus === "Approved" && t.approvedBy && <span style={{ fontSize: 11, color: "var(--text3)" }}>by {t.approvedBy}{t.approvalDate ? ` on ${t.approvalDate}` : ""}</span>}
+                              </>
+                            ) : (
+                              <>
+                                <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: "rgba(207,196,110,0.12)", color: "#CFC46E" }}>Pending Approval</span>
+                                <button onClick={async () => { setTaskUpdating(t.id); try { await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, approvalStatus: "Approved", approvedBy: userName, approvalDate: new Date().toISOString().split("T")[0] }) }); const d = await fetch("/api/maintenance").then(r => r.json()); setMaintTasks(d.tasks || []); } catch (e) { console.error(e); } setTaskUpdating(null); }} disabled={taskUpdating === t.id} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", border: "1px solid rgba(110,207,151,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{taskUpdating === t.id ? "..." : "✓ Approve"}</button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          {t.expenseCreated ? (
+                            <span style={{ fontSize: 11, color: "var(--green)" }}>✓ Expense created</span>
+                          ) : (
+                            <button onClick={() => generateExpense(t)} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>⎙ Generate Expense</button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
