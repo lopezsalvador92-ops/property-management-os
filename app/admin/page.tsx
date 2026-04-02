@@ -1488,7 +1488,7 @@ export default function AdminDashboard() {
                           <th style={{ ...hd, textAlign: "left", padding: "10px 16px", minWidth: 160 }}>Property</th>
                           {weekCols.map((wc, wi) => (<React.Fragment key={wc.ws}>
                             <th style={{ ...hd, background: wi % 2 === 0 ? evenBg : "transparent", minWidth: 50 }}><div style={{ marginBottom: 2 }}>{wc.label}</div><div style={{ fontWeight: 400, fontSize: 9, opacity: 0.6 }}>{wc.sub}</div><div style={{ marginTop: 3, color: "var(--text3)" }}>Incl</div></th>
-                            <th style={{ ...hd, background: wi % 2 === 0 ? evenBg : "transparent", minWidth: 50, color: "var(--orange)" }}>Extra</th>
+                            <th style={{ ...hd, background: wi % 2 === 0 ? evenBg : "transparent", minWidth: 50 }}>Total</th>
                           </React.Fragment>))}
                           <th style={{ ...hd, minWidth: 60, borderLeft: "2px solid var(--border2)" }}>Total</th>
                           <th style={{ ...hd, minWidth: 60 }}>Incl</th>
@@ -1507,7 +1507,7 @@ export default function AdminDashboard() {
                                 const extra = wb ? wb.extra : 0;
                                 return (<React.Fragment key={wc.ws}>
                                   <td style={{ ...td, background: wi % 2 === 0 ? evenBg : "transparent", color: incl > 0 ? "var(--text)" : "var(--text3)" }}>{incl > 0 ? incl : "—"}</td>
-                                  <td style={{ ...td, background: wi % 2 === 0 ? evenBg : "transparent", color: extra > 0 ? "var(--orange)" : "var(--text3)", fontWeight: extra > 0 ? 600 : 400 }}>{extra > 0 ? extra : "—"}</td>
+                                  <td style={{ ...td, background: wi % 2 === 0 ? evenBg : "transparent", color: extra > 0 ? "var(--orange)" : (wb?.cleans || 0) > 0 ? "var(--text)" : "var(--text3)", fontWeight: extra > 0 ? 600 : 400 }}>{(wb?.cleans || 0) > 0 ? wb!.cleans : "—"}</td>
                                 </React.Fragment>);
                               })}
                               <td style={{ ...td, fontWeight: 600, fontSize: 14, borderLeft: "2px solid var(--border2)" }}>{s.totalCleans}</td>
