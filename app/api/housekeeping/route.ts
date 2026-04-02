@@ -118,15 +118,17 @@ export async function GET(request: Request) {
       .map(cfg => {
         const totalCleans = cleanCounts[cfg.name] || 0;
         const includedMonthly = cfg.cadence === "Weekly" ? cfg.includedCleans * weeksInMonth : cfg.includedCleans;
-        const extraCleans = Math.max(0, totalCleans - includedMonthly);
 
-        // Per-week breakdown
+        // Per-week breakdown — unused included cleans do NOT carry over
         const weeklyBreakdown = weekStarts.map(ws => {
           const cleans = cleansByPropertyWeek[cfg.name]?.[ws] || 0;
           const included = cfg.includedCleans;
           const extra = Math.max(0, cleans - included);
           return { weekStart: ws, cleans, included, extra };
         });
+
+        // Monthly extra = sum of per-week extras (no carryover of unused included)
+        const extraCleans = weeklyBreakdown.reduce((sum, wb) => sum + wb.extra, 0);
 
         return {
           property: cfg.name,
