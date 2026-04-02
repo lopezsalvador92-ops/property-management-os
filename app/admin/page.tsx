@@ -617,9 +617,13 @@ export default function AdminDashboard() {
       
         {/* Mobile top bar */}
         <div className="admin-mobile-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginBottom: 8 }}>
             <img src="/cape-logo.png" alt="Cape PM" style={{ height: 22 }} />
             <span style={{ fontSize: 13, fontWeight: 500 }}>Cape PM</span>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "☀" : "🌙"}</button>
+              <UserButton appearance={{ elements: { avatarBox: { width: 24, height: 24 } } }} />
+            </div>
           </div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
             {navItems.filter(item => enabledModules.includes(item.id)).map(item => (
@@ -854,8 +858,8 @@ export default function AdminDashboard() {
 
               {/* FINANCIAL PULSE */}
               <h2 style={{ ...h2s, marginBottom: 12 }}>Financial pulse, by property</h2>
-              <div style={{ ...card, padding: 0, marginBottom: 32 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 130px 120px 120px 140px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
+              <div style={{ ...card, padding: 0, marginBottom: 32, overflowX: "auto" as const }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 130px 120px 120px 140px", padding: "10px 20px", borderBottom: "2px solid var(--border2)", minWidth: 650 }}>
                   {["Property", "Starting Bal.", "Expenses", "Deposits", "Final Bal."].map(h => (
                     <div key={h} style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, textAlign: h === "Property" ? "left" as const : "right" as const }}>{h}</div>
                   ))}
@@ -863,7 +867,7 @@ export default function AdminDashboard() {
                 {balances.map((b, i) => {
                   const isNeg = b.finalBalance < 0;
                   return (
-                    <div key={`fp-${b.houseId}-${i}`} style={{ display: "grid", gridTemplateColumns: "1fr 130px 120px 120px 140px", padding: "12px 20px", borderBottom: i < balances.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
+                    <div key={`fp-${b.houseId}-${i}`} style={{ display: "grid", gridTemplateColumns: "1fr 130px 120px 120px 140px", padding: "12px 20px", borderBottom: i < balances.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", minWidth: 650 }}
                       onClick={() => { setExpFilter(b.house); setActivePage("expenses"); }}
                       onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
                       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>

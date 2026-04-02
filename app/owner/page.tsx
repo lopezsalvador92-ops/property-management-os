@@ -176,16 +176,20 @@ export default function OwnerPortal() {
         <div className="owner-mobile-bar" style={{ display: "none" }}>
           <style>{`
             @media(max-width:768px){
-              .owner-mobile-bar{display:flex !important;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;}
+              .owner-mobile-bar{display:flex !important;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;}
             }
           `}</style>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginBottom: 4 }}>
             <img src="/cape-logo.png" alt="Cape PM" style={{ height: 22 }} />
             <span style={{ fontSize: 13, fontWeight: 500 }}>{property?.name}</span>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "☀" : "🌙"}</button>
+              <UserButton appearance={{ elements: { avatarBox: { width: 24, height: 24 } } }} />
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
             {navItems.filter(n => enabledModules.includes(n.id)).map(n => (
-              <button key={n.id} onClick={() => setActivePage(n.id)} style={{ padding: "6px 12px", borderRadius: 6, border: activePage === n.id ? "1px solid var(--accent)" : "1px solid var(--border)", background: activePage === n.id ? "var(--accent-s)" : "transparent", color: activePage === n.id ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>{n.label}</button>
+              <button key={n.id} onClick={() => setActivePage(n.id)} style={{ padding: "4px 10px", borderRadius: 6, border: activePage === n.id ? "1px solid var(--accent)" : "1px solid var(--border)", background: activePage === n.id ? "var(--accent-s)" : "transparent", color: activePage === n.id ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>{n.label}</button>
             ))}
           </div>
         </div>
