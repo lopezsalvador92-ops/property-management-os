@@ -60,12 +60,13 @@ function fmtDate(dateStr: string) {
   try { const d = new Date(dateStr + "T12:00:00"); return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); } catch { return dateStr; }
 }
 
-const card: React.CSSProperties = { padding: 20, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14 };
-const lbl: React.CSSProperties = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 8, fontWeight: 500, display: "block" };
-const h1s: React.CSSProperties = { fontFamily: "'Georgia', serif", fontSize: 28, fontWeight: 400, marginBottom: 6 };
-const h2s: React.CSSProperties = { fontFamily: "'Georgia', serif", fontSize: 20, fontWeight: 400, marginBottom: 16 };
-const sel: React.CSSProperties = { padding: "9px 36px 9px 14px", background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 13, outline: "none", cursor: "pointer", appearance: "none", backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'10\' fill=\'%23888\'%3E%3Cpath d=\'M1 3l4 4 4-4\'/%3E%3C/svg%3E")', backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" };
-const inp: React.CSSProperties = { width: "100%", padding: "10px 14px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 14, outline: "none" };
+const card: React.CSSProperties = { padding: 22, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-sm)" };
+const lbl: React.CSSProperties = { fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em", color: "var(--text3)", marginBottom: 10, fontWeight: 700, display: "block" };
+const h1s: React.CSSProperties = { fontFamily: "var(--fd)", fontSize: 36, fontWeight: 400, marginBottom: 8, lineHeight: 1.08, letterSpacing: "-0.005em", color: "var(--text)" };
+const h2s: React.CSSProperties = { fontFamily: "var(--fd)", fontSize: 22, fontWeight: 400, marginBottom: 14, color: "var(--text)" };
+const sel: React.CSSProperties = { padding: "10px 34px 10px 14px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 13, outline: "none", cursor: "pointer", appearance: "none", backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'10\' fill=\'%23888\'%3E%3Cpath d=\'M1 3l4 4 4-4\'/%3E%3C/svg%3E")', backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", transition: "border-color var(--dur) var(--ease), background var(--dur) var(--ease)" };
+const inp: React.CSSProperties = { width: "100%", padding: "11px 14px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 14, outline: "none", transition: "border-color var(--dur) var(--ease), background var(--dur) var(--ease)" };
+const eyebrow: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 10 };
 
 export default function AdminDashboard() {
   const { user } = useUser();
@@ -580,36 +581,45 @@ export default function AdminDashboard() {
       @media(max-width:900px){
         .admin-shell{grid-template-columns:1fr !important;}
         .admin-sidebar-wrap{display:none !important;}
-        .admin-mobile-bar{display:flex !important;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
-        .admin-main{padding:20px 16px !important;}
-        .admin-stats-4{grid-template-columns:repeat(2,1fr) !important;}
-        .admin-2col{grid-template-columns:1fr !important;}
+        .admin-mobile-bar{display:flex !important;padding:14px 18px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:10;}
+        .admin-main{padding:24px 18px !important;}
+        .admin-stats-4{grid-template-columns:repeat(2,1fr) !important;gap:12px !important;}
+        .admin-2col{grid-template-columns:1fr !important;gap:14px !important;}
+      }
+      .a-card{transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+      .a-card:hover{transform:translateY(-1px);border-color:var(--border2);box-shadow:var(--shadow-md);}
+      .a-row{transition:background var(--dur) var(--ease);}
+      .a-row:hover{background:var(--bg3);}
+      .a-nav-item{transition:background var(--dur) var(--ease),color var(--dur) var(--ease);}
+      .a-nav-item:hover{background:var(--bg3);}
+      .a-action-card{transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease);}
+      .a-action-card:hover{transform:translateX(2px);box-shadow:var(--shadow-md);}
+      .a-pill-btn{transition:all var(--dur) var(--ease);}
+      .a-pill-btn:hover:not(:disabled){border-color:var(--accent-line);color:var(--accent);}
+      .a-eyebrow{font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:block;}
+      .a-gold-rule{display:block;width:36px;height:1px;background:var(--accent-line);margin-top:10px;}
+      .a-num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+      .a-input:focus,.a-select:focus{border-color:var(--accent-line) !important;}
+      input,select,textarea{transition:border-color var(--dur) var(--ease);}
+      input:focus,select:focus,textarea:focus{border-color:var(--accent-line) !important;}
+      @media print {
+        body{background:#fff !important;}
+        .admin-sidebar-wrap,.admin-mobile-bar,.no-print{display:none !important;}
+        .admin-shell{grid-template-columns:1fr !important;}
+        .admin-main{padding:0 !important;}
       }
     `}</style>
     {theme === "light" && <style>{`
       :root {
-        --bg: #F5F7FA !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #F0F2F5 !important;
-        --text: #1A1A2E !important; --text2: #4A5568 !important; --text3: #8795A8 !important;
-        --border: rgba(0,0,0,0.08) !important; --border2: rgba(0,0,0,0.12) !important;
-        --accent: #B8942E !important; --accent-s: rgba(184,148,46,0.1) !important;
-        --teal: #2A8B9A !important; --teal-l: #1A7A8A !important; --teal-s: rgba(42,139,154,0.08) !important;
-        --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.08) !important;
-        --red: #C45555 !important; --red-s: rgba(196,85,85,0.08) !important;
-        --blue: #4A8BC4 !important; --blue-s: rgba(74,139,196,0.08) !important;
-        --orange: #C4804A !important; --orange-s: rgba(196,128,74,0.08) !important;
-      }
-    `}</style>}
-    {theme === "light" && <style>{`
-      :root {
-        --bg: #F5F7FA !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #F0F2F5 !important;
-        --text: #1A1A2E !important; --text2: #4A5568 !important; --text3: #8795A8 !important;
-        --border: rgba(0,0,0,0.08) !important; --border2: rgba(0,0,0,0.12) !important;
-        --accent: #B8942E !important; --accent-s: rgba(184,148,46,0.1) !important;
-        --teal: #2A8B9A !important; --teal-l: #1A7A8A !important; --teal-s: rgba(42,139,154,0.08) !important;
-        --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.08) !important;
-        --red: #C45555 !important; --red-s: rgba(196,85,85,0.08) !important;
-        --blue: #4A8BC4 !important; --blue-s: rgba(74,139,196,0.08) !important;
-        --orange: #C4804A !important; --orange-s: rgba(196,128,74,0.08) !important;
+        --bg: #F4F1EC !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #EFEBE3 !important;
+        --text: #15202B !important; --text2: #4A5568 !important; --text3: #8B96A4 !important;
+        --border: rgba(15,30,45,0.07) !important; --border2: rgba(15,30,45,0.13) !important; --border3: rgba(15,30,45,0.20) !important;
+        --accent: #A8842A !important; --accent-h: #B8942E !important; --accent-s: rgba(168,132,42,0.10) !important; --accent-line: rgba(168,132,42,0.40) !important;
+        --teal: #237A88 !important; --teal-l: #196372 !important; --teal-s: rgba(35,122,136,0.09) !important;
+        --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.09) !important;
+        --red: #B84A4A !important; --red-s: rgba(184,74,74,0.09) !important;
+        --blue: #3F7AB0 !important; --blue-s: rgba(63,122,176,0.09) !important;
+        --orange: #B5733B !important; --orange-s: rgba(181,115,59,0.09) !important;
       }
     `}</style>}
     <div className="admin-shell" style={{ display: "grid", gridTemplateColumns: `${sidebarWidth}px 1fr`, minHeight: "100vh", transition: "grid-template-columns 0.2s ease" }}>
