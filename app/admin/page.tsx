@@ -684,36 +684,38 @@ export default function AdminDashboard() {
           const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 17 ? "Good afternoon" : "Good evening";
 
           return (
-            <div style={{ padding: "32px 40px" }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
               {/* Header */}
-              <div style={{ marginBottom: 28 }}>
-                <h1 style={{ ...h1s, marginBottom: 4 }}>{greeting}, {userName} 👋</h1>
-                <p style={{ fontSize: 14, color: "var(--text2)" }}>
-                  {loading ? "Loading..." : `${active.length} active properties · ${reportStatus.month || "March 2026"}`}
+              <div style={{ marginBottom: 32 }}>
+                <span style={eyebrow}>Operations Overview</span>
+                <h1 style={{ ...h1s, marginBottom: 6 }}>{greeting}, {userName} 👋</h1>
+                <p style={{ fontSize: 13, color: "var(--text2)" }}>
+                  {loading ? "Loading…" : `${active.length} active properties · ${reportStatus.month || "March 2026"}`}
                 </p>
+                <span className="a-gold-rule" />
               </div>
 
               {/* STAT CARDS */}
               <div className="admin-stats-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
-                <div onClick={() => setActivePage("properties")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Active Properties</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text1)", marginBottom: 4 }}>{active.length}</div>
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>of {properties.length} total</div>
+                <div className="a-card" onClick={() => setActivePage("properties")} style={{ ...card, padding: "20px 22px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 9, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12 }}>Active Properties</div>
+                  <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 30, fontWeight: 400, lineHeight: 1, color: "var(--text)", marginBottom: 8 }}>{active.length}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 500 }}>of {properties.length} total</div>
                 </div>
-                {enabledModules.includes("concierge") && <div onClick={() => setActivePage("concierge")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Visits This Month</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: "var(--teal)", marginBottom: 4 }}>{visits.filter(v => v.status !== "Cancelled").length}</div>
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>{activeVisits.length} active · {upcomingVisits.length} upcoming</div>
+                {enabledModules.includes("concierge") && <div className="a-card" onClick={() => setActivePage("concierge")} style={{ ...card, padding: "20px 22px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 9, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12 }}>Visits This Month</div>
+                  <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 30, fontWeight: 400, lineHeight: 1, color: "var(--teal)", marginBottom: 8 }}>{visits.filter(v => v.status !== "Cancelled").length}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 500 }}>{activeVisits.length} active · {upcomingVisits.length} upcoming</div>
                 </div>}
-                {enabledModules.includes("maintenance") && <div onClick={() => setActivePage("maintenance")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Open Maintenance</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: openMaint.length > 0 ? "var(--orange)" : "var(--green)", marginBottom: 4 }}>{openMaint.length}</div>
-                  <div style={{ fontSize: 12, color: urgentMaint.length > 0 ? "var(--red)" : "var(--text3)" }}>{urgentMaint.length > 0 ? `${urgentMaint.length} high priority` : "No urgent items"}</div>
+                {enabledModules.includes("maintenance") && <div className="a-card" onClick={() => setActivePage("maintenance")} style={{ ...card, padding: "20px 22px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 9, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12 }}>Open Maintenance</div>
+                  <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 30, fontWeight: 400, lineHeight: 1, color: openMaint.length > 0 ? "var(--orange)" : "var(--green)", marginBottom: 8 }}>{openMaint.length}</div>
+                  <div style={{ fontSize: 11, color: urgentMaint.length > 0 ? "var(--red)" : "var(--text3)", fontWeight: 500 }}>{urgentMaint.length > 0 ? `${urgentMaint.length} high priority` : "No urgent items"}</div>
                 </div>}
-                <div onClick={() => setActivePage("reports")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Pending Reports</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: reportStatus.pending > 0 ? "var(--accent)" : "var(--green)", marginBottom: 4 }}>{loading ? "—" : reportStatus.pending}</div>
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>{loading ? "" : `${reportStatus.sent} of ${reportStatus.total} sent`}</div>
+                <div className="a-card" onClick={() => setActivePage("reports")} style={{ ...card, padding: "20px 22px", cursor: "pointer", borderColor: reportStatus.pending > 0 ? "var(--accent-line)" : "var(--border)", boxShadow: reportStatus.pending > 0 ? "var(--shadow-md)" : "var(--shadow-sm)" }}>
+                  <div style={{ fontSize: 9, color: reportStatus.pending > 0 ? "var(--accent)" : "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12 }}>Pending Reports</div>
+                  <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 30, fontWeight: 400, lineHeight: 1, color: reportStatus.pending > 0 ? "var(--accent)" : "var(--green)", marginBottom: 8 }}>{loading ? "—" : reportStatus.pending}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 500 }}>{loading ? "" : `${reportStatus.sent} of ${reportStatus.total} sent`}</div>
                 </div>
               </div>
 
@@ -723,7 +725,7 @@ export default function AdminDashboard() {
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Action required</h2>
                   <div style={{ display: "grid", gap: 8 }}>
                     {reportStatus.pending > 0 && (
-                      <div onClick={() => setActivePage("reports")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--accent-s)", border: "1px solid rgba(201,169,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("reports")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--accent-s)", border: "1px solid var(--accent-line)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>↗</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500 }}>{reportStatus.pending} monthly {reportStatus.pending === 1 ? "report" : "reports"} pending</div>
@@ -733,7 +735,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {negativeBalances.length > 0 && (
-                      <div onClick={() => setActivePage("deposits")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--red-s)", border: "1px solid rgba(207,110,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("deposits")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--red-s)", border: "1px solid rgba(224,133,133,0.30)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>⚠</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--red)" }}>{negativeBalances.length} {negativeBalances.length === 1 ? "property" : "properties"} with negative balance</div>
@@ -743,7 +745,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {propertiesNoDeposit.length > 0 && (
-                      <div onClick={() => setActivePage("deposits")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("deposits")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--orange-s)", border: "1px solid rgba(218,161,127,0.28)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>↓</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500 }}>{propertiesNoDeposit.length} {propertiesNoDeposit.length === 1 ? "property" : "properties"} missing deposit this month</div>
@@ -753,7 +755,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {urgentMaint.length > 0 && (
-                      <div onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--red-s)", border: "1px solid rgba(207,110,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("maintenance")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--red-s)", border: "1px solid rgba(224,133,133,0.30)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>🔧</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--red)" }}>{urgentMaint.length} high-priority maintenance {urgentMaint.length === 1 ? "item" : "items"} open</div>
@@ -763,7 +765,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {dueMaintConfigs.length > 0 && (
-                      <div onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("maintenance")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--orange-s)", border: "1px solid rgba(218,161,127,0.28)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>📅</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500 }}>{dueMaintConfigs.length} preventive {dueMaintConfigs.length === 1 ? "schedule" : "schedules"} past due</div>
