@@ -1612,33 +1612,33 @@ export default function AdminDashboard() {
             const housemanFee = isUSD ? sel_prop.housemanFeeUSD : sel_prop.housemanFeeMXN;
             const bal = balances.find(b => b.house === sel_prop.name);
             const isNeg = bal && bal.finalBalance < 0;
-            const tabStyle = (active: boolean): React.CSSProperties => ({ padding: "8px 20px", border: "1px solid var(--border2)", background: active ? "var(--accent-s)" : "transparent", color: active ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" });
+            const tabStyle = (active: boolean): React.CSSProperties => ({ padding: "9px 18px", borderRadius: 100, border: "none", background: active ? "var(--accent-s)" : "transparent", color: active ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" });
 
             return (
-              <div style={{ padding: "32px 40px", maxWidth: 900 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-                  <span onClick={() => { setSelectedProp(null); setPropTab("overview"); }} style={{ fontSize: 13, color: "var(--teal-l)", cursor: "pointer" }}>Properties</span>
-                  <span style={{ fontSize: 13, color: "var(--text3)" }}>/</span>
-                  <span style={{ fontSize: 13, color: "var(--text)" }}>{sel_prop.name}</span>
+              <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1080, margin: "0 auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+                  <span onClick={() => { setSelectedProp(null); setPropTab("overview"); }} style={{ fontSize: 11, color: "var(--accent)", cursor: "pointer", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>← Properties</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                   <div>
+                    <span style={eyebrow}>{sel_prop.status} · {sel_prop.currency}</span>
                     <h1 style={h1s}>{sel_prop.name}</h1>
-                    <p style={{ fontSize: 14, color: "var(--text2)" }}>{sel_prop.owner} · {sel_prop.currency} · {sel_prop.status}</p>
+                    <p style={{ fontSize: 13, color: "var(--text2)" }}>{sel_prop.owner}</p>
+                    <span className="a-gold-rule" />
                   </div>
                   {bal && (
                     <div style={{ textAlign: "right" as const }}>
-                      <div style={{ fontSize: 20, fontWeight: 600, fontFamily: "'Georgia', serif", color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(bal.finalBalance, bal.currency)}</div>
-                      <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const }}>Current balance</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 6 }}>Current balance</div>
+                      <div className="a-num" style={{ fontSize: 28, fontWeight: 400, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)" }}>{isNeg ? "−" : ""}{fmtCur(bal.finalBalance, bal.currency)}</div>
                     </div>
                   )}
                 </div>
-                <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
-                  <button onClick={() => setPropTab("overview")} style={{ ...tabStyle(propTab === "overview"), borderRadius: "8px 0 0 8px" }}>Overview</button>
-                  <button onClick={() => setPropTab("fees")} style={{ ...tabStyle(propTab === "fees"), borderLeft: "none" }}>Fee Config</button>
-                  <button onClick={() => setPropTab("housekeeping")} style={{ ...tabStyle(propTab === "housekeeping"), borderLeft: "none" }}>Housekeeping</button>
-                  <button onClick={() => setPropTab("history")} style={{ ...tabStyle(propTab === "history"), borderLeft: "none" }}>History</button>
-                  <button onClick={() => setPropTab("availability")} style={{ ...tabStyle(propTab === "availability"), borderLeft: "none", borderRadius: "0 8px 8px 0" }}>Availability</button>
+                <div style={{ display: "flex", gap: 0, marginBottom: 24, background: "var(--bg2)", borderRadius: 100, padding: 4, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", width: "fit-content" }}>
+                  <button onClick={() => setPropTab("overview")} style={tabStyle(propTab === "overview")}>Overview</button>
+                  <button onClick={() => setPropTab("fees")} style={tabStyle(propTab === "fees")}>Fee Config</button>
+                  <button onClick={() => setPropTab("housekeeping")} style={tabStyle(propTab === "housekeeping")}>Housekeeping</button>
+                  <button onClick={() => setPropTab("history")} style={tabStyle(propTab === "history")}>History</button>
+                  <button onClick={() => setPropTab("availability")} style={tabStyle(propTab === "availability")}>Availability</button>
                 </div>
                 {propSaved && <div style={{ padding: "10px 16px", background: "var(--green-s)", border: "1px solid rgba(110,207,151,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "var(--green)" }}>✓ Changes saved to Airtable</div>}
 
@@ -1907,24 +1907,26 @@ export default function AdminDashboard() {
           const mxnProps = activePropList.filter(p => p.currency === "MXN").length;
 
           return (
-            <div style={{ padding: "32px 40px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                 <div>
+                  <span style={eyebrow}>Portfolio</span>
                   <h1 style={h1s}>Properties</h1>
-                  <p style={{ fontSize: 14, color: "var(--text2)" }}>{propLoading ? "Loading..." : `${activePropList.length} active, ${otherPropList.length} other`}</p>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>{propLoading ? "Loading…" : `${activePropList.length} active, ${otherPropList.length} other`}</p>
+                  <span className="a-gold-rule" />
                 </div>
                 <button onClick={() => setShowAddForm(!showAddForm)}
-                  style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)", transition: "all var(--dur) var(--ease)" }}>
                   + Add Property
                 </button>
               </div>
 
               {/* Stats */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-                <div style={card}><div style={lbl}>Active</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--teal-l)" }}>{activePropList.length}</div></div>
-                <div style={card}><div style={lbl}>USD Properties</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--blue)" }}>{usdProps}</div></div>
-                <div style={card}><div style={lbl}>MXN Properties</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--teal-l)" }}>{mxnProps}</div></div>
-                <div style={card}><div style={lbl}>Negative Balances</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: negCount > 0 ? "var(--red)" : "var(--green)" }}>{negCount}</div></div>
+              <div className="admin-stats-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Active</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--teal)" }}>{activePropList.length}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>USD Properties</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--blue)" }}>{usdProps}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>MXN Properties</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--teal)" }}>{mxnProps}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px", borderColor: negCount > 0 ? "rgba(224,133,133,0.3)" : "var(--border)" }}><div style={lbl}>Negative Balances</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: negCount > 0 ? "var(--red)" : "var(--green)" }}>{negCount}</div></div>
               </div>
 
               {/* Add property form */}
@@ -1954,16 +1956,14 @@ export default function AdminDashboard() {
               )}
 
               {/* Property cards grid */}
-              <h2 style={{ ...h2s, marginBottom: 12 }}>Active properties</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
+              <h2 style={{ ...h2s, marginBottom: 14 }}>Active properties</h2>
+              <div className="admin-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 28 }}>
                 {activePropList.map(p => {
                   const bal = balances.find(b => b.house === p.name);
                   const isNeg = bal && bal.finalBalance < 0;
                   return (
-                    <div key={p.id} onClick={() => { setSelectedProp(p.id); setPropTab("overview"); }}
-                      style={{ ...card, cursor: "pointer", transition: "border-color 0.15s", border: `1px solid ${isNeg ? "rgba(207,110,110,0.15)" : "var(--border)"}`, padding: 16 }}
-                      onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)")}
-                      onMouseLeave={e => (e.currentTarget.style.borderColor = isNeg ? "rgba(207,110,110,0.15)" : "rgba(255,255,255,0.06)")}>
+                    <div key={p.id} className="a-card" onClick={() => { setSelectedProp(p.id); setPropTab("overview"); }}
+                      style={{ ...card, cursor: "pointer", border: `1px solid ${isNeg ? "rgba(224,133,133,0.30)" : "var(--border)"}`, padding: 20 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                         <div style={{ fontSize: 15, fontWeight: 500 }}>{p.name}</div>
                         <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 100, background: p.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: p.currency === "USD" ? "var(--blue)" : "var(--teal-l)" }}>{p.currency}</span>
