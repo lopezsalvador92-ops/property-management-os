@@ -2280,18 +2280,20 @@ export default function AdminDashboard() {
           }
 
           return (
-            <div style={{ padding: "32px 40px", maxWidth: 1000 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1240, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                 <div>
+                  <span style={eyebrow}>Guest Experience</span>
                   <h1 style={h1s}>Concierge</h1>
-                  <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 0 }}>Manage owner & guest visits, itineraries, and vendors</p>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Manage owner & guest visits, itineraries, and vendors</p>
+                  <span className="a-gold-rule" />
                 </div>
-                {concTab === "visits" && <button onClick={() => setShowAddVisit(!showAddVisit)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Visit</button>}
+                {concTab === "visits" && <button onClick={() => setShowAddVisit(!showAddVisit)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)", transition: "all var(--dur) var(--ease)" }}>+ New Visit</button>}
                 {concTab === "directory" && (
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setShowAddVendor(!showAddVendor)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Vendor</button>
-                    <label style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center" }}>
-                      {csvImporting ? "Importing..." : "⬆ Import CSV"}
+                    <button onClick={() => setShowAddVendor(!showAddVendor)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ Add Vendor</button>
+                    <label className="a-pill-btn" style={{ padding: "10px 22px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center" }}>
+                      {csvImporting ? "Importing…" : "⬆ Import CSV"}
                       <input type="file" accept=".csv" onChange={importVendorCSV} style={{ display: "none" }} disabled={csvImporting} />
                     </label>
                   </div>
@@ -2299,28 +2301,28 @@ export default function AdminDashboard() {
               </div>
 
               {/* Sub-tabs */}
-              <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content" }}>
+              <div style={{ display: "flex", gap: 0, padding: 4, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
                 {([["visits","Visits"],["builder","Itinerary Builder"],["directory","Vendor Directory"],["charges","Charges"]] as [string,string][]).map(([id, label]) => (
-                  <button key={id} onClick={() => setConcTab(id as any)} style={{ padding: "8px 18px", borderRadius: 100, fontSize: 13, color: concTab === id ? "var(--accent)" : "var(--text3)", background: concTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, transition: "all 0.15s" }}>{label}</button>
+                  <button key={id} onClick={() => setConcTab(id as any)} style={{ padding: "9px 18px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: concTab === id ? "var(--accent)" : "var(--text3)", background: concTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>{label}</button>
                 ))}
               </div>
 
-              {concLoading && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20 }}>Loading...</div>}
+              {concLoading && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20 }}>Loading…</div>}
 
               {/* ---- VISITS TAB ---- */}
               {!concLoading && concTab === "visits" && (
                 <>
                   {/* Stats — clickable filters */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
+                  <div className="admin-stats-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 28 }}>
                     {[
                       { label: "Active", value: activeVisits.length, color: "var(--green)", filter: "Active" as const },
                       { label: "Upcoming", value: upcomingVisits.length, color: "var(--blue)", filter: "Upcoming" as const },
                       { label: "Completed", value: visits.filter(v => v.status === "Completed").length, color: "var(--text3)", filter: "Completed" as const },
                       { label: "All Visits", value: visits.length, color: "var(--accent)", filter: "all" as const },
                     ].map(s => (
-                      <div key={s.label} onClick={() => setVisitStatusFilter(s.filter)} style={{ padding: 20, background: visitStatusFilter === s.filter ? "var(--accent-s)" : "var(--bg2)", border: `1px solid ${visitStatusFilter === s.filter ? "var(--accent)" : "var(--border)"}`, borderRadius: 14, cursor: "pointer", transition: "all 0.15s" }}>
-                        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: visitStatusFilter === s.filter ? "var(--accent)" : "var(--text3)", marginBottom: 8, fontWeight: 500 }}>{s.label}</div>
-                        <div style={{ fontFamily: "var(--fd)", fontSize: 26, color: s.color }}>{s.value}</div>
+                      <div key={s.label} className="a-card" onClick={() => setVisitStatusFilter(s.filter)} style={{ padding: "18px 22px", background: visitStatusFilter === s.filter ? "var(--accent-s)" : "var(--bg2)", border: `1px solid ${visitStatusFilter === s.filter ? "var(--accent-line)" : "var(--border)"}`, borderRadius: 12, cursor: "pointer", boxShadow: visitStatusFilter === s.filter ? "var(--shadow-md)" : "var(--shadow-sm)" }}>
+                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", color: visitStatusFilter === s.filter ? "var(--accent)" : "var(--text3)", marginBottom: 12, fontWeight: 700 }}>{s.label}</div>
+                        <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: s.color }}>{s.value}</div>
                       </div>
                     ))}
                   </div>
