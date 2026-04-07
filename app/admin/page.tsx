@@ -3527,17 +3527,19 @@ export default function AdminDashboard() {
           const occupiedProps = new Set(monthVisits.map(v => v.propertyId)).size;
 
           return (
-            <div style={{ padding: "32px 40px" }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
               {/* Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                 <div>
+                  <span style={eyebrow}>Portfolio Schedule</span>
                   <h1 style={h1s}>Availability Calendar</h1>
-                  <p style={{ fontSize: 14, color: "var(--text2)" }}>Portfolio occupancy across all active properties</p>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Portfolio occupancy across all active properties</p>
+                  <span className="a-gold-rule" />
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                  <div style={{ display: "flex", gap: 0 }}>
-                    <button onClick={() => setCalView("monthly")} style={{ padding: "6px 14px", borderRadius: "6px 0 0 6px", border: "1px solid var(--border2)", background: calView === "monthly" ? "var(--accent-s)" : "transparent", color: calView === "monthly" ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Monthly</button>
-                    <button onClick={() => setCalView("weekly")} style={{ padding: "6px 14px", borderRadius: "0 6px 6px 0", border: "1px solid var(--border2)", borderLeft: "none", background: calView === "weekly" ? "var(--accent-s)" : "transparent", color: calView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Weekly</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ display: "flex", gap: 0, padding: 4, background: "var(--bg2)", borderRadius: 100, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+                    <button onClick={() => setCalView("monthly")} style={{ padding: "8px 16px", borderRadius: 100, border: "none", background: calView === "monthly" ? "var(--accent-s)" : "transparent", color: calView === "monthly" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Monthly</button>
+                    <button onClick={() => setCalView("weekly")} style={{ padding: "8px 16px", borderRadius: 100, border: "none", background: calView === "weekly" ? "var(--accent-s)" : "transparent", color: calView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Weekly</button>
                   </div>
                   {calView === "monthly" ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
