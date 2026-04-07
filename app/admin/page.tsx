@@ -785,7 +785,7 @@ export default function AdminDashboard() {
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Recent activity</h2>
                   <div style={{ ...card, padding: 0 }}>
                     {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity…</div>}
-                    {recentActivity.slice(0, 8).map((a, i, arr) => (
+                    {recentActivity.slice(0, 5).map((a, i, arr) => (
                       <div key={`act-${i}`} className="a-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
                         <span style={{ fontSize: 13, width: 20, textAlign: "center" as const, color: a.type === "deposit" ? "var(--green)" : "var(--text3)" }}>{a.type === "deposit" ? "↓" : "⎙"}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -3556,16 +3556,16 @@ export default function AdminDashboard() {
               </div>
 
               {/* Stats */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+              <div className="admin-stats-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
                 {[
                   { label: "Properties Occupied", value: occupiedProps, color: "var(--accent)" },
-                  { label: "Owner Visits", value: ownerVisits, color: "var(--teal-l)" },
+                  { label: "Owner Visits", value: ownerVisits, color: "var(--teal)" },
                   { label: "Rental Visits", value: rentalVisits, color: "var(--blue)" },
                   { label: "Total Active Properties", value: activeProps.length, color: "var(--text)" },
                 ].map(s => (
-                  <div key={s.label} style={{ padding: 18, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12 }}>
-                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, marginBottom: 6 }}>{s.label}</div>
-                    <div style={{ fontFamily: "var(--fd)", fontSize: 24, color: s.color }}>{s.value}</div>
+                  <div key={s.label} className="a-card" style={{ ...card, padding: "18px 22px" }}>
+                    <div style={lbl}>{s.label}</div>
+                    <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: s.color }}>{s.value}</div>
                   </div>
                 ))}
               </div>
@@ -3614,72 +3614,121 @@ export default function AdminDashboard() {
               })()}
 
               {/* Monthly View */}
-              {calView === "monthly" && <>
-              {/* Legend */}
-              <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "center" }}>
-                {[["Owner", "var(--teal)"], ["Rental", "var(--blue)"], ["Guest", "#9B8EC4"]].map(([label, color]) => (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 3, background: color as string }} />
-                    {label}
-                  </div>
-                ))}
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
-                  <div style={{ width: 12, height: 12, borderRadius: 3, border: "2px solid var(--accent)" }} />
-                  Today
-                </div>
-              </div>
-
-              {/* Grid */}
-              <div style={{ overflowX: "auto" }}>
-                <div style={{ minWidth: 900 }}>
-                  {/* Day headers */}
-                  <div style={{ display: "grid", gridTemplateColumns: `180px repeat(${daysInMonth}, 1fr)`, gap: 1, marginBottom: 1 }}>
-                    <div />
-                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-                      const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                      const isToday = dateStr === todayStr;
-                      const dow = new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "short" })[0];
-                      return (
-                        <div key={day} style={{ textAlign: "center" as const, padding: "4px 0", fontSize: 10, color: isToday ? "var(--accent)" : "var(--text3)", fontWeight: isToday ? 700 : 400, borderBottom: isToday ? "2px solid var(--accent)" : "2px solid transparent" }}>
-                          <div>{dow}</div>
-                          <div>{day}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Property rows */}
-                  {activeProps.map((prop, ri) => (
-                    <div key={prop.id} style={{ display: "grid", gridTemplateColumns: `180px repeat(${daysInMonth}, 1fr)`, gap: 1, marginBottom: 1 }}>
-                      {/* Property name */}
-                      <div onClick={() => { setActivePage("properties"); setSelectedProp(prop.id); setPropTab("availability"); }} style={{ fontSize: 12, color: "var(--text2)", padding: "6px 8px", display: "flex", alignItems: "center", background: ri % 2 === 0 ? "var(--bg2)" : "transparent", cursor: "pointer", borderRadius: "4px 0 0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}
-                        title={prop.name}>
-                        {prop.name}
-                      </div>
-                      {/* Day cells */}
-                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-                        const v = isOccupied(prop.id, day);
-                        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                        const isToday = dateStr === todayStr;
-                        const isCheckIn = v?.checkIn === dateStr;
-                        const isCheckOut = v ? new Date(v.checkOut + "T00:00:00").toISOString().split("T")[0] === dateStr : false;
-                        return (
-                          <div key={day} title={v ? `${v.visitName} (${v.visitType})` : undefined} style={{
-                            height: 28,
-                            background: v ? visitColor(v.visitType) : ri % 2 === 0 ? "var(--bg2)" : "transparent",
-                            opacity: v ? 0.85 : 1,
-                            borderRadius: isCheckIn ? "4px 0 0 4px" : isCheckOut ? "0 4px 4px 0" : 0,
-                            outline: isToday ? "2px solid var(--accent)" : "none",
-                            outlineOffset: -1,
-                            cursor: v ? "pointer" : "default",
-                          }} />
-                        );
-                      })}
+              {calView === "monthly" && (() => {
+                // Pre-compute day metadata for the month
+                const days = Array.from({ length: daysInMonth }, (_, i) => {
+                  const day = i + 1;
+                  const date = new Date(year, month - 1, day);
+                  const dow = date.getDay(); // 0 Sun, 6 Sat
+                  const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                  return { day, dow, dateStr, isWeekend: dow === 0 || dow === 6, isToday: dateStr === todayStr, dowLabel: ["S","M","T","W","T","F","S"][dow] };
+                });
+                const todayIdx = days.findIndex(d => d.isToday);
+                return (
+                <div className="panel" style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+                  {/* Calendar header strip with month name + legend */}
+                  <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                      <span style={{ fontFamily: "var(--fd)", fontSize: 20, fontWeight: 400, color: "var(--text)" }}>{monthLabel}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text3)" }}>{daysInMonth} days · {activeProps.length} properties</span>
                     </div>
-                  ))}
+                    <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                      {[["Owner", "var(--teal)"], ["Rental", "var(--blue)"], ["Guest", "#9B8EC4"]].map(([label, color]) => (
+                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text3)" }}>
+                          <div style={{ width: 12, height: 12, borderRadius: 3, background: color as string }} />
+                          {label}
+                        </div>
+                      ))}
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)" }}>
+                        <div style={{ width: 12, height: 12, borderRadius: 3, background: "var(--accent-s)", border: "1.5px solid var(--accent)" }} />
+                        Today
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Grid */}
+                  <div style={{ overflowX: "auto" as const, position: "relative" as const }}>
+                    <div style={{ minWidth: 980, position: "relative" as const }}>
+                      {/* Day headers */}
+                      <div style={{ display: "grid", gridTemplateColumns: `200px repeat(${daysInMonth}, minmax(26px, 1fr))`, borderBottom: "1px solid var(--border2)", background: "var(--bg2)", position: "sticky" as const, top: 0, zIndex: 2 }}>
+                        <div style={{ padding: "12px 18px", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text3)", borderRight: "1px solid var(--border)" }}>Property</div>
+                        {days.map(d => (
+                          <div key={d.day} style={{ textAlign: "center" as const, padding: "8px 0 6px", background: d.isToday ? "var(--accent-s)" : d.isWeekend ? "var(--bg3)" : "var(--bg2)", borderLeft: d.dow === 1 ? "1px solid var(--border)" : "none" }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", color: d.isToday ? "var(--accent)" : d.isWeekend ? "var(--text2)" : "var(--text3)", marginBottom: 2 }}>{d.dowLabel}</div>
+                            <div className="a-num" style={{ fontSize: 13, fontWeight: d.isToday ? 700 : 500, color: d.isToday ? "var(--accent)" : d.isWeekend ? "var(--text)" : "var(--text2)" }}>{d.day}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Property rows */}
+                      {activeProps.map((prop, ri) => (
+                        <div key={prop.id} className="a-row" onClick={() => { setActivePage("properties"); setSelectedProp(prop.id); setPropTab("availability"); }} style={{ display: "grid", gridTemplateColumns: `200px repeat(${daysInMonth}, minmax(26px, 1fr))`, borderBottom: "1px solid var(--border)", cursor: "pointer", position: "relative" as const }}>
+                          {/* Property name */}
+                          <div title={prop.name} style={{ fontSize: 13, color: "var(--text)", fontWeight: 500, padding: "0 18px", display: "flex", alignItems: "center", background: ri % 2 === 0 ? "var(--bg3)" : "var(--bg2)", borderRight: "1px solid var(--border)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                            {prop.name}
+                          </div>
+                          {/* Day cells */}
+                          {days.map(d => {
+                            const v = isOccupied(prop.id, d.day);
+                            const isCheckIn = v?.checkIn === d.dateStr;
+                            const isCheckOut = v ? new Date(v.checkOut + "T00:00:00").toISOString().split("T")[0] === d.dateStr : false;
+                            const baseBg = ri % 2 === 0 ? "var(--bg3)" : "var(--bg2)";
+                            const cellBg = d.isToday ? "var(--accent-s)" : d.isWeekend ? (ri % 2 === 0 ? "var(--bg4)" : "var(--bg3)") : baseBg;
+                            return (
+                              <div key={d.day} title={v ? `${v.guestName || v.visitName} · ${v.visitType} · ${v.checkIn} → ${v.checkOut}` : undefined} style={{
+                                height: 38,
+                                background: cellBg,
+                                position: "relative" as const,
+                                borderLeft: d.dow === 1 ? "1px solid var(--border)" : "none",
+                              }}>
+                                {v && (
+                                  <div style={{
+                                    position: "absolute" as const,
+                                    top: 6,
+                                    bottom: 6,
+                                    left: isCheckIn ? 3 : 0,
+                                    right: isCheckOut ? 3 : 0,
+                                    background: visitColor(v.visitType),
+                                    borderRadius: `${isCheckIn ? 6 : 0}px ${isCheckOut ? 6 : 0}px ${isCheckOut ? 6 : 0}px ${isCheckIn ? 6 : 0}px`,
+                                    boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
+                                    overflow: "hidden",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    paddingLeft: isCheckIn ? 8 : 0,
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    color: "#fff",
+                                    letterSpacing: "0.02em",
+                                    whiteSpace: "nowrap" as const,
+                                  }}>
+                                    {isCheckIn && (v.guestName || v.visitName || v.visitType)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+
+                      {/* Today vertical band overlay */}
+                      {todayIdx >= 0 && (
+                        <div style={{
+                          position: "absolute" as const,
+                          top: 0,
+                          bottom: 0,
+                          left: `calc(200px + (100% - 200px) * ${todayIdx} / ${daysInMonth})`,
+                          width: `calc((100% - 200px) / ${daysInMonth})`,
+                          borderLeft: "1px solid var(--accent-line)",
+                          borderRight: "1px solid var(--accent-line)",
+                          pointerEvents: "none" as const,
+                          zIndex: 1,
+                        }} />
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              </>}
+                );
+              })()}
             </div>
           );
         })()}
