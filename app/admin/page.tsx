@@ -3623,107 +3623,116 @@ export default function AdminDashboard() {
                   const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                   return { day, dow, dateStr, isWeekend: dow === 0 || dow === 6, isToday: dateStr === todayStr, dowLabel: ["S","M","T","W","T","F","S"][dow] };
                 });
-                const todayIdx = days.findIndex(d => d.isToday);
+
+                const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+                const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+
+                // For each property, compute the visits that overlap the month and clamp to month bounds
+                function visitsForProperty(propId: string) {
+                  return visits
+                    .filter(v => v.propertyId === propId && v.status !== "Cancelled" && v.checkIn <= monthEnd && v.checkOut > monthStart)
+                    .map(v => {
+                      const ciDay = v.checkIn < monthStart ? 1 : Number(v.checkIn.slice(8, 10));
+                      // checkOut is exclusive: last occupied day = checkOut - 1
+                      const coDate = new Date(v.checkOut + "T00:00:00");
+                      coDate.setDate(coDate.getDate() - 1);
+                      const coStr = coDate.toISOString().split("T")[0];
+                      const lastDay = coStr > monthEnd ? daysInMonth : Number(coStr.slice(8, 10));
+                      const startedBefore = v.checkIn < monthStart;
+                      const endsAfter = coStr > monthEnd;
+                      return { v, startDay: ciDay, endDay: lastDay, startedBefore, endsAfter };
+                    });
+                }
+
                 return (
                 <div className="panel" style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
                   {/* Calendar header strip with month name + legend */}
-                  <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 12 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-                      <span style={{ fontFamily: "var(--fd)", fontSize: 20, fontWeight: 400, color: "var(--text)" }}>{monthLabel}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text3)" }}>{daysInMonth} days · {activeProps.length} properties</span>
+                  <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+                      <span style={{ fontFamily: "var(--fd)", fontSize: 22, fontWeight: 400, color: "var(--text)" }}>{monthLabel}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text3)" }}>{daysInMonth} days · {activeProps.length} properties</span>
                     </div>
-                    <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
                       {[["Owner", "var(--teal)"], ["Rental", "var(--blue)"], ["Guest", "#9B8EC4"]].map(([label, color]) => (
-                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text3)" }}>
-                          <div style={{ width: 12, height: 12, borderRadius: 3, background: color as string }} />
+                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text3)" }}>
+                          <div style={{ width: 22, height: 8, borderRadius: 3, background: color as string }} />
                           {label}
                         </div>
                       ))}
-                      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)" }}>
-                        <div style={{ width: 12, height: 12, borderRadius: 3, background: "var(--accent-s)", border: "1.5px solid var(--accent)" }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--accent)" }}>
+                        <div style={{ width: 2, height: 12, background: "var(--accent)" }} />
                         Today
                       </div>
                     </div>
                   </div>
 
                   {/* Grid */}
-                  <div style={{ overflowX: "auto" as const, position: "relative" as const }}>
-                    <div style={{ minWidth: 980, position: "relative" as const }}>
+                  <div style={{ overflowX: "auto" as const }}>
+                    <div style={{ minWidth: 1080 }}>
                       {/* Day headers */}
-                      <div style={{ display: "grid", gridTemplateColumns: `200px repeat(${daysInMonth}, minmax(26px, 1fr))`, borderBottom: "1px solid var(--border2)", background: "var(--bg2)", position: "sticky" as const, top: 0, zIndex: 2 }}>
-                        <div style={{ padding: "12px 18px", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text3)", borderRight: "1px solid var(--border)" }}>Property</div>
+                      <div style={{ display: "grid", gridTemplateColumns: `220px repeat(${daysInMonth}, minmax(28px, 1fr))`, borderBottom: "1px solid var(--border2)", background: "var(--bg2)" }}>
+                        <div style={{ padding: "14px 22px", fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" as const, color: "var(--text3)", borderRight: "1px solid var(--border)" }}>Property</div>
                         {days.map(d => (
-                          <div key={d.day} style={{ textAlign: "center" as const, padding: "8px 0 6px", background: d.isToday ? "var(--accent-s)" : d.isWeekend ? "var(--bg3)" : "var(--bg2)", borderLeft: d.dow === 1 ? "1px solid var(--border)" : "none" }}>
-                            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", color: d.isToday ? "var(--accent)" : d.isWeekend ? "var(--text2)" : "var(--text3)", marginBottom: 2 }}>{d.dowLabel}</div>
-                            <div className="a-num" style={{ fontSize: 13, fontWeight: d.isToday ? 700 : 500, color: d.isToday ? "var(--accent)" : d.isWeekend ? "var(--text)" : "var(--text2)" }}>{d.day}</div>
+                          <div key={d.day} style={{ textAlign: "center" as const, padding: "10px 0 8px", position: "relative" as const }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", color: d.isToday ? "var(--accent)" : "var(--text3)", marginBottom: 3, opacity: d.isWeekend ? 0.55 : 1 }}>{d.dowLabel}</div>
+                            <div className="a-num" style={{ fontSize: 13, fontWeight: d.isToday ? 700 : 500, color: d.isToday ? "var(--accent)" : "var(--text2)", opacity: d.isWeekend && !d.isToday ? 0.6 : 1 }}>{d.day}</div>
+                            {d.isToday && <div style={{ position: "absolute" as const, bottom: -1, left: "50%", transform: "translateX(-50%)", width: 22, height: 2, background: "var(--accent)", borderRadius: 2 }} />}
                           </div>
                         ))}
                       </div>
 
-                      {/* Property rows */}
-                      {activeProps.map((prop, ri) => (
-                        <div key={prop.id} className="a-row" onClick={() => { setActivePage("properties"); setSelectedProp(prop.id); setPropTab("availability"); }} style={{ display: "grid", gridTemplateColumns: `200px repeat(${daysInMonth}, minmax(26px, 1fr))`, borderBottom: "1px solid var(--border)", cursor: "pointer", position: "relative" as const }}>
-                          {/* Property name */}
-                          <div title={prop.name} style={{ fontSize: 13, color: "var(--text)", fontWeight: 500, padding: "0 18px", display: "flex", alignItems: "center", background: ri % 2 === 0 ? "var(--bg3)" : "var(--bg2)", borderRight: "1px solid var(--border)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-                            {prop.name}
-                          </div>
-                          {/* Day cells */}
-                          {days.map(d => {
-                            const v = isOccupied(prop.id, d.day);
-                            const isCheckIn = v?.checkIn === d.dateStr;
-                            const isCheckOut = v ? new Date(v.checkOut + "T00:00:00").toISOString().split("T")[0] === d.dateStr : false;
-                            const baseBg = ri % 2 === 0 ? "var(--bg3)" : "var(--bg2)";
-                            const cellBg = d.isToday ? "var(--accent-s)" : d.isWeekend ? (ri % 2 === 0 ? "var(--bg4)" : "var(--bg3)") : baseBg;
-                            return (
-                              <div key={d.day} title={v ? `${v.guestName || v.visitName} · ${v.visitType} · ${v.checkIn} → ${v.checkOut}` : undefined} style={{
-                                height: 38,
-                                background: cellBg,
-                                position: "relative" as const,
-                                borderLeft: d.dow === 1 ? "1px solid var(--border)" : "none",
-                              }}>
-                                {v && (
-                                  <div style={{
-                                    position: "absolute" as const,
-                                    top: 6,
-                                    bottom: 6,
-                                    left: isCheckIn ? 3 : 0,
-                                    right: isCheckOut ? 3 : 0,
-                                    background: visitColor(v.visitType),
-                                    borderRadius: `${isCheckIn ? 6 : 0}px ${isCheckOut ? 6 : 0}px ${isCheckOut ? 6 : 0}px ${isCheckIn ? 6 : 0}px`,
-                                    boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
-                                    overflow: "hidden",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    paddingLeft: isCheckIn ? 8 : 0,
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    color: "#fff",
-                                    letterSpacing: "0.02em",
-                                    whiteSpace: "nowrap" as const,
-                                  }}>
-                                    {isCheckIn && (v.guestName || v.visitName || v.visitType)}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
+                      {/* Property rows — each row is a clean lane */}
+                      {activeProps.map((prop, ri) => {
+                        const propVisits = visitsForProperty(prop.id);
+                        return (
+                          <div key={prop.id} className="a-row" onClick={() => { setActivePage("properties"); setSelectedProp(prop.id); setPropTab("availability"); }} style={{ display: "grid", gridTemplateColumns: `220px repeat(${daysInMonth}, minmax(28px, 1fr))`, borderBottom: ri < activeProps.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", position: "relative" as const, background: ri % 2 === 0 ? "var(--bg2)" : "transparent", height: 44 }}>
+                            {/* Property name */}
+                            <div title={prop.name} style={{ fontSize: 13, color: "var(--text)", fontWeight: 500, padding: "0 22px", display: "flex", alignItems: "center", borderRight: "1px solid var(--border)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, gridColumn: "1 / 2", gridRow: "1 / 2" }}>
+                              {prop.name}
+                            </div>
 
-                      {/* Today vertical band overlay */}
-                      {todayIdx >= 0 && (
-                        <div style={{
-                          position: "absolute" as const,
-                          top: 0,
-                          bottom: 0,
-                          left: `calc(200px + (100% - 200px) * ${todayIdx} / ${daysInMonth})`,
-                          width: `calc((100% - 200px) / ${daysInMonth})`,
-                          borderLeft: "1px solid var(--accent-line)",
-                          borderRight: "1px solid var(--accent-line)",
-                          pointerEvents: "none" as const,
-                          zIndex: 1,
-                        }} />
-                      )}
+                            {/* Empty day cells for grid background only — no per-cell visit rendering */}
+                            {days.map(d => (
+                              <div key={d.day} style={{
+                                gridColumn: `${d.day + 1} / ${d.day + 2}`,
+                                gridRow: "1 / 2",
+                                background: d.isToday ? "var(--accent-s)" : "transparent",
+                                borderLeft: d.dow === 1 ? "1px solid var(--border)" : "none",
+                              }} />
+                            ))}
+
+                            {/* Visit bars — one per visit, spanning grid columns cleanly */}
+                            {propVisits.map(({ v, startDay, endDay, startedBefore, endsAfter }) => (
+                              <div
+                                key={v.id}
+                                title={`${v.guestName || v.visitName} · ${v.visitType} · ${v.checkIn} → ${v.checkOut}`}
+                                style={{
+                                  gridColumn: `${startDay + 1} / ${endDay + 2}`,
+                                  gridRow: "1 / 2",
+                                  background: visitColor(v.visitType),
+                                  borderRadius: `${startedBefore ? 0 : 6}px ${endsAfter ? 0 : 6}px ${endsAfter ? 0 : 6}px ${startedBefore ? 0 : 6}px`,
+                                  margin: "8px 2px",
+                                  boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  paddingLeft: 10,
+                                  paddingRight: 6,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  color: "#fff",
+                                  letterSpacing: "0.01em",
+                                  whiteSpace: "nowrap" as const,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  zIndex: 1,
+                                }}
+                              >
+                                {v.guestName || v.visitName || v.visitType}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
