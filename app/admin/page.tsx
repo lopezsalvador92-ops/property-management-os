@@ -2004,23 +2004,25 @@ export default function AdminDashboard() {
         
         {/* ====== USERS ====== */}
         {activePage === "users" && (
-          <div style={{ padding: "32px 40px", maxWidth: 900 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+          <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1240, margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
               <div>
+                <span style={eyebrow}>Access Management</span>
                 <h1 style={h1s}>Users</h1>
-                <p style={{ fontSize: 14, color: "var(--text2)" }}>{usersLoading ? "Loading..." : `${appUsers.length} users registered`}</p>
+                <p style={{ fontSize: 13, color: "var(--text2)" }}>{usersLoading ? "Loading…" : `${appUsers.length} users registered`}</p>
+                <span className="a-gold-rule" />
               </div>
               <button onClick={() => setShowAddUser(!showAddUser)}
-                style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)", transition: "all var(--dur) var(--ease)" }}>
                 + Add User
               </button>
             </div>
 
             {/* Stat cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
-              <div style={card}><div style={lbl}>Admins</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--teal-l)" }}>{appUsers.filter(u => u.role === "admin").length}</div></div>
-              <div style={card}><div style={lbl}>Owners</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--accent)" }}>{appUsers.filter(u => u.role === "owner").length}</div></div>
-              <div style={card}><div style={lbl}>Other</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--text3)" }}>{appUsers.filter(u => u.role !== "admin" && u.role !== "owner").length}</div></div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+              <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Admins</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--teal)" }}>{appUsers.filter(u => u.role === "admin").length}</div></div>
+              <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Owners</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--accent)" }}>{appUsers.filter(u => u.role === "owner").length}</div></div>
+              <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Other</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--text3)" }}>{appUsers.filter(u => u.role !== "admin" && u.role !== "owner").length}</div></div>
             </div>
 
             {/* Add user form */}
