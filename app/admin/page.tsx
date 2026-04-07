@@ -1052,18 +1052,18 @@ export default function AdminDashboard() {
 
         {/* ====== REPORTS ====== */}
         {activePage === "reports" && (
-          <div style={{ padding: "32px 40px", maxWidth: 960 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+          <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1080, margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
               <div>
+                <span style={eyebrow}>Monthly Statements</span>
                 <h1 style={h1s}>Monthly Reports</h1>
-                <p style={{ fontSize: 14, color: "var(--text2)" }}>{repLoading ? "Loading..." : `${repMonth} · Review, approve, and send to owners`}</p>
+                <p style={{ fontSize: 13, color: "var(--text2)" }}>{repLoading ? "Loading…" : `${repMonth} · Review, approve, and send to owners`}</p>
+                <span className="a-gold-rule" />
               </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <div style={{ display: "flex", gap: 0 }}>
-                  <button onClick={() => setRepView("status")}
-                    style={{ padding: "7px 16px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border2)", background: repView === "status" ? "var(--accent-s)" : "transparent", color: repView === "status" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>By Status</button>
-                  <button onClick={() => setRepView("preview")}
-                    style={{ padding: "7px 16px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border2)", borderLeft: "none", background: repView === "preview" ? "var(--accent-s)" : "transparent", color: repView === "preview" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Owner Preview</button>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 0, background: "var(--bg2)", borderRadius: 100, padding: 4, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+                  <button onClick={() => setRepView("status")} style={{ padding: "8px 16px", borderRadius: 100, border: "none", background: repView === "status" ? "var(--accent-s)" : "transparent", color: repView === "status" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>By Status</button>
+                  <button onClick={() => setRepView("preview")} style={{ padding: "8px 16px", borderRadius: 100, border: "none", background: repView === "preview" ? "var(--accent-s)" : "transparent", color: repView === "preview" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Owner Preview</button>
                 </div>
                 <select value={repMonth} onChange={e => setRepMonth(e.target.value)} style={{ ...sel, minWidth: 180 }}>
                   {repMonthOptions.map(m => <option key={m} value={m}>{m}</option>)}
@@ -1074,38 +1074,40 @@ export default function AdminDashboard() {
             {repView === "status" && (<>
             {/* Stat cards */}
             {!repLoading && reports.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
-                <div style={card}><div style={lbl}>Sent</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--green)" }}>{reports.filter(r => r.status === "Sent").length}</div></div>
-                <div style={card}><div style={lbl}>Reviewed</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--accent)" }}>{reports.filter(r => r.status === "Reviewed").length}</div></div>
-                <div style={card}><div style={lbl}>Pending</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: reports.filter(r => r.status === "Pending").length > 0 ? "var(--red)" : "var(--text)" }}>{reports.filter(r => r.status === "Pending").length}</div></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 22 }}>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Sent</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--green)" }}>{reports.filter(r => r.status === "Sent").length}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Reviewed</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--accent)" }}>{reports.filter(r => r.status === "Reviewed").length}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px", borderColor: reports.filter(r => r.status === "Pending").length > 0 ? "var(--accent-line)" : "var(--border)" }}><div style={lbl}>Pending</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: reports.filter(r => r.status === "Pending").length > 0 ? "var(--red)" : "var(--text)" }}>{reports.filter(r => r.status === "Pending").length}</div></div>
               </div>
             )}
 
             {/* Bulk actions */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 28, flexWrap: "wrap" as const }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" as const, alignItems: "center" }}>
               {reports.some(r => r.chargeStatus !== "Completed") && (
                 <button onClick={() => updateReports("generateCharges", reports.filter(r => r.chargeStatus !== "Completed").map(r => r.id))} disabled={repUpdating !== null}
-                  style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                  {repUpdating === "generateCharges" ? "Running..." : `Generate all charges (${reports.filter(r => r.chargeStatus !== "Completed").length})`}
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "var(--teal)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>
+                  {repUpdating === "generateCharges" ? "Running…" : `Generate all charges (${reports.filter(r => r.chargeStatus !== "Completed").length})`}
                 </button>
               )}
               {reports.some(r => r.status === "Pending") && (
                 <button onClick={() => updateReports("markReviewed", reports.filter(r => r.status === "Pending").map(r => r.id))} disabled={repUpdating !== null}
-                  style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Mark all Reviewed</button>
+                  className="a-pill-btn"
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "1px solid var(--accent-line)", background: "transparent", color: "var(--accent)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>Mark all Reviewed</button>
               )}
               {reports.some(r => r.status === "Reviewed") && (
                 <button onClick={() => updateReports("markSent", reports.filter(r => r.status === "Reviewed").map(r => r.id))} disabled={repUpdating !== null}
-                  style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--green)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Mark all Sent</button>
+                  className="a-pill-btn"
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--green)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>Mark all Sent</button>
               )}
               {reports.every(r => r.chargeStatus === "Completed") && reports.length > 0 && (
-                <span style={{ fontSize: 12, color: "var(--green)", padding: "8px 0", display: "flex", alignItems: "center", gap: 4 }}>✓ All recurring charges generated</span>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--green)", padding: "10px 0", display: "flex", alignItems: "center", gap: 6 }}>✓ All recurring charges generated</span>
               )}
             </div>
 
             {/* PENDING */}
             {reports.filter(r => r.status === "Pending").length > 0 && (<>
               <h2 style={{ ...h2s, marginBottom: 12 }}>Pending</h2>
-              <div style={{ ...card, padding: 0, marginBottom: 24 }}>
+              <div className="a-card" style={{ ...card, padding: 0, marginBottom: 22 }}>
                 {reports.filter(r => r.status === "Pending").map((r, i, arr) => {
                   const isNeg = r.finalBalance < 0;
                   const isOpen = previewId === r.id;
@@ -1118,61 +1120,68 @@ export default function AdminDashboard() {
                     { name: "Miscellaneous", val: r.categories.miscellaneous },
                   ].filter(c => c.val > 0);
                   return (<div key={r.id}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: (isOpen || i < arr.length - 1) ? "1px solid var(--border)" : "none" }}>
+                    {/* Collapsed row — click anywhere to expand */}
+                    <div className="a-row" onClick={() => setPreviewId(isOpen ? null : r.id)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 22px", borderBottom: (isOpen || i < arr.length - 1) ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", boxShadow: "0 0 0 3px var(--accent-s)", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{r.house} — {r.owner}</div>
-                        <div style={{ fontSize: 12, color: "var(--text3)" }}>
-                          Expenses: {fmtCur(r.totalExpenses, r.currency)} · Deposits: {fmtCur(r.totalDeposits, r.currency)} · Balance: <span style={{ color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</span>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 3 }}>{r.house} <span style={{ color: "var(--text3)", fontWeight: 400 }}>— {r.owner}</span></div>
+                        <div style={{ fontSize: 11, color: "var(--text3)" }}>
+                          <span className="a-num">{fmtCur(r.totalExpenses, r.currency)} expenses</span> · <span className="a-num">{fmtCur(r.totalDeposits, r.currency)} deposits</span>
                         </div>
                       </div>
-                      {/* Exchange rate inline for USD properties */}
-                      {r.currency === "USD" && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                          <span style={{ fontSize: 10, color: "var(--text3)" }}>FX:</span>
-                          <input type="number" step="0.01" defaultValue={r.exchangeRate || ""} onBlur={e => { if (e.target.value) updateExchangeRate(r.id, e.target.value); }}
-                            style={{ width: 60, padding: "3px 6px", background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: 6, color: "var(--text)", fontSize: 12, outline: "none", textAlign: "center" as const }} placeholder="0.00" />
-                        </div>
-                      )}
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
-                          style={{ padding: "5px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "..." : "\u21BB Refresh"}</button>
-                        {r.chargeStatus !== "Completed" && (
-                          <button onClick={() => updateReports("generateCharges", [r.id])} disabled={repUpdating !== null}
-                            style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--teal-l)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Gen. charges</button>
-                        )}
-                        <button onClick={() => setPreviewId(isOpen ? null : r.id)}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: isOpen ? "var(--accent-s)" : "transparent", color: "var(--accent)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Preview</button>
-                        <button onClick={() => updateReports("markReviewed", [r.id])} disabled={repUpdating !== null}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Mark Reviewed</button>
-                        <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Expenses</button>
-                      </div>
+                      <div className="a-num" style={{ fontSize: 16, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)", flexShrink: 0, textAlign: "right" as const }}>{isNeg ? "−" : ""}{fmtCur(r.finalBalance, r.currency)}</div>
+                      <span style={{ fontSize: 9, padding: "4px 11px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "var(--accent-s)", color: "var(--accent)", flexShrink: 0 }}>Pending</span>
+                      <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4, transition: "transform var(--dur) var(--ease)", display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }}>▸</span>
                     </div>
-                    {/* Accordion preview */}
+                    {/* Expanded panel: actions + preview */}
                     {isOpen && (
-                      <div style={{ padding: "16px 20px", background: "var(--bg2)", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 12 }}>Report preview: {r.house}</div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                          <span style={{ fontSize: 13, color: "var(--text2)" }}>Starting Balance</span>
-                          <span style={{ fontSize: 13, fontWeight: 500 }}>{fmtCur(r.startingBalance, r.currency)}</span>
+                      <div style={{ padding: "20px 22px 22px", background: "var(--bg)", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                        {/* Actions row */}
+                        <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexWrap: "wrap" as const, gap: 10, alignItems: "center", marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--border)" }}>
+                          {r.currency === "USD" && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 100 }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text3)" }}>FX Rate</span>
+                              <input type="number" step="0.01" defaultValue={r.exchangeRate || ""} onBlur={e => { if (e.target.value) updateExchangeRate(r.id, e.target.value); }}
+                                style={{ width: 64, padding: "3px 8px", background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: 6, color: "var(--text)", fontSize: 12, outline: "none", textAlign: "center" as const, fontFamily: "inherit" }} placeholder="0.00" />
+                            </div>
+                          )}
+                          <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "Refreshing…" : "↻ Refresh Balance"}</button>
+                          {r.chargeStatus !== "Completed" && (
+                            <button onClick={() => updateReports("generateCharges", [r.id])} disabled={repUpdating !== null}
+                              className="a-pill-btn"
+                              style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--teal)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Generate Charges</button>
+                          )}
+                          <button onClick={() => updateReports("markReviewed", [r.id])} disabled={repUpdating !== null}
+                            style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const, transition: "filter var(--dur) var(--ease)" }}>✓ Mark Reviewed</button>
+                          <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>View Expenses →</button>
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)", fontWeight: 500 }}>
+                        {/* Report preview */}
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 12 }}>Report Preview</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
+                          <span style={{ fontSize: 13, color: "var(--text2)" }}>Starting Balance</span>
+                          <span className="a-num" style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{fmtCur(r.startingBalance, r.currency)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)", fontWeight: 500 }}>
                           <span style={{ fontSize: 13, color: "var(--text2)" }}>Total Expenses</span>
-                          <span style={{ fontSize: 13, color: "var(--red)" }}>-{fmtCur(r.totalExpenses, r.currency)}</span>
+                          <span className="a-num" style={{ fontSize: 13, color: "var(--red)" }}>−{fmtCur(r.totalExpenses, r.currency)}</span>
                         </div>
                         {cats.map(c => (
-                          <div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 5px 24px", borderBottom: "1px solid var(--border)" }}>
+                          <div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 5px 22px", borderBottom: "1px solid var(--border)" }}>
                             <span style={{ fontSize: 12, color: "var(--text3)" }}>{c.name}</span>
-                            <span style={{ fontSize: 12, color: "var(--text3)" }}>{fmtCur(c.val, r.currency)}</span>
+                            <span className="a-num" style={{ fontSize: 12, color: "var(--text3)" }}>{fmtCur(c.val, r.currency)}</span>
                           </div>
                         ))}
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
                           <span style={{ fontSize: 13, color: "var(--text2)" }}>Deposits</span>
-                          <span style={{ fontSize: 13, color: "var(--green)", fontWeight: 500 }}>+{fmtCur(r.totalDeposits, r.currency)}</span>
+                          <span className="a-num" style={{ fontSize: 13, color: "var(--green)", fontWeight: 500 }}>+{fmtCur(r.totalDeposits, r.currency)}</span>
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 4px" }}>
-                          <span style={{ fontSize: 14, fontWeight: 600 }}>Final Balance</span>
-                          <span style={{ fontSize: 14, fontWeight: 600, color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</span>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0 4px", borderTop: "2px solid var(--border2)", marginTop: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Final Balance</span>
+                          <span className="a-num" style={{ fontSize: 18, fontWeight: 400, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)" }}>{isNeg ? "−" : ""}{fmtCur(r.finalBalance, r.currency)}</span>
                         </div>
                       </div>
                     )}
@@ -1184,7 +1193,7 @@ export default function AdminDashboard() {
             {/* REVIEWED */}
             {reports.filter(r => r.status === "Reviewed").length > 0 && (<>
               <h2 style={{ ...h2s, marginBottom: 12 }}>Ready to send</h2>
-              <div style={{ ...card, padding: 0, marginBottom: 24 }}>
+              <div className="a-card" style={{ ...card, padding: 0, marginBottom: 22 }}>
                 {reports.filter(r => r.status === "Reviewed").map((r, i, arr) => {
                   const isNeg = r.finalBalance < 0;
                   const isOpen = previewId === r.id;
@@ -1197,39 +1206,44 @@ export default function AdminDashboard() {
                     { name: "Miscellaneous", val: r.categories.miscellaneous },
                   ].filter(c => c.val > 0);
                   return (<div key={r.id}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: (isOpen || i < arr.length - 1) ? "1px solid var(--border)" : "none" }}>
+                    <div className="a-row" onClick={() => setPreviewId(isOpen ? null : r.id)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 22px", borderBottom: (isOpen || i < arr.length - 1) ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 0 3px var(--green-s)", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{r.house} — {r.owner}</div>
-                        <div style={{ fontSize: 12, color: "var(--text3)" }}>Balance: <span style={{ color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</span></div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 3 }}>{r.house} <span style={{ color: "var(--text3)", fontWeight: 400 }}>— {r.owner}</span></div>
+                        <div style={{ fontSize: 11, color: "var(--text3)" }}>Reviewed · ready for delivery</div>
                       </div>
-                      {r.currency === "USD" && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                          <span style={{ fontSize: 10, color: "var(--text3)" }}>FX:</span>
-                          <input type="number" step="0.01" defaultValue={r.exchangeRate || ""} onBlur={e => { if (e.target.value) updateExchangeRate(r.id, e.target.value); }}
-                            style={{ width: 60, padding: "3px 6px", background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: 6, color: "var(--text)", fontSize: 12, outline: "none", textAlign: "center" as const }} placeholder="0.00" />
-                        </div>
-                      )}
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
-                          style={{ padding: "5px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "..." : "\u21BB Refresh"}</button>
-                        <button onClick={() => updateReports("markPending", [r.id])} disabled={repUpdating !== null}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{"\u2190"} Back to Pending</button>
-                        <button onClick={() => setPreviewId(isOpen ? null : r.id)}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: isOpen ? "var(--accent-s)" : "transparent", color: "var(--accent)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Preview</button>
-                        <button onClick={() => updateReports("markSent", [r.id])} disabled={repUpdating !== null}
-                          style={{ padding: "6px 16px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--green), #4a9e6e)", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Mark Sent</button>
-                        <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Expenses</button>
-                      </div>
+                      <div className="a-num" style={{ fontSize: 16, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)", flexShrink: 0, textAlign: "right" as const }}>{isNeg ? "−" : ""}{fmtCur(r.finalBalance, r.currency)}</div>
+                      <span style={{ fontSize: 9, padding: "4px 11px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "var(--green-s)", color: "var(--green)", flexShrink: 0 }}>Reviewed</span>
+                      <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4, transition: "transform var(--dur) var(--ease)", display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }}>▸</span>
                     </div>
                     {isOpen && (
-                      <div style={{ padding: "16px 20px", background: "var(--bg2)", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 12 }}>Report preview: {r.house}</div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Starting Balance</span><span style={{ fontSize: 13, fontWeight: 500 }}>{fmtCur(r.startingBalance, r.currency)}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)", fontWeight: 500 }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Total Expenses</span><span style={{ fontSize: 13, color: "var(--red)" }}>-{fmtCur(r.totalExpenses, r.currency)}</span></div>
-                        {cats.map(c => (<div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 5px 24px", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{c.name}</span><span style={{ fontSize: 12, color: "var(--text3)" }}>{fmtCur(c.val, r.currency)}</span></div>))}
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Deposits</span><span style={{ fontSize: 13, color: "var(--green)", fontWeight: 500 }}>+{fmtCur(r.totalDeposits, r.currency)}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 4px" }}><span style={{ fontSize: 14, fontWeight: 600 }}>Final Balance</span><span style={{ fontSize: 14, fontWeight: 600, color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</span></div>
+                      <div style={{ padding: "20px 22px 22px", background: "var(--bg)", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                        <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexWrap: "wrap" as const, gap: 10, alignItems: "center", marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--border)" }}>
+                          {r.currency === "USD" && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 100 }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text3)" }}>FX Rate</span>
+                              <input type="number" step="0.01" defaultValue={r.exchangeRate || ""} onBlur={e => { if (e.target.value) updateExchangeRate(r.id, e.target.value); }}
+                                style={{ width: 64, padding: "3px 8px", background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: 6, color: "var(--text)", fontSize: 12, outline: "none", textAlign: "center" as const, fontFamily: "inherit" }} placeholder="0.00" />
+                            </div>
+                          )}
+                          <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "Refreshing…" : "↻ Refresh Balance"}</button>
+                          <button onClick={() => updateReports("markPending", [r.id])} disabled={repUpdating !== null}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>← Back to Pending</button>
+                          <button onClick={() => updateReports("markSent", [r.id])} disabled={repUpdating !== null}
+                            style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "var(--green)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const, transition: "filter var(--dur) var(--ease)" }}>✓ Mark Sent</button>
+                          <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>View Expenses →</button>
+                        </div>
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 12 }}>Report Preview</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Starting Balance</span><span className="a-num" style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{fmtCur(r.startingBalance, r.currency)}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)", fontWeight: 500 }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Total Expenses</span><span className="a-num" style={{ fontSize: 13, color: "var(--red)" }}>−{fmtCur(r.totalExpenses, r.currency)}</span></div>
+                        {cats.map(c => (<div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 5px 22px", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{c.name}</span><span className="a-num" style={{ fontSize: 12, color: "var(--text3)" }}>{fmtCur(c.val, r.currency)}</span></div>))}
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Deposits</span><span className="a-num" style={{ fontSize: 13, color: "var(--green)", fontWeight: 500 }}>+{fmtCur(r.totalDeposits, r.currency)}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0 4px", borderTop: "2px solid var(--border2)", marginTop: 4 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Final Balance</span><span className="a-num" style={{ fontSize: 18, fontWeight: 400, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)" }}>{isNeg ? "−" : ""}{fmtCur(r.finalBalance, r.currency)}</span></div>
                       </div>
                     )}
                   </div>);
