@@ -1375,27 +1375,29 @@ export default function AdminDashboard() {
           }
 
           return (
-            <div style={{ padding: "32px 40px" }}>
-              <h1 style={h1s}>Housekeeping Logs</h1>
-              <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 24 }}>Review and approve weekly cleaning schedules</p>
-
-              {/* Tabs */}
-              <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
-                <button onClick={() => setHskView("individual")}
-                  style={{ padding: "8px 20px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border2)", background: hskView === "individual" ? "var(--accent-s)" : "transparent", color: hskView === "individual" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Individual Logs</button>
-                <button onClick={() => setHskView("weekly")}
-                  style={{ padding: "8px 20px", borderRadius: "0 0 0 0", border: "1px solid var(--border2)", borderLeft: "none", background: hskView === "weekly" ? "var(--accent-s)" : "transparent", color: hskView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Weekly Overview</button>
-                <button onClick={() => setHskView("summary")}
-                  style={{ padding: "8px 20px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border2)", borderLeft: "none", background: hskView === "summary" ? "var(--accent-s)" : "transparent", color: hskView === "summary" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Monthly Summary</button>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
+                <div>
+                  <span style={eyebrow}>Cleaning Operations</span>
+                  <h1 style={h1s}>Housekeeping Logs</h1>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Review and approve weekly cleaning schedules</p>
+                  <span className="a-gold-rule" />
+                </div>
+                {/* Tabs as pill segmented control */}
+                <div style={{ display: "flex", gap: 0, background: "var(--bg2)", borderRadius: 100, padding: 4, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+                  <button onClick={() => setHskView("individual")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "individual" ? "var(--accent-s)" : "transparent", color: hskView === "individual" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Individual</button>
+                  <button onClick={() => setHskView("weekly")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "weekly" ? "var(--accent-s)" : "transparent", color: hskView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Weekly</button>
+                  <button onClick={() => setHskView("summary")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "summary" ? "var(--accent-s)" : "transparent", color: hskView === "summary" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Monthly</button>
+                </div>
               </div>
 
               {/* Summary bar */}
               {pending.length > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 24 }}>
-                  <span style={{ fontSize: 14 }}>{pending.length} {pending.length === 1 ? "log" : "logs"} pending your approval</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 22px", background: "var(--accent-s)", border: "1px solid var(--accent-line)", borderRadius: 12, marginBottom: 24, boxShadow: "var(--shadow-sm)" }}>
+                  <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}><span style={{ fontFamily: "var(--fd)", fontSize: 18, color: "var(--accent)", marginRight: 6 }}>{pending.length}</span>{pending.length === 1 ? "log" : "logs"} pending your approval</span>
                   <button onClick={() => updateHsk("approve", pending.map(l => l.id))} disabled={hskUpdating !== null}
-                    style={{ padding: "8px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                    {hskUpdating === "approve" ? "Approving..." : "Approve All"}
+                    style={{ padding: "9px 22px", borderRadius: 100, border: "1px solid var(--accent-line)", background: "var(--bg2)", color: "var(--accent)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>
+                    {hskUpdating === "approve" ? "Approving…" : "Approve All"}
                   </button>
                 </div>
               )}
