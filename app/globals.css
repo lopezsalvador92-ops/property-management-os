@@ -2,40 +2,40 @@
 
 :root {
   /* Surfaces (dark — default) */
-  --bg: #060B12;
-  --bg2: #0C1420;
-  --bg3: #111C2E;
-  --bg4: #152236;
+  --bg: #050912;
+  --bg2: #131E2E;
+  --bg3: #1B2740;
+  --bg4: #243352;
 
   /* Borders */
-  --border: rgba(255, 255, 255, 0.07);
-  --border2: rgba(255, 255, 255, 0.12);
-  --border3: rgba(255, 255, 255, 0.18);
+  --border: rgba(255, 255, 255, 0.11);
+  --border2: rgba(255, 255, 255, 0.18);
+  --border3: rgba(255, 255, 255, 0.26);
 
   /* Text */
-  --text: #EDF1F5;
-  --text2: rgba(237, 241, 245, 0.68);
-  --text3: rgba(237, 241, 245, 0.42);
+  --text: #F2F5F9;
+  --text2: rgba(242, 245, 249, 0.78);
+  --text3: rgba(242, 245, 249, 0.54);
 
   /* Brand */
-  --accent: #C9A96E;
-  --accent-h: #D9BC85;
-  --accent-s: rgba(201, 169, 110, 0.14);
-  --accent-line: rgba(201, 169, 110, 0.32);
+  --accent: #D4B57A;
+  --accent-h: #E2C58C;
+  --accent-s: rgba(212, 181, 122, 0.18);
+  --accent-line: rgba(212, 181, 122, 0.42);
 
-  --teal: #3A9BAA;
-  --teal-l: #5CC4C9;
-  --teal-s: rgba(58, 155, 170, 0.14);
+  --teal: #4FB5C4;
+  --teal-l: #6DD3D8;
+  --teal-s: rgba(79, 181, 196, 0.18);
 
   /* Status */
-  --green: #6ECF97;
-  --green-s: rgba(110, 207, 151, 0.12);
-  --red: #CF6E6E;
-  --red-s: rgba(207, 110, 110, 0.12);
-  --blue: #6EA8CF;
-  --blue-s: rgba(110, 168, 207, 0.12);
-  --orange: #CF956E;
-  --orange-s: rgba(207, 149, 110, 0.12);
+  --green: #7DD9A3;
+  --green-s: rgba(125, 217, 163, 0.16);
+  --red: #E08585;
+  --red-s: rgba(224, 133, 133, 0.16);
+  --blue: #7FB8DA;
+  --blue-s: rgba(127, 184, 218, 0.16);
+  --orange: #DAA17F;
+  --orange-s: rgba(218, 161, 127, 0.16);
 
   /* Type scale */
   --fd: "Instrument Serif", Georgia, "Times New Roman", serif;
