@@ -781,10 +781,30 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 </div>
-                {enabledModules.includes("concierge") ? <div>
+                <div>
+                  <h2 style={{ ...h2s, marginBottom: 12 }}>Recent activity</h2>
+                  <div style={{ ...card, padding: 0 }}>
+                    {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity…</div>}
+                    {recentActivity.slice(0, 8).map((a, i, arr) => (
+                      <div key={`act-${i}`} className="a-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                        <span style={{ fontSize: 13, width: 20, textAlign: "center" as const, color: a.type === "deposit" ? "var(--green)" : "var(--text3)" }}>{a.type === "deposit" ? "↓" : "⎙"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}><strong>{a.house}</strong> — {a.detail}</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(a.date)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ROW 2: UPCOMING VISITS + OPEN MAINTENANCE — module-gated, symmetric when both off */}
+              {(enabledModules.includes("concierge") || enabledModules.includes("maintenance")) && (
+              <div className="admin-2col" style={{ display: "grid", gridTemplateColumns: enabledModules.includes("concierge") && enabledModules.includes("maintenance") ? "1fr 1fr" : "1fr", gap: 20, marginBottom: 32 }}>
+                {enabledModules.includes("concierge") && <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Upcoming visits</h2>
                   {visits.length === 0 ? (
-                    <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>Loading visits...</div>
+                    <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>Loading visits…</div>
                   ) : [...activeVisits, ...upcomingVisits].length === 0 ? (
                     <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>No upcoming visits scheduled.</div>
                   ) : (
@@ -794,9 +814,7 @@ export default function AdminDashboard() {
                         const typeBg = v.visitType === "Owner" ? "var(--teal-s)" : v.visitType === "Rental" ? "rgba(100,160,255,0.12)" : "rgba(155,142,196,0.12)";
                         const nights = Math.round((new Date(v.checkOut).getTime() - new Date(v.checkIn).getTime()) / 86400000);
                         return (
-                          <div key={v.id} onClick={() => { setActivePage("concierge"); setConcTab("visits"); setSelectedVisitId(v.id); }} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <div key={v.id} className="a-row" onClick={() => { setActivePage("concierge"); setConcTab("visits"); setSelectedVisitId(v.id); }} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
                             <div style={{ width: 40, height: 40, borderRadius: 10, background: typeBg, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: typeColor }}>{new Date(v.checkIn + "T12:00:00").toLocaleDateString("en-US", { month: "short" }).toUpperCase()}</div>
                               <div style={{ fontSize: 14, fontWeight: 700, color: typeColor, lineHeight: 1 }}>{new Date(v.checkIn + "T12:00:00").getDate()}</div>
@@ -814,12 +832,8 @@ export default function AdminDashboard() {
                       })}
                     </div>
                   )}
-                </div> : <div />}
-              </div>
-
-              {/* ROW 2: OPEN MAINTENANCE + RECENT ACTIVITY */}
-              <div className="admin-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
-                {enabledModules.includes("maintenance") ? <div>
+                </div>}
+                {enabledModules.includes("maintenance") && <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Open maintenance</h2>
                   {openMaint.length === 0 ? (
                     <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>No open maintenance items.</div>
@@ -828,9 +842,7 @@ export default function AdminDashboard() {
                       {openMaint.slice(0, 4).map((t, i) => {
                         const pColor = t.priority === "Urgent" ? "var(--red)" : t.priority === "High" ? "var(--orange)" : t.priority === "Medium" ? "var(--accent)" : "var(--text3)";
                         return (
-                          <div key={t.id} onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < Math.min(openMaint.length, 4) - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <div key={t.id} className="a-row" onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < Math.min(openMaint.length, 4) - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
                             <span style={{ fontSize: 14 }}>🔧</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
@@ -850,23 +862,9 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   )}
-                </div> : <div />}
-                <div>
-                  <h2 style={{ ...h2s, marginBottom: 12 }}>Recent activity</h2>
-                  <div style={{ ...card, padding: 0 }}>
-                    {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity...</div>}
-                    {recentActivity.slice(0, 8).map((a, i, arr) => (
-                      <div key={`act-${i}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <span style={{ fontSize: 13, width: 20, textAlign: "center" as const, color: a.type === "deposit" ? "var(--green)" : "var(--text3)" }}>{a.type === "deposit" ? "↓" : "⎙"}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}><strong>{a.house}</strong> — {a.detail}</div>
-                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(a.date)}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                </div>}
               </div>
+              )}
 
               {/* FINANCIAL PULSE */}
               <h2 style={{ ...h2s, marginBottom: 12 }}>Financial pulse, by property</h2>
@@ -2065,7 +2063,7 @@ export default function AdminDashboard() {
 
             {/* User list */}
             <div style={{ ...card, padding: 0 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 100px 120px 100px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.4fr 110px 120px 220px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>User</div>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Email</div>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Role</div>
@@ -2077,7 +2075,7 @@ export default function AdminDashboard() {
                 const roleBg = u.role === "admin" ? "var(--teal-s)" : u.role === "owner" ? "var(--accent-s)" : "var(--bg2)";
                 return (
                   <React.Fragment key={u.id}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 100px 120px 100px", padding: "12px 20px", borderBottom: editUserId === u.id ? "none" : i < appUsers.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.4fr 110px 120px 220px", padding: "12px 20px", borderBottom: editUserId === u.id ? "none" : i < appUsers.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 500 }}>{u.firstName} {u.lastName}</div>
                       {u.linkedProperty && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.linkedProperty}</div>}
@@ -2095,10 +2093,10 @@ export default function AdminDashboard() {
                     <div style={{ fontSize: 12, color: "var(--text3)" }}>
                       {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}
                     </div>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button onClick={() => { setEditUserId(u.id); setEditUserForm({ firstName: u.firstName, lastName: u.lastName, role: u.role, linkedProperty: u.linkedProperty }); }} title="Edit user" style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button>
-                      <button onClick={() => resetUserPassword(u.id)} title="Reset password" style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Reset PW</button>
-                      <button onClick={() => deactivateUser(u.id)} title="Deactivate user" style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(207,110,110,0.2)", background: "transparent", color: "var(--red)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Deactivate</button>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" as const }}>
+                      <button className="a-pill-btn" onClick={() => { setEditUserId(u.id); setEditUserForm({ firstName: u.firstName, lastName: u.lastName, role: u.role, linkedProperty: u.linkedProperty }); }} title="Edit user" style={{ padding: "5px 11px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>✎ Edit</button>
+                      <button className="a-pill-btn" onClick={() => resetUserPassword(u.id)} title="Reset password" style={{ padding: "5px 11px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Reset PW</button>
+                      <button onClick={() => deactivateUser(u.id)} title="Deactivate user" style={{ padding: "5px 11px", borderRadius: 100, border: "1px solid rgba(224,133,133,0.30)", background: "transparent", color: "var(--red)", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const, transition: "all var(--dur) var(--ease)" }}>Deactivate</button>
                     </div>
                   </div>
                   {editUserId === u.id && (
