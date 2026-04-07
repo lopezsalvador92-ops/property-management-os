@@ -41,6 +41,7 @@ export default function SystemSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"dark" | "light">("light");
 
   useEffect(() => {
     fetch("/api/platform-config")
@@ -51,10 +52,10 @@ export default function SystemSettings() {
 
   if (role !== "system_admin") {
     return (
-      <div style={{ minHeight: "100vh", background: "var(--bg, #F5F7FA)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--fb)", color: "var(--text)" }}>
         <div style={{ textAlign: "center", padding: 40 }}>
-          <h1 style={{ fontSize: 24, marginBottom: 8 }}>Access Denied</h1>
-          <p style={{ color: "#8795A8" }}>This page is only accessible to system administrators.</p>
+          <h1 style={{ fontFamily: "var(--fd)", fontSize: 28, fontWeight: 400, marginBottom: 10 }}>Access Denied</h1>
+          <p style={{ color: "var(--text3)", fontSize: 14 }}>This page is only accessible to system administrators.</p>
         </div>
       </div>
     );
@@ -85,73 +86,98 @@ export default function SystemSettings() {
   const ownerRole = roles.find(r => r.roleId === "owner");
 
   return (
-    <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", minHeight: "100vh", background: "#F5F7FA", color: "#1A1A2E" }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+    <div style={{ fontFamily: "var(--fb)", minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
+      <style>{`
+        .sys-toggle{transition:background var(--dur) var(--ease);}
+        .sys-toggle-knob{transition:left var(--dur) var(--ease);}
+        .sys-row{transition:background var(--dur) var(--ease);}
+        .sys-row:hover{background:var(--bg3);}
+        .sys-link{transition:color var(--dur) var(--ease);}
+        .sys-link:hover{color:var(--accent) !important;}
+      `}</style>
+      {theme === "light" && <style>{`
+        :root {
+          --bg: #F4F1EC !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #EFEBE3 !important;
+          --text: #15202B !important; --text2: #4A5568 !important; --text3: #8B96A4 !important;
+          --border: rgba(15,30,45,0.07) !important; --border2: rgba(15,30,45,0.13) !important; --border3: rgba(15,30,45,0.20) !important;
+          --accent: #A8842A !important; --accent-h: #B8942E !important; --accent-s: rgba(168,132,42,0.10) !important; --accent-line: rgba(168,132,42,0.40) !important;
+          --teal: #237A88 !important; --teal-l: #196372 !important; --teal-s: rgba(35,122,136,0.09) !important;
+          --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.09) !important;
+          --red: #B84A4A !important; --red-s: rgba(184,74,74,0.09) !important;
+        }
+      `}</style>}
 
       {/* Top bar */}
-      <div style={{ background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "16px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src="/cape-logo.png" alt="Cape PM" style={{ height: 28 }} />
+      <div style={{ background: "var(--bg2)", borderBottom: "1px solid var(--border)", padding: "18px 36px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "var(--shadow-sm)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <img src="/cape-logo.png" alt="Cape PM" style={{ height: 30 }} />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "#4A5568" }}>System Settings</div>
-            <div style={{ fontSize: 11, color: "#8795A8" }}>Cape PM OS - Axvia Solutions</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text)" }}>System Settings</div>
+            <div style={{ fontSize: 10, color: "var(--text3)", letterSpacing: "0.06em", marginTop: 2 }}>Cape PM OS · Axvia Solutions</div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <a href="/admin" style={{ fontSize: 13, color: "#2A8B9A", textDecoration: "none", fontWeight: 500 }}>Back to Admin</a>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "8px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "Light" : "Dark"} Mode</button>
+          <a href="/admin" className="sys-link" style={{ fontSize: 10, color: "var(--text2)", textDecoration: "none", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>← Back to Admin</a>
           <UserButton />
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
-        <h1 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 28, marginBottom: 6 }}>Role & Module Configuration</h1>
-        <p style={{ fontSize: 14, color: "#8795A8", marginBottom: 32 }}>Control which modules each role can access. Changes take effect immediately.</p>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "44px 32px 56px" }}>
+        <div style={{ marginBottom: 32 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase" as const, color: "var(--accent)", marginBottom: 10, display: "block" }}>Platform Configuration</span>
+          <h1 style={{ fontFamily: "var(--fd)", fontSize: 38, fontWeight: 400, marginBottom: 8, lineHeight: 1.05, letterSpacing: "-0.005em" }}>Roles &amp; Modules</h1>
+          <p style={{ fontSize: 13, color: "var(--text2)" }}>Control which modules each role can access. Changes take effect immediately.</p>
+          <span style={{ display: "block", width: 36, height: 1, background: "var(--accent-line)", marginTop: 10 }} />
+        </div>
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center" as const, color: "#8795A8" }}>Loading configuration...</div>
+          <div style={{ padding: 40, textAlign: "center" as const, color: "var(--text3)", fontSize: 13 }}>Loading configuration…</div>
         ) : (
           <>
             {/* Admin-side roles */}
-            <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 16 }}>Admin Panel Modules</h2>
+            <h2 style={{ fontFamily: "var(--fd)", fontSize: 22, fontWeight: 400, marginBottom: 16, color: "var(--text)" }}>Admin Panel Modules</h2>
             {adminRoles.map(r => (
-              <div key={r.id} style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
-                <div style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+              <div key={r.id} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, marginBottom: 22, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+                <div style={{ padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
                   <div>
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>{r.displayName}</span>
-                    <span style={{ fontSize: 12, color: "#8795A8", marginLeft: 8 }}>({r.roleId})</span>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: "var(--text)" }}>{r.displayName}</span>
+                    <span style={{ fontSize: 11, color: "var(--text3)", marginLeft: 10, letterSpacing: "0.04em" }}>({r.roleId})</span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {saving === r.id && <span style={{ fontSize: 11, color: "#8795A8" }}>Saving...</span>}
-                    {saved === r.id && <span style={{ fontSize: 11, color: "#2D8B57" }}>Saved</span>}
-                    <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 100, background: r.active ? "rgba(45,139,87,0.08)" : "rgba(0,0,0,0.04)", color: r.active ? "#2D8B57" : "#8795A8", fontWeight: 600 }}>{r.active ? "Active" : "Inactive"}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {saving === r.id && <span style={{ fontSize: 9, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>Saving…</span>}
+                    {saved === r.id && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>✓ Saved</span>}
+                    <span style={{ fontSize: 9, padding: "4px 11px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: r.active ? "var(--green-s)" : "var(--bg4)", color: r.active ? "var(--green)" : "var(--text3)" }}>{r.active ? "Active" : "Inactive"}</span>
                   </div>
                 </div>
-                <div style={{ padding: "12px 20px" }}>
+                <div style={{ padding: "8px 24px 14px" }}>
                   {ALL_ADMIN_MODULES.map(mod => {
                     const enabled = r.modules.includes(mod.id);
                     const isSystem = r.roleId === "system_admin" && mod.id === "settings";
                     return (
-                      <div key={mod.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+                      <div key={mod.id} className="sys-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 4px", borderBottom: "1px solid var(--border)", borderRadius: 6 }}>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>{mod.label}</div>
-                          <div style={{ fontSize: 11, color: "#8795A8" }}>{mod.description}</div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{mod.label}</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{mod.description}</div>
                         </div>
                         <button
+                          className="sys-toggle"
                           onClick={() => !isSystem && toggleModule(r, mod.id)}
                           disabled={isSystem}
+                          title={isSystem ? "System admin always has access to settings" : enabled ? "Click to disable" : "Click to enable"}
                           style={{
-                            width: 44, height: 24, borderRadius: 12, border: "none",
-                            background: enabled ? "#2A8B9A" : "#E2E8F0",
+                            width: 44, height: 24, borderRadius: 100, border: "none",
+                            background: enabled ? "var(--accent)" : "var(--bg4)",
                             cursor: isSystem ? "not-allowed" : "pointer",
-                            position: "relative" as const, transition: "background 0.2s",
-                            opacity: isSystem ? 0.5 : 1,
+                            position: "relative" as const,
+                            opacity: isSystem ? 0.4 : 1,
+                            flexShrink: 0,
                           }}>
-                          <div style={{
+                          <div className="sys-toggle-knob" style={{
                             width: 18, height: 18, borderRadius: "50%", background: "#fff",
                             position: "absolute" as const, top: 3,
                             left: enabled ? 23 : 3,
-                            transition: "left 0.2s",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
                           }} />
                         </button>
                       </div>
@@ -164,35 +190,37 @@ export default function SystemSettings() {
             {/* Owner role */}
             {ownerRole && (
               <>
-                <h2 style={{ fontSize: 18, fontWeight: 500, marginBottom: 16, marginTop: 32 }}>Owner Portal Modules</h2>
-                <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
-                  <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>{ownerRole.displayName}</span>
-                    <span style={{ fontSize: 12, color: "#8795A8", marginLeft: 8 }}>({ownerRole.roleId})</span>
+                <h2 style={{ fontFamily: "var(--fd)", fontSize: 22, fontWeight: 400, marginBottom: 16, marginTop: 36, color: "var(--text)" }}>Owner Portal Modules</h2>
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, marginBottom: 22, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+                  <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: "var(--text)" }}>{ownerRole.displayName}</span>
+                    <span style={{ fontSize: 11, color: "var(--text3)", marginLeft: 10, letterSpacing: "0.04em" }}>({ownerRole.roleId})</span>
                   </div>
-                  <div style={{ padding: "12px 20px" }}>
+                  <div style={{ padding: "8px 24px 14px" }}>
                     {ALL_OWNER_MODULES.map(mod => {
                       const enabled = ownerRole.modules.includes(mod.id);
                       return (
-                        <div key={mod.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+                        <div key={mod.id} className="sys-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 4px", borderBottom: "1px solid var(--border)", borderRadius: 6 }}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 500 }}>{mod.label}</div>
-                            <div style={{ fontSize: 11, color: "#8795A8" }}>{mod.description}</div>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{mod.label}</div>
+                            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{mod.description}</div>
                           </div>
                           <button
+                            className="sys-toggle"
                             onClick={() => toggleModule(ownerRole, mod.id)}
+                            title={enabled ? "Click to disable" : "Click to enable"}
                             style={{
-                              width: 44, height: 24, borderRadius: 12, border: "none",
-                              background: enabled ? "#2A8B9A" : "#E2E8F0",
+                              width: 44, height: 24, borderRadius: 100, border: "none",
+                              background: enabled ? "var(--accent)" : "var(--bg4)",
                               cursor: "pointer",
-                              position: "relative" as const, transition: "background 0.2s",
+                              position: "relative" as const,
+                              flexShrink: 0,
                             }}>
-                            <div style={{
+                            <div className="sys-toggle-knob" style={{
                               width: 18, height: 18, borderRadius: "50%", background: "#fff",
                               position: "absolute" as const, top: 3,
                               left: enabled ? 23 : 3,
-                              transition: "left 0.2s",
-                              boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
                             }} />
                           </button>
                         </div>
@@ -204,10 +232,10 @@ export default function SystemSettings() {
             )}
 
             {/* Info box */}
-            <div style={{ background: "rgba(42,139,154,0.06)", border: "1px solid rgba(42,139,154,0.12)", borderRadius: 10, padding: "16px 20px", marginTop: 24 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "#2A8B9A", marginBottom: 4 }}>How this works</div>
-              <div style={{ fontSize: 12, color: "#4A5568", lineHeight: 1.6 }}>
-                Toggling a module on/off controls visibility for that role. Admin users with the "admin" role will only see the modules you enable here. The "system_admin" role always has access to Settings and cannot be locked out. Changes save to Airtable immediately.
+            <div style={{ background: "var(--accent-s)", border: "1px solid var(--accent-line)", borderRadius: 12, padding: "20px 24px", marginTop: 28, boxShadow: "var(--shadow-sm)" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 6 }}>How this works</div>
+              <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.6 }}>
+                Toggling a module on or off controls visibility for that role. Admin users with the &ldquo;admin&rdquo; role will only see the modules you enable here. The &ldquo;system_admin&rdquo; role always has access to Settings and cannot be locked out. Changes save to Airtable immediately.
               </div>
             </div>
           </>

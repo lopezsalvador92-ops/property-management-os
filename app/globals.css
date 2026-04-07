@@ -1,28 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #060B12;
-  --bg2: #0C1420;
-  --bg3: #111C2E;
-  --bg4: #152236;
-  --border: rgba(255, 255, 255, 0.06);
-  --border2: rgba(255, 255, 255, 0.10);
-  --text: #EDF1F5;
-  --text2: rgba(237, 241, 245, 0.55);
-  --text3: rgba(237, 241, 245, 0.35);
-  --accent: #C9A96E;
-  --accent-s: rgba(201, 169, 110, 0.12);
-  --teal: #3A9BAA;
-  --teal-l: #5CC4C9;
-  --teal-s: rgba(58, 155, 170, 0.12);
-  --green: #6ECF97;
-  --green-s: rgba(110, 207, 151, 0.10);
-  --red: #CF6E6E;
-  --red-s: rgba(207, 110, 110, 0.10);
-  --blue: #6EA8CF;
-  --blue-s: rgba(110, 168, 207, 0.10);
-  --orange: #CF956E;
-  --orange-s: rgba(207, 149, 110, 0.10);
+  /* Surfaces (dark — default) */
+  --bg: #050912;
+  --bg2: #131E2E;
+  --bg3: #1B2740;
+  --bg4: #243352;
+
+  /* Borders */
+  --border: rgba(255, 255, 255, 0.11);
+  --border2: rgba(255, 255, 255, 0.18);
+  --border3: rgba(255, 255, 255, 0.26);
+
+  /* Text */
+  --text: #F2F5F9;
+  --text2: rgba(242, 245, 249, 0.78);
+  --text3: rgba(242, 245, 249, 0.54);
+
+  /* Brand */
+  --accent: #D4B57A;
+  --accent-h: #E2C58C;
+  --accent-s: rgba(212, 181, 122, 0.18);
+  --accent-line: rgba(212, 181, 122, 0.42);
+
+  --teal: #4FB5C4;
+  --teal-l: #6DD3D8;
+  --teal-s: rgba(79, 181, 196, 0.18);
+
+  /* Status */
+  --green: #7DD9A3;
+  --green-s: rgba(125, 217, 163, 0.16);
+  --red: #E08585;
+  --red-s: rgba(224, 133, 133, 0.16);
+  --blue: #7FB8DA;
+  --blue-s: rgba(127, 184, 218, 0.16);
+  --orange: #DAA17F;
+  --orange-s: rgba(218, 161, 127, 0.16);
+
+  /* Type scale */
+  --fd: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --fb: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fnum: "Inter", system-ui, sans-serif;
+
+  /* Spacing rhythm */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 6px 18px -8px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.18);
+  --shadow-lg: 0 18px 40px -16px rgba(0, 0, 0, 0.55), 0 4px 10px rgba(0, 0, 0, 0.22);
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur: 180ms;
 }
 
 * {
@@ -31,9 +64,50 @@
   box-sizing: border-box;
 }
 
-body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+html, body {
+  font-family: var(--fb);
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01", "ss03";
+  text-rendering: optimizeLegibility;
 }
+
+/* Numeric columns: tabular figures so amounts align */
+.tnum, table, td, th {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Discreet, brand-aligned focus ring */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button, a, input, select, textarea {
+  font-family: inherit;
+}
+
+button {
+  transition: background var(--dur) var(--ease),
+              border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease),
+              transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease);
+}
+
+/* Custom scrollbar — quiet and on-brand */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--border3); background-clip: padding-box; border: 2px solid transparent; }
+
+/* Selection */
+::selection { background: var(--accent-s); color: var(--text); }

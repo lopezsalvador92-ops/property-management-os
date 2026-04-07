@@ -60,12 +60,13 @@ function fmtDate(dateStr: string) {
   try { const d = new Date(dateStr + "T12:00:00"); return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); } catch { return dateStr; }
 }
 
-const card: React.CSSProperties = { padding: 20, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14 };
-const lbl: React.CSSProperties = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 8, fontWeight: 500, display: "block" };
-const h1s: React.CSSProperties = { fontFamily: "'Georgia', serif", fontSize: 28, fontWeight: 400, marginBottom: 6 };
-const h2s: React.CSSProperties = { fontFamily: "'Georgia', serif", fontSize: 20, fontWeight: 400, marginBottom: 16 };
-const sel: React.CSSProperties = { padding: "9px 36px 9px 14px", background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 13, outline: "none", cursor: "pointer", appearance: "none", backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'10\' fill=\'%23888\'%3E%3Cpath d=\'M1 3l4 4 4-4\'/%3E%3C/svg%3E")', backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" };
-const inp: React.CSSProperties = { width: "100%", padding: "10px 14px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 14, outline: "none" };
+const card: React.CSSProperties = { padding: 22, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-sm)" };
+const lbl: React.CSSProperties = { fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em", color: "var(--text3)", marginBottom: 10, fontWeight: 700, display: "block" };
+const h1s: React.CSSProperties = { fontFamily: "var(--fd)", fontSize: 36, fontWeight: 400, marginBottom: 8, lineHeight: 1.08, letterSpacing: "-0.005em", color: "var(--text)" };
+const h2s: React.CSSProperties = { fontFamily: "var(--fd)", fontSize: 22, fontWeight: 400, marginBottom: 14, color: "var(--text)" };
+const sel: React.CSSProperties = { padding: "10px 34px 10px 14px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 13, outline: "none", cursor: "pointer", appearance: "none", backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'10\' fill=\'%23888\'%3E%3Cpath d=\'M1 3l4 4 4-4\'/%3E%3C/svg%3E")', backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", transition: "border-color var(--dur) var(--ease), background var(--dur) var(--ease)" };
+const inp: React.CSSProperties = { width: "100%", padding: "11px 14px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 14, outline: "none", transition: "border-color var(--dur) var(--ease), background var(--dur) var(--ease)" };
+const eyebrow: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 10 };
 
 export default function AdminDashboard() {
   const { user } = useUser();
@@ -580,36 +581,45 @@ export default function AdminDashboard() {
       @media(max-width:900px){
         .admin-shell{grid-template-columns:1fr !important;}
         .admin-sidebar-wrap{display:none !important;}
-        .admin-mobile-bar{display:flex !important;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
-        .admin-main{padding:20px 16px !important;}
-        .admin-stats-4{grid-template-columns:repeat(2,1fr) !important;}
-        .admin-2col{grid-template-columns:1fr !important;}
+        .admin-mobile-bar{display:flex !important;padding:14px 18px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:10;}
+        .admin-main{padding:24px 18px !important;}
+        .admin-stats-4{grid-template-columns:repeat(2,1fr) !important;gap:12px !important;}
+        .admin-2col{grid-template-columns:1fr !important;gap:14px !important;}
+      }
+      .a-card{transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+      .a-card:hover{transform:translateY(-1px);border-color:var(--border2);box-shadow:var(--shadow-md);}
+      .a-row{transition:background var(--dur) var(--ease);}
+      .a-row:hover{background:var(--bg3);}
+      .a-nav-item{transition:background var(--dur) var(--ease),color var(--dur) var(--ease);}
+      .a-nav-item:hover{background:var(--bg3);}
+      .a-action-card{transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease);}
+      .a-action-card:hover{transform:translateX(2px);box-shadow:var(--shadow-md);}
+      .a-pill-btn{transition:all var(--dur) var(--ease);}
+      .a-pill-btn:hover:not(:disabled){border-color:var(--accent-line);color:var(--accent);}
+      .a-eyebrow{font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:block;}
+      .a-gold-rule{display:block;width:36px;height:1px;background:var(--accent-line);margin-top:10px;}
+      .a-num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+      .a-input:focus,.a-select:focus{border-color:var(--accent-line) !important;}
+      input,select,textarea{transition:border-color var(--dur) var(--ease);}
+      input:focus,select:focus,textarea:focus{border-color:var(--accent-line) !important;}
+      @media print {
+        body{background:#fff !important;}
+        .admin-sidebar-wrap,.admin-mobile-bar,.no-print{display:none !important;}
+        .admin-shell{grid-template-columns:1fr !important;}
+        .admin-main{padding:0 !important;}
       }
     `}</style>
     {theme === "light" && <style>{`
       :root {
-        --bg: #F5F7FA !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #F0F2F5 !important;
-        --text: #1A1A2E !important; --text2: #4A5568 !important; --text3: #8795A8 !important;
-        --border: rgba(0,0,0,0.08) !important; --border2: rgba(0,0,0,0.12) !important;
-        --accent: #B8942E !important; --accent-s: rgba(184,148,46,0.1) !important;
-        --teal: #2A8B9A !important; --teal-l: #1A7A8A !important; --teal-s: rgba(42,139,154,0.08) !important;
-        --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.08) !important;
-        --red: #C45555 !important; --red-s: rgba(196,85,85,0.08) !important;
-        --blue: #4A8BC4 !important; --blue-s: rgba(74,139,196,0.08) !important;
-        --orange: #C4804A !important; --orange-s: rgba(196,128,74,0.08) !important;
-      }
-    `}</style>}
-    {theme === "light" && <style>{`
-      :root {
-        --bg: #F5F7FA !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #F0F2F5 !important;
-        --text: #1A1A2E !important; --text2: #4A5568 !important; --text3: #8795A8 !important;
-        --border: rgba(0,0,0,0.08) !important; --border2: rgba(0,0,0,0.12) !important;
-        --accent: #B8942E !important; --accent-s: rgba(184,148,46,0.1) !important;
-        --teal: #2A8B9A !important; --teal-l: #1A7A8A !important; --teal-s: rgba(42,139,154,0.08) !important;
-        --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.08) !important;
-        --red: #C45555 !important; --red-s: rgba(196,85,85,0.08) !important;
-        --blue: #4A8BC4 !important; --blue-s: rgba(74,139,196,0.08) !important;
-        --orange: #C4804A !important; --orange-s: rgba(196,128,74,0.08) !important;
+        --bg: #F4F1EC !important; --bg2: #FFFFFF !important; --bg3: #FFFFFF !important; --bg4: #EFEBE3 !important;
+        --text: #15202B !important; --text2: #4A5568 !important; --text3: #8B96A4 !important;
+        --border: rgba(15,30,45,0.07) !important; --border2: rgba(15,30,45,0.13) !important; --border3: rgba(15,30,45,0.20) !important;
+        --accent: #A8842A !important; --accent-h: #B8942E !important; --accent-s: rgba(168,132,42,0.10) !important; --accent-line: rgba(168,132,42,0.40) !important;
+        --teal: #237A88 !important; --teal-l: #196372 !important; --teal-s: rgba(35,122,136,0.09) !important;
+        --green: #2D8B57 !important; --green-s: rgba(45,139,87,0.09) !important;
+        --red: #B84A4A !important; --red-s: rgba(184,74,74,0.09) !important;
+        --blue: #3F7AB0 !important; --blue-s: rgba(63,122,176,0.09) !important;
+        --orange: #B5733B !important; --orange-s: rgba(181,115,59,0.09) !important;
       }
     `}</style>}
     <div className="admin-shell" style={{ display: "grid", gridTemplateColumns: `${sidebarWidth}px 1fr`, minHeight: "100vh", transition: "grid-template-columns 0.2s ease" }}>
@@ -674,36 +684,38 @@ export default function AdminDashboard() {
           const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 17 ? "Good afternoon" : "Good evening";
 
           return (
-            <div style={{ padding: "32px 40px" }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
               {/* Header */}
-              <div style={{ marginBottom: 28 }}>
-                <h1 style={{ ...h1s, marginBottom: 4 }}>{greeting}, {userName} 👋</h1>
-                <p style={{ fontSize: 14, color: "var(--text2)" }}>
-                  {loading ? "Loading..." : `${active.length} active properties · ${reportStatus.month || "March 2026"}`}
+              <div style={{ marginBottom: 32 }}>
+                <span style={eyebrow}>Operations Overview</span>
+                <h1 style={{ ...h1s, marginBottom: 6 }}>{greeting}, {userName} 👋</h1>
+                <p style={{ fontSize: 13, color: "var(--text2)" }}>
+                  {loading ? "Loading…" : `${active.length} active properties · ${reportStatus.month || "March 2026"}`}
                 </p>
+                <span className="a-gold-rule" />
               </div>
 
               {/* STAT CARDS */}
               <div className="admin-stats-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
-                <div onClick={() => setActivePage("properties")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Active Properties</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text1)", marginBottom: 4 }}>{active.length}</div>
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>of {properties.length} total</div>
+                <div className="a-card" onClick={() => setActivePage("properties")} style={{ ...card, padding: "20px 22px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 9, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12 }}>Active Properties</div>
+                  <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 30, fontWeight: 400, lineHeight: 1, color: "var(--text)", marginBottom: 8 }}>{active.length}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 500 }}>of {properties.length} total</div>
                 </div>
-                {enabledModules.includes("concierge") && <div onClick={() => setActivePage("concierge")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Visits This Month</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: "var(--teal)", marginBottom: 4 }}>{visits.filter(v => v.status !== "Cancelled").length}</div>
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>{activeVisits.length} active · {upcomingVisits.length} upcoming</div>
+                {enabledModules.includes("concierge") && <div className="a-card" onClick={() => setActivePage("concierge")} style={{ ...card, padding: "20px 22px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 9, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12 }}>Visits This Month</div>
+                  <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 30, fontWeight: 400, lineHeight: 1, color: "var(--teal)", marginBottom: 8 }}>{visits.filter(v => v.status !== "Cancelled").length}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 500 }}>{activeVisits.length} active · {upcomingVisits.length} upcoming</div>
                 </div>}
-                {enabledModules.includes("maintenance") && <div onClick={() => setActivePage("maintenance")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Open Maintenance</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: openMaint.length > 0 ? "var(--orange)" : "var(--green)", marginBottom: 4 }}>{openMaint.length}</div>
-                  <div style={{ fontSize: 12, color: urgentMaint.length > 0 ? "var(--red)" : "var(--text3)" }}>{urgentMaint.length > 0 ? `${urgentMaint.length} high priority` : "No urgent items"}</div>
+                {enabledModules.includes("maintenance") && <div className="a-card" onClick={() => setActivePage("maintenance")} style={{ ...card, padding: "20px 22px", cursor: "pointer" }}>
+                  <div style={{ fontSize: 9, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12 }}>Open Maintenance</div>
+                  <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 30, fontWeight: 400, lineHeight: 1, color: openMaint.length > 0 ? "var(--orange)" : "var(--green)", marginBottom: 8 }}>{openMaint.length}</div>
+                  <div style={{ fontSize: 11, color: urgentMaint.length > 0 ? "var(--red)" : "var(--text3)", fontWeight: 500 }}>{urgentMaint.length > 0 ? `${urgentMaint.length} high priority` : "No urgent items"}</div>
                 </div>}
-                <div onClick={() => setActivePage("reports")} style={{ ...card, padding: "18px 20px", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>Pending Reports</div>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: reportStatus.pending > 0 ? "var(--accent)" : "var(--green)", marginBottom: 4 }}>{loading ? "—" : reportStatus.pending}</div>
-                  <div style={{ fontSize: 12, color: "var(--text3)" }}>{loading ? "" : `${reportStatus.sent} of ${reportStatus.total} sent`}</div>
+                <div className="a-card" onClick={() => setActivePage("reports")} style={{ ...card, padding: "20px 22px", cursor: "pointer", borderColor: reportStatus.pending > 0 ? "var(--accent-line)" : "var(--border)", boxShadow: reportStatus.pending > 0 ? "var(--shadow-md)" : "var(--shadow-sm)" }}>
+                  <div style={{ fontSize: 9, color: reportStatus.pending > 0 ? "var(--accent)" : "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12 }}>Pending Reports</div>
+                  <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 30, fontWeight: 400, lineHeight: 1, color: reportStatus.pending > 0 ? "var(--accent)" : "var(--green)", marginBottom: 8 }}>{loading ? "—" : reportStatus.pending}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 500 }}>{loading ? "" : `${reportStatus.sent} of ${reportStatus.total} sent`}</div>
                 </div>
               </div>
 
@@ -713,7 +725,7 @@ export default function AdminDashboard() {
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Action required</h2>
                   <div style={{ display: "grid", gap: 8 }}>
                     {reportStatus.pending > 0 && (
-                      <div onClick={() => setActivePage("reports")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--accent-s)", border: "1px solid rgba(201,169,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("reports")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--accent-s)", border: "1px solid var(--accent-line)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>↗</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500 }}>{reportStatus.pending} monthly {reportStatus.pending === 1 ? "report" : "reports"} pending</div>
@@ -723,7 +735,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {negativeBalances.length > 0 && (
-                      <div onClick={() => setActivePage("deposits")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--red-s)", border: "1px solid rgba(207,110,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("deposits")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--red-s)", border: "1px solid rgba(224,133,133,0.30)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>⚠</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--red)" }}>{negativeBalances.length} {negativeBalances.length === 1 ? "property" : "properties"} with negative balance</div>
@@ -733,7 +745,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {propertiesNoDeposit.length > 0 && (
-                      <div onClick={() => setActivePage("deposits")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("deposits")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--orange-s)", border: "1px solid rgba(218,161,127,0.28)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>↓</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500 }}>{propertiesNoDeposit.length} {propertiesNoDeposit.length === 1 ? "property" : "properties"} missing deposit this month</div>
@@ -743,7 +755,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {urgentMaint.length > 0 && (
-                      <div onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--red-s)", border: "1px solid rgba(207,110,110,0.15)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("maintenance")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--red-s)", border: "1px solid rgba(224,133,133,0.30)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>🔧</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--red)" }}>{urgentMaint.length} high-priority maintenance {urgentMaint.length === 1 ? "item" : "items"} open</div>
@@ -753,7 +765,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                     {dueMaintConfigs.length > 0 && (
-                      <div onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--orange-s)", border: "1px solid rgba(207,149,110,0.12)", borderRadius: 10, cursor: "pointer" }}>
+                      <div onClick={() => setActivePage("maintenance")} className="a-action-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "var(--orange-s)", border: "1px solid rgba(218,161,127,0.28)", borderRadius: 10, cursor: "pointer" }}>
                         <span style={{ fontSize: 16 }}>📅</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 500 }}>{dueMaintConfigs.length} preventive {dueMaintConfigs.length === 1 ? "schedule" : "schedules"} past due</div>
@@ -769,10 +781,30 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 </div>
-                {enabledModules.includes("concierge") ? <div>
+                <div>
+                  <h2 style={{ ...h2s, marginBottom: 12 }}>Recent activity</h2>
+                  <div style={{ ...card, padding: 0 }}>
+                    {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity…</div>}
+                    {recentActivity.slice(0, 5).map((a, i, arr) => (
+                      <div key={`act-${i}`} className="a-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                        <span style={{ fontSize: 13, width: 20, textAlign: "center" as const, color: a.type === "deposit" ? "var(--green)" : "var(--text3)" }}>{a.type === "deposit" ? "↓" : "⎙"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}><strong>{a.house}</strong> — {a.detail}</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(a.date)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ROW 2: UPCOMING VISITS + OPEN MAINTENANCE — module-gated, symmetric when both off */}
+              {(enabledModules.includes("concierge") || enabledModules.includes("maintenance")) && (
+              <div className="admin-2col" style={{ display: "grid", gridTemplateColumns: enabledModules.includes("concierge") && enabledModules.includes("maintenance") ? "1fr 1fr" : "1fr", gap: 20, marginBottom: 32 }}>
+                {enabledModules.includes("concierge") && <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Upcoming visits</h2>
                   {visits.length === 0 ? (
-                    <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>Loading visits...</div>
+                    <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>Loading visits…</div>
                   ) : [...activeVisits, ...upcomingVisits].length === 0 ? (
                     <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>No upcoming visits scheduled.</div>
                   ) : (
@@ -782,9 +814,7 @@ export default function AdminDashboard() {
                         const typeBg = v.visitType === "Owner" ? "var(--teal-s)" : v.visitType === "Rental" ? "rgba(100,160,255,0.12)" : "rgba(155,142,196,0.12)";
                         const nights = Math.round((new Date(v.checkOut).getTime() - new Date(v.checkIn).getTime()) / 86400000);
                         return (
-                          <div key={v.id} onClick={() => { setActivePage("concierge"); setConcTab("visits"); setSelectedVisitId(v.id); }} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <div key={v.id} className="a-row" onClick={() => { setActivePage("concierge"); setConcTab("visits"); setSelectedVisitId(v.id); }} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
                             <div style={{ width: 40, height: 40, borderRadius: 10, background: typeBg, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: typeColor }}>{new Date(v.checkIn + "T12:00:00").toLocaleDateString("en-US", { month: "short" }).toUpperCase()}</div>
                               <div style={{ fontSize: 14, fontWeight: 700, color: typeColor, lineHeight: 1 }}>{new Date(v.checkIn + "T12:00:00").getDate()}</div>
@@ -802,12 +832,8 @@ export default function AdminDashboard() {
                       })}
                     </div>
                   )}
-                </div> : <div />}
-              </div>
-
-              {/* ROW 2: OPEN MAINTENANCE + RECENT ACTIVITY */}
-              <div className="admin-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
-                {enabledModules.includes("maintenance") ? <div>
+                </div>}
+                {enabledModules.includes("maintenance") && <div>
                   <h2 style={{ ...h2s, marginBottom: 12 }}>Open maintenance</h2>
                   {openMaint.length === 0 ? (
                     <div style={{ ...card, padding: "20px 16px", fontSize: 13, color: "var(--text3)" }}>No open maintenance items.</div>
@@ -816,9 +842,7 @@ export default function AdminDashboard() {
                       {openMaint.slice(0, 4).map((t, i) => {
                         const pColor = t.priority === "Urgent" ? "var(--red)" : t.priority === "High" ? "var(--orange)" : t.priority === "Medium" ? "var(--accent)" : "var(--text3)";
                         return (
-                          <div key={t.id} onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < Math.min(openMaint.length, 4) - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <div key={t.id} className="a-row" onClick={() => setActivePage("maintenance")} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < Math.min(openMaint.length, 4) - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
                             <span style={{ fontSize: 14 }}>🔧</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
@@ -838,23 +862,9 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   )}
-                </div> : <div />}
-                <div>
-                  <h2 style={{ ...h2s, marginBottom: 12 }}>Recent activity</h2>
-                  <div style={{ ...card, padding: 0 }}>
-                    {recentActivity.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading activity...</div>}
-                    {recentActivity.slice(0, 8).map((a, i, arr) => (
-                      <div key={`act-${i}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <span style={{ fontSize: 13, width: 20, textAlign: "center" as const, color: a.type === "deposit" ? "var(--green)" : "var(--text3)" }}>{a.type === "deposit" ? "↓" : "⎙"}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}><strong>{a.house}</strong> — {a.detail}</div>
-                          <div style={{ fontSize: 11, color: "var(--text3)" }}>{fmtDate(a.date)}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                </div>}
               </div>
+              )}
 
               {/* FINANCIAL PULSE */}
               <h2 style={{ ...h2s, marginBottom: 12 }}>Financial pulse, by property</h2>
@@ -889,19 +899,21 @@ export default function AdminDashboard() {
 
                 {/* ====== EXPENSES ====== */}
         {activePage === "expenses" && (
-          <div style={{ padding: "32px 32px 32px 40px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+          <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
               <div>
+                <span style={eyebrow}>Ledger</span>
                 <h1 style={h1s}>Expenses</h1>
-                <p style={{ fontSize: 14, color: "var(--text2)" }}>
-                  {expLoading ? "Loading..." : `${filteredExpenses.length} records`}
+                <p style={{ fontSize: 13, color: "var(--text2)" }}>
+                  {expLoading ? "Loading…" : `${filteredExpenses.length} records`}
                   {expFilter !== "all" ? ` · ${expFilter}` : ""}
                   {monthFilter !== "all" ? ` · ${monthOptions.find(m => m.value === monthFilter)?.label}` : ""}
                 </p>
+                <span className="a-gold-rule" />
               </div>
-              <div style={{ display: "flex", gap: 0 }}>
-                <button onClick={() => setExpTab("list")} style={{ padding: "8px 20px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border2)", background: expTab === "list" ? "var(--accent-s)" : "transparent", color: expTab === "list" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>All Expenses</button>
-                <button onClick={() => setExpTab("add")} style={{ padding: "8px 20px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border2)", borderLeft: "none", background: expTab === "add" ? "var(--accent-s)" : "transparent", color: expTab === "add" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Expense</button>
+              <div style={{ display: "flex", gap: 0, background: "var(--bg2)", borderRadius: 100, padding: 4, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+                <button onClick={() => setExpTab("list")} style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: expTab === "list" ? "var(--accent-s)" : "transparent", color: expTab === "list" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>All Expenses</button>
+                <button onClick={() => setExpTab("add")} style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: expTab === "add" ? "var(--accent-s)" : "transparent", color: expTab === "add" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>+ Add Expense</button>
               </div>
             </div>
             {expSuccess && <div style={{ padding: "10px 16px", background: "var(--green-s)", border: "1px solid rgba(110,207,151,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "var(--green)" }}>✓ Expense created successfully</div>}
@@ -964,17 +976,17 @@ export default function AdminDashboard() {
                         );
                       }
                       return (
-                        <tr key={e.id} onMouseEnter={ev => (ev.currentTarget.style.background = "rgba(255,255,255,0.02)")} onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
-                          <td style={{ ...tdS, color: "var(--text2)", whiteSpace: "nowrap" as const }}>{e.date}</td>
-                          <td style={{ ...tdS, color: "var(--text)", fontWeight: 500, whiteSpace: "nowrap" as const }}>{e.house}</td>
-                          <td style={tdS}><span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 100, fontSize: 11, fontWeight: 500, background: cc.bg, color: cc.text, whiteSpace: "nowrap" as const }}>{e.category}</span></td>
+                        <tr key={e.id} className="a-row">
+                          <td className="a-num" style={{ ...tdS, color: "var(--text3)", whiteSpace: "nowrap" as const }}>{e.date}</td>
+                          <td style={{ ...tdS, color: "var(--text)", fontWeight: 600, whiteSpace: "nowrap" as const }}>{e.house}</td>
+                          <td style={tdS}><span style={{ display: "inline-block", padding: "3px 11px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", background: cc.bg, color: cc.text, whiteSpace: "nowrap" as const }}>{e.category}</span></td>
                           <td style={{ ...tdS, color: "var(--text2)", whiteSpace: "nowrap" as const }}>{e.supplier}</td>
                           <td style={{ ...tdS, color: "var(--text2)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }} title={e.description}>{e.description}</td>
-                          <td style={{ ...tdS, color: "var(--text)", fontWeight: 500, whiteSpace: "nowrap" as const, textAlign: "right" as const }}>${(e.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td style={tdS}><span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 100, background: e.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: e.currency === "USD" ? "var(--blue)" : "var(--teal-l)" }}>{e.currency}</span></td>
-                          <td style={tdS}>{e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--teal-l)", textDecoration: "none", fontSize: 12, fontWeight: 500 }}>View</a>}</td>
-                          <td style={{ ...tdS, fontSize: 11, color: "var(--text3)", fontFamily: "monospace" }}>{e.receiptNo}</td>
-                          <td style={{ ...tdS, whiteSpace: "nowrap" as const }}><button onClick={() => { setEditExpId(e.id); setEditExpForm({ date: e.date, houseId: e.houseId, category: e.category, supplier: e.supplier, description: e.description, total: e.total, currency: e.currency }); }} style={{ padding: "3px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button></td>
+                          <td className="a-num" style={{ ...tdS, color: "var(--text)", fontWeight: 600, whiteSpace: "nowrap" as const, textAlign: "right" as const }}>${(e.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td style={tdS}><span style={{ fontSize: 9, padding: "3px 9px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.06em", background: e.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: e.currency === "USD" ? "var(--blue)" : "var(--teal)" }}>{e.currency}</span></td>
+                          <td style={tdS}>{e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" className="receipt-link" style={{ color: "var(--teal)", textDecoration: "none", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 4, background: "var(--teal-s)" }}>View</a>}</td>
+                          <td className="a-num" style={{ ...tdS, fontSize: 11, color: "var(--text3)", fontFamily: "monospace" }}>{e.receiptNo}</td>
+                          <td style={{ ...tdS, whiteSpace: "nowrap" as const }}><button className="a-pill-btn" onClick={() => { setEditExpId(e.id); setEditExpForm({ date: e.date, houseId: e.houseId, category: e.category, supplier: e.supplier, description: e.description, total: e.total, currency: e.currency }); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button></td>
                         </tr>
                       );
                     })}
@@ -1038,18 +1050,18 @@ export default function AdminDashboard() {
 
         {/* ====== REPORTS ====== */}
         {activePage === "reports" && (
-          <div style={{ padding: "32px 40px", maxWidth: 960 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+          <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1080, margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
               <div>
+                <span style={eyebrow}>Monthly Statements</span>
                 <h1 style={h1s}>Monthly Reports</h1>
-                <p style={{ fontSize: 14, color: "var(--text2)" }}>{repLoading ? "Loading..." : `${repMonth} · Review, approve, and send to owners`}</p>
+                <p style={{ fontSize: 13, color: "var(--text2)" }}>{repLoading ? "Loading…" : `${repMonth} · Review, approve, and send to owners`}</p>
+                <span className="a-gold-rule" />
               </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <div style={{ display: "flex", gap: 0 }}>
-                  <button onClick={() => setRepView("status")}
-                    style={{ padding: "7px 16px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border2)", background: repView === "status" ? "var(--accent-s)" : "transparent", color: repView === "status" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>By Status</button>
-                  <button onClick={() => setRepView("preview")}
-                    style={{ padding: "7px 16px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border2)", borderLeft: "none", background: repView === "preview" ? "var(--accent-s)" : "transparent", color: repView === "preview" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Owner Preview</button>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 0, background: "var(--bg2)", borderRadius: 100, padding: 4, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+                  <button onClick={() => setRepView("status")} style={{ padding: "8px 16px", borderRadius: 100, border: "none", background: repView === "status" ? "var(--accent-s)" : "transparent", color: repView === "status" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>By Status</button>
+                  <button onClick={() => setRepView("preview")} style={{ padding: "8px 16px", borderRadius: 100, border: "none", background: repView === "preview" ? "var(--accent-s)" : "transparent", color: repView === "preview" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Owner Preview</button>
                 </div>
                 <select value={repMonth} onChange={e => setRepMonth(e.target.value)} style={{ ...sel, minWidth: 180 }}>
                   {repMonthOptions.map(m => <option key={m} value={m}>{m}</option>)}
@@ -1060,38 +1072,40 @@ export default function AdminDashboard() {
             {repView === "status" && (<>
             {/* Stat cards */}
             {!repLoading && reports.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
-                <div style={card}><div style={lbl}>Sent</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--green)" }}>{reports.filter(r => r.status === "Sent").length}</div></div>
-                <div style={card}><div style={lbl}>Reviewed</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--accent)" }}>{reports.filter(r => r.status === "Reviewed").length}</div></div>
-                <div style={card}><div style={lbl}>Pending</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: reports.filter(r => r.status === "Pending").length > 0 ? "var(--red)" : "var(--text)" }}>{reports.filter(r => r.status === "Pending").length}</div></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 22 }}>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Sent</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--green)" }}>{reports.filter(r => r.status === "Sent").length}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Reviewed</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--accent)" }}>{reports.filter(r => r.status === "Reviewed").length}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px", borderColor: reports.filter(r => r.status === "Pending").length > 0 ? "var(--accent-line)" : "var(--border)" }}><div style={lbl}>Pending</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: reports.filter(r => r.status === "Pending").length > 0 ? "var(--red)" : "var(--text)" }}>{reports.filter(r => r.status === "Pending").length}</div></div>
               </div>
             )}
 
             {/* Bulk actions */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 28, flexWrap: "wrap" as const }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" as const, alignItems: "center" }}>
               {reports.some(r => r.chargeStatus !== "Completed") && (
                 <button onClick={() => updateReports("generateCharges", reports.filter(r => r.chargeStatus !== "Completed").map(r => r.id))} disabled={repUpdating !== null}
-                  style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                  {repUpdating === "generateCharges" ? "Running..." : `Generate all charges (${reports.filter(r => r.chargeStatus !== "Completed").length})`}
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "var(--teal)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>
+                  {repUpdating === "generateCharges" ? "Running…" : `Generate all charges (${reports.filter(r => r.chargeStatus !== "Completed").length})`}
                 </button>
               )}
               {reports.some(r => r.status === "Pending") && (
                 <button onClick={() => updateReports("markReviewed", reports.filter(r => r.status === "Pending").map(r => r.id))} disabled={repUpdating !== null}
-                  style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Mark all Reviewed</button>
+                  className="a-pill-btn"
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "1px solid var(--accent-line)", background: "transparent", color: "var(--accent)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>Mark all Reviewed</button>
               )}
               {reports.some(r => r.status === "Reviewed") && (
                 <button onClick={() => updateReports("markSent", reports.filter(r => r.status === "Reviewed").map(r => r.id))} disabled={repUpdating !== null}
-                  style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--green)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Mark all Sent</button>
+                  className="a-pill-btn"
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--green)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>Mark all Sent</button>
               )}
               {reports.every(r => r.chargeStatus === "Completed") && reports.length > 0 && (
-                <span style={{ fontSize: 12, color: "var(--green)", padding: "8px 0", display: "flex", alignItems: "center", gap: 4 }}>✓ All recurring charges generated</span>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--green)", padding: "10px 0", display: "flex", alignItems: "center", gap: 6 }}>✓ All recurring charges generated</span>
               )}
             </div>
 
             {/* PENDING */}
             {reports.filter(r => r.status === "Pending").length > 0 && (<>
               <h2 style={{ ...h2s, marginBottom: 12 }}>Pending</h2>
-              <div style={{ ...card, padding: 0, marginBottom: 24 }}>
+              <div className="a-card" style={{ ...card, padding: 0, marginBottom: 22 }}>
                 {reports.filter(r => r.status === "Pending").map((r, i, arr) => {
                   const isNeg = r.finalBalance < 0;
                   const isOpen = previewId === r.id;
@@ -1104,61 +1118,68 @@ export default function AdminDashboard() {
                     { name: "Miscellaneous", val: r.categories.miscellaneous },
                   ].filter(c => c.val > 0);
                   return (<div key={r.id}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: (isOpen || i < arr.length - 1) ? "1px solid var(--border)" : "none" }}>
+                    {/* Collapsed row — click anywhere to expand */}
+                    <div className="a-row" onClick={() => setPreviewId(isOpen ? null : r.id)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 22px", borderBottom: (isOpen || i < arr.length - 1) ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", boxShadow: "0 0 0 3px var(--accent-s)", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{r.house} — {r.owner}</div>
-                        <div style={{ fontSize: 12, color: "var(--text3)" }}>
-                          Expenses: {fmtCur(r.totalExpenses, r.currency)} · Deposits: {fmtCur(r.totalDeposits, r.currency)} · Balance: <span style={{ color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</span>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 3 }}>{r.house} <span style={{ color: "var(--text3)", fontWeight: 400 }}>— {r.owner}</span></div>
+                        <div style={{ fontSize: 11, color: "var(--text3)" }}>
+                          <span className="a-num">{fmtCur(r.totalExpenses, r.currency)} expenses</span> · <span className="a-num">{fmtCur(r.totalDeposits, r.currency)} deposits</span>
                         </div>
                       </div>
-                      {/* Exchange rate inline for USD properties */}
-                      {r.currency === "USD" && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                          <span style={{ fontSize: 10, color: "var(--text3)" }}>FX:</span>
-                          <input type="number" step="0.01" defaultValue={r.exchangeRate || ""} onBlur={e => { if (e.target.value) updateExchangeRate(r.id, e.target.value); }}
-                            style={{ width: 60, padding: "3px 6px", background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: 6, color: "var(--text)", fontSize: 12, outline: "none", textAlign: "center" as const }} placeholder="0.00" />
-                        </div>
-                      )}
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
-                          style={{ padding: "5px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "..." : "\u21BB Refresh"}</button>
-                        {r.chargeStatus !== "Completed" && (
-                          <button onClick={() => updateReports("generateCharges", [r.id])} disabled={repUpdating !== null}
-                            style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--teal-l)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Gen. charges</button>
-                        )}
-                        <button onClick={() => setPreviewId(isOpen ? null : r.id)}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: isOpen ? "var(--accent-s)" : "transparent", color: "var(--accent)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Preview</button>
-                        <button onClick={() => updateReports("markReviewed", [r.id])} disabled={repUpdating !== null}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Mark Reviewed</button>
-                        <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Expenses</button>
-                      </div>
+                      <div className="a-num" style={{ fontSize: 16, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)", flexShrink: 0, textAlign: "right" as const }}>{isNeg ? "−" : ""}{fmtCur(r.finalBalance, r.currency)}</div>
+                      <span style={{ fontSize: 9, padding: "4px 11px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "var(--accent-s)", color: "var(--accent)", flexShrink: 0 }}>Pending</span>
+                      <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4, transition: "transform var(--dur) var(--ease)", display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }}>▸</span>
                     </div>
-                    {/* Accordion preview */}
+                    {/* Expanded panel: actions + preview */}
                     {isOpen && (
-                      <div style={{ padding: "16px 20px", background: "var(--bg2)", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 12 }}>Report preview: {r.house}</div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                          <span style={{ fontSize: 13, color: "var(--text2)" }}>Starting Balance</span>
-                          <span style={{ fontSize: 13, fontWeight: 500 }}>{fmtCur(r.startingBalance, r.currency)}</span>
+                      <div style={{ padding: "20px 22px 22px", background: "var(--bg)", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                        {/* Actions row */}
+                        <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexWrap: "wrap" as const, gap: 10, alignItems: "center", marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--border)" }}>
+                          {r.currency === "USD" && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 100 }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text3)" }}>FX Rate</span>
+                              <input type="number" step="0.01" defaultValue={r.exchangeRate || ""} onBlur={e => { if (e.target.value) updateExchangeRate(r.id, e.target.value); }}
+                                style={{ width: 64, padding: "3px 8px", background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: 6, color: "var(--text)", fontSize: 12, outline: "none", textAlign: "center" as const, fontFamily: "inherit" }} placeholder="0.00" />
+                            </div>
+                          )}
+                          <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "Refreshing…" : "↻ Refresh Balance"}</button>
+                          {r.chargeStatus !== "Completed" && (
+                            <button onClick={() => updateReports("generateCharges", [r.id])} disabled={repUpdating !== null}
+                              className="a-pill-btn"
+                              style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--teal)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Generate Charges</button>
+                          )}
+                          <button onClick={() => updateReports("markReviewed", [r.id])} disabled={repUpdating !== null}
+                            style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const, transition: "filter var(--dur) var(--ease)" }}>✓ Mark Reviewed</button>
+                          <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>View Expenses →</button>
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)", fontWeight: 500 }}>
+                        {/* Report preview */}
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 12 }}>Report Preview</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
+                          <span style={{ fontSize: 13, color: "var(--text2)" }}>Starting Balance</span>
+                          <span className="a-num" style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{fmtCur(r.startingBalance, r.currency)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)", fontWeight: 500 }}>
                           <span style={{ fontSize: 13, color: "var(--text2)" }}>Total Expenses</span>
-                          <span style={{ fontSize: 13, color: "var(--red)" }}>-{fmtCur(r.totalExpenses, r.currency)}</span>
+                          <span className="a-num" style={{ fontSize: 13, color: "var(--red)" }}>−{fmtCur(r.totalExpenses, r.currency)}</span>
                         </div>
                         {cats.map(c => (
-                          <div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 5px 24px", borderBottom: "1px solid var(--border)" }}>
+                          <div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 5px 22px", borderBottom: "1px solid var(--border)" }}>
                             <span style={{ fontSize: 12, color: "var(--text3)" }}>{c.name}</span>
-                            <span style={{ fontSize: 12, color: "var(--text3)" }}>{fmtCur(c.val, r.currency)}</span>
+                            <span className="a-num" style={{ fontSize: 12, color: "var(--text3)" }}>{fmtCur(c.val, r.currency)}</span>
                           </div>
                         ))}
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
                           <span style={{ fontSize: 13, color: "var(--text2)" }}>Deposits</span>
-                          <span style={{ fontSize: 13, color: "var(--green)", fontWeight: 500 }}>+{fmtCur(r.totalDeposits, r.currency)}</span>
+                          <span className="a-num" style={{ fontSize: 13, color: "var(--green)", fontWeight: 500 }}>+{fmtCur(r.totalDeposits, r.currency)}</span>
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 4px" }}>
-                          <span style={{ fontSize: 14, fontWeight: 600 }}>Final Balance</span>
-                          <span style={{ fontSize: 14, fontWeight: 600, color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</span>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0 4px", borderTop: "2px solid var(--border2)", marginTop: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Final Balance</span>
+                          <span className="a-num" style={{ fontSize: 18, fontWeight: 400, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)" }}>{isNeg ? "−" : ""}{fmtCur(r.finalBalance, r.currency)}</span>
                         </div>
                       </div>
                     )}
@@ -1170,7 +1191,7 @@ export default function AdminDashboard() {
             {/* REVIEWED */}
             {reports.filter(r => r.status === "Reviewed").length > 0 && (<>
               <h2 style={{ ...h2s, marginBottom: 12 }}>Ready to send</h2>
-              <div style={{ ...card, padding: 0, marginBottom: 24 }}>
+              <div className="a-card" style={{ ...card, padding: 0, marginBottom: 22 }}>
                 {reports.filter(r => r.status === "Reviewed").map((r, i, arr) => {
                   const isNeg = r.finalBalance < 0;
                   const isOpen = previewId === r.id;
@@ -1183,39 +1204,44 @@ export default function AdminDashboard() {
                     { name: "Miscellaneous", val: r.categories.miscellaneous },
                   ].filter(c => c.val > 0);
                   return (<div key={r.id}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: (isOpen || i < arr.length - 1) ? "1px solid var(--border)" : "none" }}>
+                    <div className="a-row" onClick={() => setPreviewId(isOpen ? null : r.id)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 22px", borderBottom: (isOpen || i < arr.length - 1) ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 0 3px var(--green-s)", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{r.house} — {r.owner}</div>
-                        <div style={{ fontSize: 12, color: "var(--text3)" }}>Balance: <span style={{ color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</span></div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 3 }}>{r.house} <span style={{ color: "var(--text3)", fontWeight: 400 }}>— {r.owner}</span></div>
+                        <div style={{ fontSize: 11, color: "var(--text3)" }}>Reviewed · ready for delivery</div>
                       </div>
-                      {r.currency === "USD" && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                          <span style={{ fontSize: 10, color: "var(--text3)" }}>FX:</span>
-                          <input type="number" step="0.01" defaultValue={r.exchangeRate || ""} onBlur={e => { if (e.target.value) updateExchangeRate(r.id, e.target.value); }}
-                            style={{ width: 60, padding: "3px 6px", background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: 6, color: "var(--text)", fontSize: 12, outline: "none", textAlign: "center" as const }} placeholder="0.00" />
-                        </div>
-                      )}
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
-                          style={{ padding: "5px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "..." : "\u21BB Refresh"}</button>
-                        <button onClick={() => updateReports("markPending", [r.id])} disabled={repUpdating !== null}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{"\u2190"} Back to Pending</button>
-                        <button onClick={() => setPreviewId(isOpen ? null : r.id)}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: isOpen ? "var(--accent-s)" : "transparent", color: "var(--accent)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Preview</button>
-                        <button onClick={() => updateReports("markSent", [r.id])} disabled={repUpdating !== null}
-                          style={{ padding: "6px 16px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--green), #4a9e6e)", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Mark Sent</button>
-                        <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
-                          style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Expenses</button>
-                      </div>
+                      <div className="a-num" style={{ fontSize: 16, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)", flexShrink: 0, textAlign: "right" as const }}>{isNeg ? "−" : ""}{fmtCur(r.finalBalance, r.currency)}</div>
+                      <span style={{ fontSize: 9, padding: "4px 11px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "var(--green-s)", color: "var(--green)", flexShrink: 0 }}>Reviewed</span>
+                      <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4, transition: "transform var(--dur) var(--ease)", display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }}>▸</span>
                     </div>
                     {isOpen && (
-                      <div style={{ padding: "16px 20px", background: "var(--bg2)", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 12 }}>Report preview: {r.house}</div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Starting Balance</span><span style={{ fontSize: 13, fontWeight: 500 }}>{fmtCur(r.startingBalance, r.currency)}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)", fontWeight: 500 }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Total Expenses</span><span style={{ fontSize: 13, color: "var(--red)" }}>-{fmtCur(r.totalExpenses, r.currency)}</span></div>
-                        {cats.map(c => (<div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 5px 24px", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{c.name}</span><span style={{ fontSize: 12, color: "var(--text3)" }}>{fmtCur(c.val, r.currency)}</span></div>))}
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Deposits</span><span style={{ fontSize: 13, color: "var(--green)", fontWeight: 500 }}>+{fmtCur(r.totalDeposits, r.currency)}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 4px" }}><span style={{ fontSize: 14, fontWeight: 600 }}>Final Balance</span><span style={{ fontSize: 14, fontWeight: 600, color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(r.finalBalance, r.currency)}</span></div>
+                      <div style={{ padding: "20px 22px 22px", background: "var(--bg)", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                        <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexWrap: "wrap" as const, gap: 10, alignItems: "center", marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--border)" }}>
+                          {r.currency === "USD" && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 100 }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text3)" }}>FX Rate</span>
+                              <input type="number" step="0.01" defaultValue={r.exchangeRate || ""} onBlur={e => { if (e.target.value) updateExchangeRate(r.id, e.target.value); }}
+                                style={{ width: 64, padding: "3px 8px", background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: 6, color: "var(--text)", fontSize: 12, outline: "none", textAlign: "center" as const, fontFamily: "inherit" }} placeholder="0.00" />
+                            </div>
+                          )}
+                          <button onClick={() => refreshBalance(r.id, r.month)} disabled={repUpdating !== null}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>{repUpdating === "refreshBalance-" + r.id ? "Refreshing…" : "↻ Refresh Balance"}</button>
+                          <button onClick={() => updateReports("markPending", [r.id])} disabled={repUpdating !== null}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>← Back to Pending</button>
+                          <button onClick={() => updateReports("markSent", [r.id])} disabled={repUpdating !== null}
+                            style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "var(--green)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const, transition: "filter var(--dur) var(--ease)" }}>✓ Mark Sent</button>
+                          <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
+                            className="a-pill-btn"
+                            style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>View Expenses →</button>
+                        </div>
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 12 }}>Report Preview</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Starting Balance</span><span className="a-num" style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{fmtCur(r.startingBalance, r.currency)}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)", fontWeight: 500 }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Total Expenses</span><span className="a-num" style={{ fontSize: 13, color: "var(--red)" }}>−{fmtCur(r.totalExpenses, r.currency)}</span></div>
+                        {cats.map(c => (<div key={c.name} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0 5px 22px", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 12, color: "var(--text3)" }}>{c.name}</span><span className="a-num" style={{ fontSize: 12, color: "var(--text3)" }}>{fmtCur(c.val, r.currency)}</span></div>))}
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid var(--border)" }}><span style={{ fontSize: 13, color: "var(--text2)" }}>Deposits</span><span className="a-num" style={{ fontSize: 13, color: "var(--green)", fontWeight: 500 }}>+{fmtCur(r.totalDeposits, r.currency)}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0 4px", borderTop: "2px solid var(--border2)", marginTop: 4 }}><span style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Final Balance</span><span className="a-num" style={{ fontSize: 18, fontWeight: 400, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)" }}>{isNeg ? "−" : ""}{fmtCur(r.finalBalance, r.currency)}</span></div>
                       </div>
                     )}
                   </div>);
@@ -1361,27 +1387,29 @@ export default function AdminDashboard() {
           }
 
           return (
-            <div style={{ padding: "32px 40px" }}>
-              <h1 style={h1s}>Housekeeping Logs</h1>
-              <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 24 }}>Review and approve weekly cleaning schedules</p>
-
-              {/* Tabs */}
-              <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
-                <button onClick={() => setHskView("individual")}
-                  style={{ padding: "8px 20px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border2)", background: hskView === "individual" ? "var(--accent-s)" : "transparent", color: hskView === "individual" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Individual Logs</button>
-                <button onClick={() => setHskView("weekly")}
-                  style={{ padding: "8px 20px", borderRadius: "0 0 0 0", border: "1px solid var(--border2)", borderLeft: "none", background: hskView === "weekly" ? "var(--accent-s)" : "transparent", color: hskView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Weekly Overview</button>
-                <button onClick={() => setHskView("summary")}
-                  style={{ padding: "8px 20px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border2)", borderLeft: "none", background: hskView === "summary" ? "var(--accent-s)" : "transparent", color: hskView === "summary" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Monthly Summary</button>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
+                <div>
+                  <span style={eyebrow}>Cleaning Operations</span>
+                  <h1 style={h1s}>Housekeeping Logs</h1>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Review and approve weekly cleaning schedules</p>
+                  <span className="a-gold-rule" />
+                </div>
+                {/* Tabs as pill segmented control */}
+                <div style={{ display: "flex", gap: 0, background: "var(--bg2)", borderRadius: 100, padding: 4, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+                  <button onClick={() => setHskView("individual")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "individual" ? "var(--accent-s)" : "transparent", color: hskView === "individual" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Individual</button>
+                  <button onClick={() => setHskView("weekly")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "weekly" ? "var(--accent-s)" : "transparent", color: hskView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Weekly</button>
+                  <button onClick={() => setHskView("summary")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "summary" ? "var(--accent-s)" : "transparent", color: hskView === "summary" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Monthly</button>
+                </div>
               </div>
 
               {/* Summary bar */}
               {pending.length > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 24 }}>
-                  <span style={{ fontSize: 14 }}>{pending.length} {pending.length === 1 ? "log" : "logs"} pending your approval</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 22px", background: "var(--accent-s)", border: "1px solid var(--accent-line)", borderRadius: 12, marginBottom: 24, boxShadow: "var(--shadow-sm)" }}>
+                  <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}><span style={{ fontFamily: "var(--fd)", fontSize: 18, color: "var(--accent)", marginRight: 6 }}>{pending.length}</span>{pending.length === 1 ? "log" : "logs"} pending your approval</span>
                   <button onClick={() => updateHsk("approve", pending.map(l => l.id))} disabled={hskUpdating !== null}
-                    style={{ padding: "8px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                    {hskUpdating === "approve" ? "Approving..." : "Approve All"}
+                    style={{ padding: "9px 22px", borderRadius: 100, border: "1px solid var(--accent-line)", background: "var(--bg2)", color: "var(--accent)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>
+                    {hskUpdating === "approve" ? "Approving…" : "Approve All"}
                   </button>
                 </div>
               )}
@@ -1582,33 +1610,33 @@ export default function AdminDashboard() {
             const housemanFee = isUSD ? sel_prop.housemanFeeUSD : sel_prop.housemanFeeMXN;
             const bal = balances.find(b => b.house === sel_prop.name);
             const isNeg = bal && bal.finalBalance < 0;
-            const tabStyle = (active: boolean): React.CSSProperties => ({ padding: "8px 20px", border: "1px solid var(--border2)", background: active ? "var(--accent-s)" : "transparent", color: active ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" });
+            const tabStyle = (active: boolean): React.CSSProperties => ({ padding: "9px 18px", borderRadius: 100, border: "none", background: active ? "var(--accent-s)" : "transparent", color: active ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" });
 
             return (
-              <div style={{ padding: "32px 40px", maxWidth: 900 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-                  <span onClick={() => { setSelectedProp(null); setPropTab("overview"); }} style={{ fontSize: 13, color: "var(--teal-l)", cursor: "pointer" }}>Properties</span>
-                  <span style={{ fontSize: 13, color: "var(--text3)" }}>/</span>
-                  <span style={{ fontSize: 13, color: "var(--text)" }}>{sel_prop.name}</span>
+              <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1080, margin: "0 auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+                  <span onClick={() => { setSelectedProp(null); setPropTab("overview"); }} style={{ fontSize: 11, color: "var(--accent)", cursor: "pointer", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>← Properties</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                   <div>
+                    <span style={eyebrow}>{sel_prop.status} · {sel_prop.currency}</span>
                     <h1 style={h1s}>{sel_prop.name}</h1>
-                    <p style={{ fontSize: 14, color: "var(--text2)" }}>{sel_prop.owner} · {sel_prop.currency} · {sel_prop.status}</p>
+                    <p style={{ fontSize: 13, color: "var(--text2)" }}>{sel_prop.owner}</p>
+                    <span className="a-gold-rule" />
                   </div>
                   {bal && (
                     <div style={{ textAlign: "right" as const }}>
-                      <div style={{ fontSize: 20, fontWeight: 600, fontFamily: "'Georgia', serif", color: isNeg ? "var(--red)" : "var(--green)" }}>{isNeg ? "-" : ""}{fmtCur(bal.finalBalance, bal.currency)}</div>
-                      <div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase" as const }}>Current balance</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 6 }}>Current balance</div>
+                      <div className="a-num" style={{ fontSize: 28, fontWeight: 400, fontFamily: "var(--fd)", color: isNeg ? "var(--red)" : "var(--text)" }}>{isNeg ? "−" : ""}{fmtCur(bal.finalBalance, bal.currency)}</div>
                     </div>
                   )}
                 </div>
-                <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
-                  <button onClick={() => setPropTab("overview")} style={{ ...tabStyle(propTab === "overview"), borderRadius: "8px 0 0 8px" }}>Overview</button>
-                  <button onClick={() => setPropTab("fees")} style={{ ...tabStyle(propTab === "fees"), borderLeft: "none" }}>Fee Config</button>
-                  <button onClick={() => setPropTab("housekeeping")} style={{ ...tabStyle(propTab === "housekeeping"), borderLeft: "none" }}>Housekeeping</button>
-                  <button onClick={() => setPropTab("history")} style={{ ...tabStyle(propTab === "history"), borderLeft: "none" }}>History</button>
-                  <button onClick={() => setPropTab("availability")} style={{ ...tabStyle(propTab === "availability"), borderLeft: "none", borderRadius: "0 8px 8px 0" }}>Availability</button>
+                <div style={{ display: "flex", gap: 0, marginBottom: 24, background: "var(--bg2)", borderRadius: 100, padding: 4, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", width: "fit-content" }}>
+                  <button onClick={() => setPropTab("overview")} style={tabStyle(propTab === "overview")}>Overview</button>
+                  <button onClick={() => setPropTab("fees")} style={tabStyle(propTab === "fees")}>Fee Config</button>
+                  <button onClick={() => setPropTab("housekeeping")} style={tabStyle(propTab === "housekeeping")}>Housekeeping</button>
+                  <button onClick={() => setPropTab("history")} style={tabStyle(propTab === "history")}>History</button>
+                  <button onClick={() => setPropTab("availability")} style={tabStyle(propTab === "availability")}>Availability</button>
                 </div>
                 {propSaved && <div style={{ padding: "10px 16px", background: "var(--green-s)", border: "1px solid rgba(110,207,151,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "var(--green)" }}>✓ Changes saved to Airtable</div>}
 
@@ -1877,24 +1905,26 @@ export default function AdminDashboard() {
           const mxnProps = activePropList.filter(p => p.currency === "MXN").length;
 
           return (
-            <div style={{ padding: "32px 40px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                 <div>
+                  <span style={eyebrow}>Portfolio</span>
                   <h1 style={h1s}>Properties</h1>
-                  <p style={{ fontSize: 14, color: "var(--text2)" }}>{propLoading ? "Loading..." : `${activePropList.length} active, ${otherPropList.length} other`}</p>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>{propLoading ? "Loading…" : `${activePropList.length} active, ${otherPropList.length} other`}</p>
+                  <span className="a-gold-rule" />
                 </div>
                 <button onClick={() => setShowAddForm(!showAddForm)}
-                  style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)", transition: "all var(--dur) var(--ease)" }}>
                   + Add Property
                 </button>
               </div>
 
               {/* Stats */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-                <div style={card}><div style={lbl}>Active</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--teal-l)" }}>{activePropList.length}</div></div>
-                <div style={card}><div style={lbl}>USD Properties</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--blue)" }}>{usdProps}</div></div>
-                <div style={card}><div style={lbl}>MXN Properties</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--teal-l)" }}>{mxnProps}</div></div>
-                <div style={card}><div style={lbl}>Negative Balances</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: negCount > 0 ? "var(--red)" : "var(--green)" }}>{negCount}</div></div>
+              <div className="admin-stats-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Active</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--teal)" }}>{activePropList.length}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>USD Properties</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--blue)" }}>{usdProps}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>MXN Properties</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--teal)" }}>{mxnProps}</div></div>
+                <div className="a-card" style={{ ...card, padding: "18px 22px", borderColor: negCount > 0 ? "rgba(224,133,133,0.3)" : "var(--border)" }}><div style={lbl}>Negative Balances</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: negCount > 0 ? "var(--red)" : "var(--green)" }}>{negCount}</div></div>
               </div>
 
               {/* Add property form */}
@@ -1924,16 +1954,14 @@ export default function AdminDashboard() {
               )}
 
               {/* Property cards grid */}
-              <h2 style={{ ...h2s, marginBottom: 12 }}>Active properties</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
+              <h2 style={{ ...h2s, marginBottom: 14 }}>Active properties</h2>
+              <div className="admin-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 28 }}>
                 {activePropList.map(p => {
                   const bal = balances.find(b => b.house === p.name);
                   const isNeg = bal && bal.finalBalance < 0;
                   return (
-                    <div key={p.id} onClick={() => { setSelectedProp(p.id); setPropTab("overview"); }}
-                      style={{ ...card, cursor: "pointer", transition: "border-color 0.15s", border: `1px solid ${isNeg ? "rgba(207,110,110,0.15)" : "var(--border)"}`, padding: 16 }}
-                      onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)")}
-                      onMouseLeave={e => (e.currentTarget.style.borderColor = isNeg ? "rgba(207,110,110,0.15)" : "rgba(255,255,255,0.06)")}>
+                    <div key={p.id} className="a-card" onClick={() => { setSelectedProp(p.id); setPropTab("overview"); }}
+                      style={{ ...card, cursor: "pointer", border: `1px solid ${isNeg ? "rgba(224,133,133,0.30)" : "var(--border)"}`, padding: 20 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                         <div style={{ fontSize: 15, fontWeight: 500 }}>{p.name}</div>
                         <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 100, background: p.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: p.currency === "USD" ? "var(--blue)" : "var(--teal-l)" }}>{p.currency}</span>
@@ -1974,23 +2002,25 @@ export default function AdminDashboard() {
         
         {/* ====== USERS ====== */}
         {activePage === "users" && (
-          <div style={{ padding: "32px 40px", maxWidth: 900 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+          <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1240, margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
               <div>
+                <span style={eyebrow}>Access Management</span>
                 <h1 style={h1s}>Users</h1>
-                <p style={{ fontSize: 14, color: "var(--text2)" }}>{usersLoading ? "Loading..." : `${appUsers.length} users registered`}</p>
+                <p style={{ fontSize: 13, color: "var(--text2)" }}>{usersLoading ? "Loading…" : `${appUsers.length} users registered`}</p>
+                <span className="a-gold-rule" />
               </div>
               <button onClick={() => setShowAddUser(!showAddUser)}
-                style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)", transition: "all var(--dur) var(--ease)" }}>
                 + Add User
               </button>
             </div>
 
             {/* Stat cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
-              <div style={card}><div style={lbl}>Admins</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--teal-l)" }}>{appUsers.filter(u => u.role === "admin").length}</div></div>
-              <div style={card}><div style={lbl}>Owners</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--accent)" }}>{appUsers.filter(u => u.role === "owner").length}</div></div>
-              <div style={card}><div style={lbl}>Other</div><div style={{ fontFamily: "'Georgia', serif", fontSize: 26, color: "var(--text3)" }}>{appUsers.filter(u => u.role !== "admin" && u.role !== "owner").length}</div></div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+              <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Admins</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--teal)" }}>{appUsers.filter(u => u.role === "admin").length}</div></div>
+              <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Owners</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--accent)" }}>{appUsers.filter(u => u.role === "owner").length}</div></div>
+              <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Other</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--text3)" }}>{appUsers.filter(u => u.role !== "admin" && u.role !== "owner").length}</div></div>
             </div>
 
             {/* Add user form */}
@@ -2033,7 +2063,7 @@ export default function AdminDashboard() {
 
             {/* User list */}
             <div style={{ ...card, padding: 0 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 100px 120px 100px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.4fr 110px 120px 220px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>User</div>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Email</div>
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Role</div>
@@ -2045,7 +2075,7 @@ export default function AdminDashboard() {
                 const roleBg = u.role === "admin" ? "var(--teal-s)" : u.role === "owner" ? "var(--accent-s)" : "var(--bg2)";
                 return (
                   <React.Fragment key={u.id}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 100px 120px 100px", padding: "12px 20px", borderBottom: editUserId === u.id ? "none" : i < appUsers.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.4fr 110px 120px 220px", padding: "12px 20px", borderBottom: editUserId === u.id ? "none" : i < appUsers.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 500 }}>{u.firstName} {u.lastName}</div>
                       {u.linkedProperty && <div style={{ fontSize: 11, color: "var(--text3)" }}>{u.linkedProperty}</div>}
@@ -2063,10 +2093,10 @@ export default function AdminDashboard() {
                     <div style={{ fontSize: 12, color: "var(--text3)" }}>
                       {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}
                     </div>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button onClick={() => { setEditUserId(u.id); setEditUserForm({ firstName: u.firstName, lastName: u.lastName, role: u.role, linkedProperty: u.linkedProperty }); }} title="Edit user" style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button>
-                      <button onClick={() => resetUserPassword(u.id)} title="Reset password" style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Reset PW</button>
-                      <button onClick={() => deactivateUser(u.id)} title="Deactivate user" style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid rgba(207,110,110,0.2)", background: "transparent", color: "var(--red)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Deactivate</button>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" as const }}>
+                      <button className="a-pill-btn" onClick={() => { setEditUserId(u.id); setEditUserForm({ firstName: u.firstName, lastName: u.lastName, role: u.role, linkedProperty: u.linkedProperty }); }} title="Edit user" style={{ padding: "5px 11px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>✎ Edit</button>
+                      <button className="a-pill-btn" onClick={() => resetUserPassword(u.id)} title="Reset password" style={{ padding: "5px 11px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>Reset PW</button>
+                      <button onClick={() => deactivateUser(u.id)} title="Deactivate user" style={{ padding: "5px 11px", borderRadius: 100, border: "1px solid rgba(224,133,133,0.30)", background: "transparent", color: "var(--red)", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const, transition: "all var(--dur) var(--ease)" }}>Deactivate</button>
                     </div>
                   </div>
                   {editUserId === u.id && (
@@ -2248,18 +2278,20 @@ export default function AdminDashboard() {
           }
 
           return (
-            <div style={{ padding: "32px 40px", maxWidth: 1000 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1240, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                 <div>
+                  <span style={eyebrow}>Guest Experience</span>
                   <h1 style={h1s}>Concierge</h1>
-                  <p style={{ fontSize: 14, color: "var(--text2)", marginBottom: 0 }}>Manage owner & guest visits, itineraries, and vendors</p>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Manage owner & guest visits, itineraries, and vendors</p>
+                  <span className="a-gold-rule" />
                 </div>
-                {concTab === "visits" && <button onClick={() => setShowAddVisit(!showAddVisit)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Visit</button>}
+                {concTab === "visits" && <button onClick={() => setShowAddVisit(!showAddVisit)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)", transition: "all var(--dur) var(--ease)" }}>+ New Visit</button>}
                 {concTab === "directory" && (
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setShowAddVendor(!showAddVendor)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Vendor</button>
-                    <label style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center" }}>
-                      {csvImporting ? "Importing..." : "⬆ Import CSV"}
+                    <button onClick={() => setShowAddVendor(!showAddVendor)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ Add Vendor</button>
+                    <label className="a-pill-btn" style={{ padding: "10px 22px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center" }}>
+                      {csvImporting ? "Importing…" : "⬆ Import CSV"}
                       <input type="file" accept=".csv" onChange={importVendorCSV} style={{ display: "none" }} disabled={csvImporting} />
                     </label>
                   </div>
@@ -2267,28 +2299,28 @@ export default function AdminDashboard() {
               </div>
 
               {/* Sub-tabs */}
-              <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content" }}>
+              <div style={{ display: "flex", gap: 0, padding: 4, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
                 {([["visits","Visits"],["builder","Itinerary Builder"],["directory","Vendor Directory"],["charges","Charges"]] as [string,string][]).map(([id, label]) => (
-                  <button key={id} onClick={() => setConcTab(id as any)} style={{ padding: "8px 18px", borderRadius: 100, fontSize: 13, color: concTab === id ? "var(--accent)" : "var(--text3)", background: concTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, transition: "all 0.15s" }}>{label}</button>
+                  <button key={id} onClick={() => setConcTab(id as any)} style={{ padding: "9px 18px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: concTab === id ? "var(--accent)" : "var(--text3)", background: concTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>{label}</button>
                 ))}
               </div>
 
-              {concLoading && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20 }}>Loading...</div>}
+              {concLoading && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20 }}>Loading…</div>}
 
               {/* ---- VISITS TAB ---- */}
               {!concLoading && concTab === "visits" && (
                 <>
                   {/* Stats — clickable filters */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
+                  <div className="admin-stats-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 28 }}>
                     {[
                       { label: "Active", value: activeVisits.length, color: "var(--green)", filter: "Active" as const },
                       { label: "Upcoming", value: upcomingVisits.length, color: "var(--blue)", filter: "Upcoming" as const },
                       { label: "Completed", value: visits.filter(v => v.status === "Completed").length, color: "var(--text3)", filter: "Completed" as const },
                       { label: "All Visits", value: visits.length, color: "var(--accent)", filter: "all" as const },
                     ].map(s => (
-                      <div key={s.label} onClick={() => setVisitStatusFilter(s.filter)} style={{ padding: 20, background: visitStatusFilter === s.filter ? "var(--accent-s)" : "var(--bg2)", border: `1px solid ${visitStatusFilter === s.filter ? "var(--accent)" : "var(--border)"}`, borderRadius: 14, cursor: "pointer", transition: "all 0.15s" }}>
-                        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: visitStatusFilter === s.filter ? "var(--accent)" : "var(--text3)", marginBottom: 8, fontWeight: 500 }}>{s.label}</div>
-                        <div style={{ fontFamily: "var(--fd)", fontSize: 26, color: s.color }}>{s.value}</div>
+                      <div key={s.label} className="a-card" onClick={() => setVisitStatusFilter(s.filter)} style={{ padding: "18px 22px", background: visitStatusFilter === s.filter ? "var(--accent-s)" : "var(--bg2)", border: `1px solid ${visitStatusFilter === s.filter ? "var(--accent-line)" : "var(--border)"}`, borderRadius: 12, cursor: "pointer", boxShadow: visitStatusFilter === s.filter ? "var(--shadow-md)" : "var(--shadow-sm)" }}>
+                        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", color: visitStatusFilter === s.filter ? "var(--accent)" : "var(--text3)", marginBottom: 12, fontWeight: 700 }}>{s.label}</div>
+                        <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: s.color }}>{s.value}</div>
                       </div>
                     ))}
                   </div>
@@ -2960,21 +2992,23 @@ export default function AdminDashboard() {
           const scheduleList = maintFilter === "all" ? typeFiltered : maintFilter === "today" ? typeFiltered.filter(t => t.scheduledDate === todayStr && t.status !== "Cancelled" && t.status !== "Completed") : maintFilter === "week" ? typeFiltered.filter(t => t.scheduledDate >= todayStr && t.scheduledDate <= weekEndStr && t.status !== "Cancelled" && t.status !== "Completed") : typeFiltered.filter(t => t.scheduledDate >= todayStr && t.scheduledDate <= monthEnd && t.status !== "Cancelled" && t.status !== "Completed");
 
           return (
-            <div style={{ padding: "32px 40px", maxWidth: 1000 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1240, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                 <div>
+                  <span style={eyebrow}>Property Care</span>
                   <h1 style={h1s}>Maintenance</h1>
-                  <p style={{ fontSize: 14, color: "var(--text2)" }}>Track preventive and reactive maintenance across all properties</p>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Track preventive and reactive maintenance across all properties</p>
+                  <span className="a-gold-rule" />
                 </div>
-                {maintTab === "schedule" && <button onClick={() => setShowAddTask(!showAddTask)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Task</button>}
-                {maintTab === "config" && <button onClick={() => setShowAddConfig(!showAddConfig)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Schedule</button>}
-                {maintTab === "vendors" && <button onClick={() => setShowAddMaintVendor(!showAddMaintVendor)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Vendor</button>}
+                {maintTab === "schedule" && <button onClick={() => setShowAddTask(!showAddTask)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Task</button>}
+                {maintTab === "config" && <button onClick={() => setShowAddConfig(!showAddConfig)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Schedule</button>}
+                {maintTab === "vendors" && <button onClick={() => setShowAddMaintVendor(!showAddMaintVendor)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ Add Vendor</button>}
               </div>
 
               {/* Sub-tabs */}
-              <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content" }}>
+              <div style={{ display: "flex", gap: 0, padding: 4, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
                 {([["schedule","Schedule"],["inbox","Reactive Inbox"],["config","Preventive Config"],["vendors","Vendors"]] as [string,string][]).map(([id, label]) => (
-                  <button key={id} onClick={() => setMaintTab(id as any)} style={{ padding: "8px 18px", borderRadius: 100, fontSize: 13, color: maintTab === id ? "var(--accent)" : "var(--text3)", background: maintTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500 }}>{label}</button>
+                  <button key={id} onClick={() => setMaintTab(id as any)} style={{ padding: "9px 18px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: maintTab === id ? "var(--accent)" : "var(--text3)", background: maintTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>{label}</button>
                 ))}
               </div>
 
@@ -3491,17 +3525,19 @@ export default function AdminDashboard() {
           const occupiedProps = new Set(monthVisits.map(v => v.propertyId)).size;
 
           return (
-            <div style={{ padding: "32px 40px" }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
               {/* Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                 <div>
+                  <span style={eyebrow}>Portfolio Schedule</span>
                   <h1 style={h1s}>Availability Calendar</h1>
-                  <p style={{ fontSize: 14, color: "var(--text2)" }}>Portfolio occupancy across all active properties</p>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Portfolio occupancy across all active properties</p>
+                  <span className="a-gold-rule" />
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                  <div style={{ display: "flex", gap: 0 }}>
-                    <button onClick={() => setCalView("monthly")} style={{ padding: "6px 14px", borderRadius: "6px 0 0 6px", border: "1px solid var(--border2)", background: calView === "monthly" ? "var(--accent-s)" : "transparent", color: calView === "monthly" ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Monthly</button>
-                    <button onClick={() => setCalView("weekly")} style={{ padding: "6px 14px", borderRadius: "0 6px 6px 0", border: "1px solid var(--border2)", borderLeft: "none", background: calView === "weekly" ? "var(--accent-s)" : "transparent", color: calView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Weekly</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ display: "flex", gap: 0, padding: 4, background: "var(--bg2)", borderRadius: 100, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+                    <button onClick={() => setCalView("monthly")} style={{ padding: "8px 16px", borderRadius: 100, border: "none", background: calView === "monthly" ? "var(--accent-s)" : "transparent", color: calView === "monthly" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Monthly</button>
+                    <button onClick={() => setCalView("weekly")} style={{ padding: "8px 16px", borderRadius: 100, border: "none", background: calView === "weekly" ? "var(--accent-s)" : "transparent", color: calView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Weekly</button>
                   </div>
                   {calView === "monthly" ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -3520,16 +3556,16 @@ export default function AdminDashboard() {
               </div>
 
               {/* Stats */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+              <div className="admin-stats-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
                 {[
                   { label: "Properties Occupied", value: occupiedProps, color: "var(--accent)" },
-                  { label: "Owner Visits", value: ownerVisits, color: "var(--teal-l)" },
+                  { label: "Owner Visits", value: ownerVisits, color: "var(--teal)" },
                   { label: "Rental Visits", value: rentalVisits, color: "var(--blue)" },
                   { label: "Total Active Properties", value: activeProps.length, color: "var(--text)" },
                 ].map(s => (
-                  <div key={s.label} style={{ padding: 18, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12 }}>
-                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, marginBottom: 6 }}>{s.label}</div>
-                    <div style={{ fontFamily: "var(--fd)", fontSize: 24, color: s.color }}>{s.value}</div>
+                  <div key={s.label} className="a-card" style={{ ...card, padding: "18px 22px" }}>
+                    <div style={lbl}>{s.label}</div>
+                    <div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: s.color }}>{s.value}</div>
                   </div>
                 ))}
               </div>
@@ -3578,72 +3614,130 @@ export default function AdminDashboard() {
               })()}
 
               {/* Monthly View */}
-              {calView === "monthly" && <>
-              {/* Legend */}
-              <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "center" }}>
-                {[["Owner", "var(--teal)"], ["Rental", "var(--blue)"], ["Guest", "#9B8EC4"]].map(([label, color]) => (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 3, background: color as string }} />
-                    {label}
-                  </div>
-                ))}
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text3)" }}>
-                  <div style={{ width: 12, height: 12, borderRadius: 3, border: "2px solid var(--accent)" }} />
-                  Today
-                </div>
-              </div>
+              {calView === "monthly" && (() => {
+                // Pre-compute day metadata for the month
+                const days = Array.from({ length: daysInMonth }, (_, i) => {
+                  const day = i + 1;
+                  const date = new Date(year, month - 1, day);
+                  const dow = date.getDay(); // 0 Sun, 6 Sat
+                  const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                  return { day, dow, dateStr, isWeekend: dow === 0 || dow === 6, isToday: dateStr === todayStr, dowLabel: ["S","M","T","W","T","F","S"][dow] };
+                });
 
-              {/* Grid */}
-              <div style={{ overflowX: "auto" }}>
-                <div style={{ minWidth: 900 }}>
-                  {/* Day headers */}
-                  <div style={{ display: "grid", gridTemplateColumns: `180px repeat(${daysInMonth}, 1fr)`, gap: 1, marginBottom: 1 }}>
-                    <div />
-                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-                      const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                      const isToday = dateStr === todayStr;
-                      const dow = new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "short" })[0];
-                      return (
-                        <div key={day} style={{ textAlign: "center" as const, padding: "4px 0", fontSize: 10, color: isToday ? "var(--accent)" : "var(--text3)", fontWeight: isToday ? 700 : 400, borderBottom: isToday ? "2px solid var(--accent)" : "2px solid transparent" }}>
-                          <div>{dow}</div>
-                          <div>{day}</div>
+                const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+                const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+
+                // For each property, compute the visits that overlap the month and clamp to month bounds
+                function visitsForProperty(propId: string) {
+                  return visits
+                    .filter(v => v.propertyId === propId && v.status !== "Cancelled" && v.checkIn <= monthEnd && v.checkOut > monthStart)
+                    .map(v => {
+                      const ciDay = v.checkIn < monthStart ? 1 : Number(v.checkIn.slice(8, 10));
+                      // checkOut is exclusive: last occupied day = checkOut - 1
+                      const coDate = new Date(v.checkOut + "T00:00:00");
+                      coDate.setDate(coDate.getDate() - 1);
+                      const coStr = coDate.toISOString().split("T")[0];
+                      const lastDay = coStr > monthEnd ? daysInMonth : Number(coStr.slice(8, 10));
+                      const startedBefore = v.checkIn < monthStart;
+                      const endsAfter = coStr > monthEnd;
+                      return { v, startDay: ciDay, endDay: lastDay, startedBefore, endsAfter };
+                    });
+                }
+
+                return (
+                <div className="panel" style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+                  {/* Calendar header strip with month name + legend */}
+                  <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+                      <span style={{ fontFamily: "var(--fd)", fontSize: 22, fontWeight: 400, color: "var(--text)" }}>{monthLabel}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text3)" }}>{daysInMonth} days · {activeProps.length} properties</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+                      {[["Owner", "var(--teal)"], ["Rental", "var(--blue)"], ["Guest", "#9B8EC4"]].map(([label, color]) => (
+                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text3)" }}>
+                          <div style={{ width: 22, height: 8, borderRadius: 3, background: color as string }} />
+                          {label}
                         </div>
-                      );
-                    })}
+                      ))}
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--accent)" }}>
+                        <div style={{ width: 2, height: 12, background: "var(--accent)" }} />
+                        Today
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Property rows */}
-                  {activeProps.map((prop, ri) => (
-                    <div key={prop.id} style={{ display: "grid", gridTemplateColumns: `180px repeat(${daysInMonth}, 1fr)`, gap: 1, marginBottom: 1 }}>
-                      {/* Property name */}
-                      <div onClick={() => { setActivePage("properties"); setSelectedProp(prop.id); setPropTab("availability"); }} style={{ fontSize: 12, color: "var(--text2)", padding: "6px 8px", display: "flex", alignItems: "center", background: ri % 2 === 0 ? "var(--bg2)" : "transparent", cursor: "pointer", borderRadius: "4px 0 0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}
-                        title={prop.name}>
-                        {prop.name}
+                  {/* Grid */}
+                  <div style={{ overflowX: "auto" as const }}>
+                    <div style={{ minWidth: 1080 }}>
+                      {/* Day headers */}
+                      <div style={{ display: "grid", gridTemplateColumns: `220px repeat(${daysInMonth}, minmax(28px, 1fr))`, borderBottom: "1px solid var(--border2)", background: "var(--bg2)" }}>
+                        <div style={{ padding: "14px 22px", fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" as const, color: "var(--text3)", borderRight: "1px solid var(--border)" }}>Property</div>
+                        {days.map(d => (
+                          <div key={d.day} style={{ textAlign: "center" as const, padding: "10px 0 8px", position: "relative" as const }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", color: d.isToday ? "var(--accent)" : "var(--text3)", marginBottom: 3, opacity: d.isWeekend ? 0.55 : 1 }}>{d.dowLabel}</div>
+                            <div className="a-num" style={{ fontSize: 13, fontWeight: d.isToday ? 700 : 500, color: d.isToday ? "var(--accent)" : "var(--text2)", opacity: d.isWeekend && !d.isToday ? 0.6 : 1 }}>{d.day}</div>
+                            {d.isToday && <div style={{ position: "absolute" as const, bottom: -1, left: "50%", transform: "translateX(-50%)", width: 22, height: 2, background: "var(--accent)", borderRadius: 2 }} />}
+                          </div>
+                        ))}
                       </div>
-                      {/* Day cells */}
-                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-                        const v = isOccupied(prop.id, day);
-                        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                        const isToday = dateStr === todayStr;
-                        const isCheckIn = v?.checkIn === dateStr;
-                        const isCheckOut = v ? new Date(v.checkOut + "T00:00:00").toISOString().split("T")[0] === dateStr : false;
+
+                      {/* Property rows — each row is a clean lane */}
+                      {activeProps.map((prop, ri) => {
+                        const propVisits = visitsForProperty(prop.id);
                         return (
-                          <div key={day} title={v ? `${v.visitName} (${v.visitType})` : undefined} style={{
-                            height: 28,
-                            background: v ? visitColor(v.visitType) : ri % 2 === 0 ? "var(--bg2)" : "transparent",
-                            opacity: v ? 0.85 : 1,
-                            borderRadius: isCheckIn ? "4px 0 0 4px" : isCheckOut ? "0 4px 4px 0" : 0,
-                            outline: isToday ? "2px solid var(--accent)" : "none",
-                            outlineOffset: -1,
-                            cursor: v ? "pointer" : "default",
-                          }} />
+                          <div key={prop.id} className="a-row" onClick={() => { setActivePage("properties"); setSelectedProp(prop.id); setPropTab("availability"); }} style={{ display: "grid", gridTemplateColumns: `220px repeat(${daysInMonth}, minmax(28px, 1fr))`, borderBottom: ri < activeProps.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", position: "relative" as const, background: ri % 2 === 0 ? "var(--bg2)" : "transparent", height: 44 }}>
+                            {/* Property name */}
+                            <div title={prop.name} style={{ fontSize: 13, color: "var(--text)", fontWeight: 500, padding: "0 22px", display: "flex", alignItems: "center", borderRight: "1px solid var(--border)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, gridColumn: "1 / 2", gridRow: "1 / 2" }}>
+                              {prop.name}
+                            </div>
+
+                            {/* Empty day cells for grid background only — no per-cell visit rendering */}
+                            {days.map(d => (
+                              <div key={d.day} style={{
+                                gridColumn: `${d.day + 1} / ${d.day + 2}`,
+                                gridRow: "1 / 2",
+                                background: d.isToday ? "var(--accent-s)" : "transparent",
+                                borderLeft: d.dow === 1 ? "1px solid var(--border)" : "none",
+                              }} />
+                            ))}
+
+                            {/* Visit bars — one per visit, spanning grid columns cleanly */}
+                            {propVisits.map(({ v, startDay, endDay, startedBefore, endsAfter }) => (
+                              <div
+                                key={v.id}
+                                title={`${v.guestName || v.visitName} · ${v.visitType} · ${v.checkIn} → ${v.checkOut}`}
+                                style={{
+                                  gridColumn: `${startDay + 1} / ${endDay + 2}`,
+                                  gridRow: "1 / 2",
+                                  background: visitColor(v.visitType),
+                                  borderRadius: `${startedBefore ? 0 : 6}px ${endsAfter ? 0 : 6}px ${endsAfter ? 0 : 6}px ${startedBefore ? 0 : 6}px`,
+                                  margin: "8px 2px",
+                                  boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  paddingLeft: 10,
+                                  paddingRight: 6,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  color: "#fff",
+                                  letterSpacing: "0.01em",
+                                  whiteSpace: "nowrap" as const,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  zIndex: 1,
+                                }}
+                              >
+                                {v.guestName || v.visitName || v.visitType}
+                              </div>
+                            ))}
+                          </div>
                         );
                       })}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-              </>}
+                );
+              })()}
             </div>
           );
         })()}
