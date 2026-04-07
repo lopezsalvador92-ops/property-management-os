@@ -901,19 +901,21 @@ export default function AdminDashboard() {
 
                 {/* ====== EXPENSES ====== */}
         {activePage === "expenses" && (
-          <div style={{ padding: "32px 32px 32px 40px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+          <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
               <div>
+                <span style={eyebrow}>Ledger</span>
                 <h1 style={h1s}>Expenses</h1>
-                <p style={{ fontSize: 14, color: "var(--text2)" }}>
-                  {expLoading ? "Loading..." : `${filteredExpenses.length} records`}
+                <p style={{ fontSize: 13, color: "var(--text2)" }}>
+                  {expLoading ? "Loading…" : `${filteredExpenses.length} records`}
                   {expFilter !== "all" ? ` · ${expFilter}` : ""}
                   {monthFilter !== "all" ? ` · ${monthOptions.find(m => m.value === monthFilter)?.label}` : ""}
                 </p>
+                <span className="a-gold-rule" />
               </div>
-              <div style={{ display: "flex", gap: 0 }}>
-                <button onClick={() => setExpTab("list")} style={{ padding: "8px 20px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border2)", background: expTab === "list" ? "var(--accent-s)" : "transparent", color: expTab === "list" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>All Expenses</button>
-                <button onClick={() => setExpTab("add")} style={{ padding: "8px 20px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border2)", borderLeft: "none", background: expTab === "add" ? "var(--accent-s)" : "transparent", color: expTab === "add" ? "var(--accent)" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Expense</button>
+              <div style={{ display: "flex", gap: 0, background: "var(--bg2)", borderRadius: 100, padding: 4, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+                <button onClick={() => setExpTab("list")} style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: expTab === "list" ? "var(--accent-s)" : "transparent", color: expTab === "list" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>All Expenses</button>
+                <button onClick={() => setExpTab("add")} style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: expTab === "add" ? "var(--accent-s)" : "transparent", color: expTab === "add" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>+ Add Expense</button>
               </div>
             </div>
             {expSuccess && <div style={{ padding: "10px 16px", background: "var(--green-s)", border: "1px solid rgba(110,207,151,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "var(--green)" }}>✓ Expense created successfully</div>}
@@ -976,17 +978,17 @@ export default function AdminDashboard() {
                         );
                       }
                       return (
-                        <tr key={e.id} onMouseEnter={ev => (ev.currentTarget.style.background = "rgba(255,255,255,0.02)")} onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
-                          <td style={{ ...tdS, color: "var(--text2)", whiteSpace: "nowrap" as const }}>{e.date}</td>
-                          <td style={{ ...tdS, color: "var(--text)", fontWeight: 500, whiteSpace: "nowrap" as const }}>{e.house}</td>
-                          <td style={tdS}><span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 100, fontSize: 11, fontWeight: 500, background: cc.bg, color: cc.text, whiteSpace: "nowrap" as const }}>{e.category}</span></td>
+                        <tr key={e.id} className="a-row">
+                          <td className="a-num" style={{ ...tdS, color: "var(--text3)", whiteSpace: "nowrap" as const }}>{e.date}</td>
+                          <td style={{ ...tdS, color: "var(--text)", fontWeight: 600, whiteSpace: "nowrap" as const }}>{e.house}</td>
+                          <td style={tdS}><span style={{ display: "inline-block", padding: "3px 11px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", background: cc.bg, color: cc.text, whiteSpace: "nowrap" as const }}>{e.category}</span></td>
                           <td style={{ ...tdS, color: "var(--text2)", whiteSpace: "nowrap" as const }}>{e.supplier}</td>
                           <td style={{ ...tdS, color: "var(--text2)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }} title={e.description}>{e.description}</td>
-                          <td style={{ ...tdS, color: "var(--text)", fontWeight: 500, whiteSpace: "nowrap" as const, textAlign: "right" as const }}>${(e.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td style={tdS}><span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 100, background: e.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: e.currency === "USD" ? "var(--blue)" : "var(--teal-l)" }}>{e.currency}</span></td>
-                          <td style={tdS}>{e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--teal-l)", textDecoration: "none", fontSize: 12, fontWeight: 500 }}>View</a>}</td>
-                          <td style={{ ...tdS, fontSize: 11, color: "var(--text3)", fontFamily: "monospace" }}>{e.receiptNo}</td>
-                          <td style={{ ...tdS, whiteSpace: "nowrap" as const }}><button onClick={() => { setEditExpId(e.id); setEditExpForm({ date: e.date, houseId: e.houseId, category: e.category, supplier: e.supplier, description: e.description, total: e.total, currency: e.currency }); }} style={{ padding: "3px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button></td>
+                          <td className="a-num" style={{ ...tdS, color: "var(--text)", fontWeight: 600, whiteSpace: "nowrap" as const, textAlign: "right" as const }}>${(e.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td style={tdS}><span style={{ fontSize: 9, padding: "3px 9px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.06em", background: e.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: e.currency === "USD" ? "var(--blue)" : "var(--teal)" }}>{e.currency}</span></td>
+                          <td style={tdS}>{e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" className="receipt-link" style={{ color: "var(--teal)", textDecoration: "none", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 4, background: "var(--teal-s)" }}>View</a>}</td>
+                          <td className="a-num" style={{ ...tdS, fontSize: 11, color: "var(--text3)", fontFamily: "monospace" }}>{e.receiptNo}</td>
+                          <td style={{ ...tdS, whiteSpace: "nowrap" as const }}><button className="a-pill-btn" onClick={() => { setEditExpId(e.id); setEditExpForm({ date: e.date, houseId: e.houseId, category: e.category, supplier: e.supplier, description: e.description, total: e.total, currency: e.currency }); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button></td>
                         </tr>
                       );
                     })}
