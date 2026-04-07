@@ -2994,21 +2994,23 @@ export default function AdminDashboard() {
           const scheduleList = maintFilter === "all" ? typeFiltered : maintFilter === "today" ? typeFiltered.filter(t => t.scheduledDate === todayStr && t.status !== "Cancelled" && t.status !== "Completed") : maintFilter === "week" ? typeFiltered.filter(t => t.scheduledDate >= todayStr && t.scheduledDate <= weekEndStr && t.status !== "Cancelled" && t.status !== "Completed") : typeFiltered.filter(t => t.scheduledDate >= todayStr && t.scheduledDate <= monthEnd && t.status !== "Cancelled" && t.status !== "Completed");
 
           return (
-            <div style={{ padding: "32px 40px", maxWidth: 1000 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1240, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
                 <div>
+                  <span style={eyebrow}>Property Care</span>
                   <h1 style={h1s}>Maintenance</h1>
-                  <p style={{ fontSize: 14, color: "var(--text2)" }}>Track preventive and reactive maintenance across all properties</p>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Track preventive and reactive maintenance across all properties</p>
+                  <span className="a-gold-rule" />
                 </div>
-                {maintTab === "schedule" && <button onClick={() => setShowAddTask(!showAddTask)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Task</button>}
-                {maintTab === "config" && <button onClick={() => setShowAddConfig(!showAddConfig)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New Schedule</button>}
-                {maintTab === "vendors" && <button onClick={() => setShowAddMaintVendor(!showAddMaintVendor)} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Add Vendor</button>}
+                {maintTab === "schedule" && <button onClick={() => setShowAddTask(!showAddTask)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Task</button>}
+                {maintTab === "config" && <button onClick={() => setShowAddConfig(!showAddConfig)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Schedule</button>}
+                {maintTab === "vendors" && <button onClick={() => setShowAddMaintVendor(!showAddMaintVendor)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ Add Vendor</button>}
               </div>
 
               {/* Sub-tabs */}
-              <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content" }}>
+              <div style={{ display: "flex", gap: 0, padding: 4, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
                 {([["schedule","Schedule"],["inbox","Reactive Inbox"],["config","Preventive Config"],["vendors","Vendors"]] as [string,string][]).map(([id, label]) => (
-                  <button key={id} onClick={() => setMaintTab(id as any)} style={{ padding: "8px 18px", borderRadius: 100, fontSize: 13, color: maintTab === id ? "var(--accent)" : "var(--text3)", background: maintTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500 }}>{label}</button>
+                  <button key={id} onClick={() => setMaintTab(id as any)} style={{ padding: "9px 18px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: maintTab === id ? "var(--accent)" : "var(--text3)", background: maintTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>{label}</button>
                 ))}
               </div>
 
