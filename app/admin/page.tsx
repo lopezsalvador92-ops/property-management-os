@@ -205,7 +205,10 @@ export default function AdminDashboard() {
   const [maintTasks, setMaintTasks] = useState<MaintenanceTask[]>([]);
   const [maintConfigs, setMaintConfigs] = useState<MaintenanceConfig[]>([]);
   const [maintLoading, setMaintLoading] = useState(false);
-  const [maintTab, setMaintTab] = useState<"schedule" | "config" | "inbox" | "vendors">("schedule");
+  const [maintTab, setMaintTab] = useState<"board" | "config" | "vendors">("board");
+  const [maintPropFilter, setMaintPropFilter] = useState<string>("");
+  const [maintPriorityFilter, setMaintPriorityFilter] = useState<string>("all");
+  const [maintReactiveOnly, setMaintReactiveOnly] = useState<boolean>(false);
   const [maintTypeFilter, setMaintTypeFilter] = useState<"all" | "Reactive" | "Preventive">("all");
   const [showAddTask, setShowAddTask] = useState(false);
   const [showAddConfig, setShowAddConfig] = useState(false);
@@ -3068,14 +3071,14 @@ export default function AdminDashboard() {
                   <p style={{ fontSize: 13, color: "var(--text2)" }}>Track preventive and reactive maintenance across all properties</p>
                   <span className="a-gold-rule" />
                 </div>
-                {maintTab === "schedule" && <button onClick={() => setShowAddTask(!showAddTask)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Task</button>}
+                {maintTab === "board" && <button onClick={() => setShowAddTask(!showAddTask)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Task</button>}
                 {maintTab === "config" && <button onClick={() => { if (showAddConfig) { resetCfgForm(); setShowAddConfig(false); } else { resetCfgForm(); setShowAddConfig(true); } }} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Schedule</button>}
                 {maintTab === "vendors" && <button onClick={() => setShowAddMaintVendor(!showAddMaintVendor)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ Add Vendor</button>}
               </div>
 
               {/* Sub-tabs */}
               <div style={{ display: "flex", gap: 0, padding: 4, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
-                {([["schedule","Schedule"],["inbox","Reactive Inbox"],["config","Preventive Config"],["vendors","Vendors"]] as [string,string][]).map(([id, label]) => (
+                {([["board","Board"],["config","Preventive Config"],["vendors","Vendors"]] as [string,string][]).map(([id, label]) => (
                   <button key={id} onClick={() => setMaintTab(id as any)} style={{ padding: "9px 18px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: maintTab === id ? "var(--accent)" : "var(--text3)", background: maintTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>{label}</button>
                 ))}
               </div>
@@ -3102,19 +3105,22 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* ---- SCHEDULE TAB ---- */}
-              {!maintLoading && maintTab === "schedule" && (
-                <>
+              {/* ---- BOARD TAB ---- */}
+              {!maintLoading && maintTab === "board" && (() => {
+                const overdueTasks = activeTasks.filter(t => t.scheduledDate && t.scheduledDate < todayStr);
+                const reactiveOpen = maintTasks.filter(t => t.type === "Reactive" && t.status !== "Completed" && t.status !== "Cancelled");
+                const inProgress = maintTasks.filter(t => t.status === "In Progress");
+                return (<>
                   {/* Stat cards */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
                     {[
-                      { label: "All Active", value: activeTasks.length, color: "var(--text)", key: "all" as const },
-                      { label: "Scheduled Today", value: todayTasks.length, color: todayTasks.length > 0 ? "var(--red)" : "var(--green)", key: "today" as const },
-                      { label: "This Week", value: weekTasks.length, color: "var(--accent)", key: "week" as const },
-                      { label: "This Month", value: monthTasks.length, color: "var(--blue)", key: "month" as const },
+                      { label: "Overdue", value: overdueTasks.length, color: overdueTasks.length > 0 ? "var(--red)" : "var(--green)" },
+                      { label: "Due This Week", value: weekTasks.length, color: "var(--accent)" },
+                      { label: "In Progress", value: inProgress.length, color: "var(--blue)" },
+                      { label: "Reactive Open", value: reactiveOpen.length, color: reactiveOpen.length > 0 ? "var(--orange)" : "var(--text)" },
                     ].map(s => (
-                      <div key={s.label} onClick={() => setMaintFilter(s.key)} style={{ padding: 20, background: maintFilter === s.key ? "var(--accent-s)" : "var(--bg2)", border: `1px solid ${maintFilter === s.key ? "var(--accent)" : "var(--border)"}`, borderRadius: 14, cursor: "pointer", transition: "all 0.15s" }}>
-                        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: maintFilter === s.key ? "var(--accent)" : "var(--text3)", marginBottom: 8, fontWeight: 500 }}>{s.label}</div>
+                      <div key={s.label} style={{ padding: 20, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14 }}>
+                        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 8, fontWeight: 500 }}>{s.label}</div>
                         <div style={{ fontFamily: "var(--fd)", fontSize: 26, color: s.color }}>{s.value}</div>
                       </div>
                     ))}
@@ -3141,17 +3147,60 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
-                  {/* Filter */}
-                  <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-                    {(["all","Reactive","Preventive"] as const).map(f => (
-                      <button key={f} onClick={() => setMaintTypeFilter(f)} style={{ padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, border: "1px solid var(--border2)", background: maintTypeFilter === f ? "var(--accent-s)" : "transparent", color: maintTypeFilter === f ? "var(--accent)" : "var(--text3)", cursor: "pointer", fontFamily: "inherit" }}>{f === "all" ? "All" : f}</button>
-                    ))}
+                  {/* Filter bar */}
+                  <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" as const, alignItems: "center", padding: "14px 16px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text3)" }}>Filter</div>
+                    <select value={maintPropFilter} onChange={e => setMaintPropFilter(e.target.value)} style={{ ...sel, padding: "6px 28px 6px 10px", fontSize: 12, minWidth: 160 }}>
+                      <option value="">All properties</option>
+                      {properties.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <select value={maintPriorityFilter} onChange={e => setMaintPriorityFilter(e.target.value)} style={{ ...sel, padding: "6px 28px 6px 10px", fontSize: 12 }}>
+                      <option value="all">All priorities</option>
+                      <option value="Urgent">Urgent</option>
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                    <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg)", borderRadius: 100, border: "1px solid var(--border2)" }}>
+                      {(["all","Reactive","Preventive"] as const).map(f => (
+                        <button key={f} onClick={() => setMaintTypeFilter(f)} style={{ padding: "4px 12px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" as const, border: "none", background: maintTypeFilter === f ? "var(--accent-s)" : "transparent", color: maintTypeFilter === f ? "var(--accent)" : "var(--text3)", cursor: "pointer", fontFamily: "inherit" }}>{f === "all" ? "All" : f}</button>
+                      ))}
+                    </div>
+                    {(maintPropFilter || maintPriorityFilter !== "all" || maintTypeFilter !== "all") && (
+                      <button onClick={() => { setMaintPropFilter(""); setMaintPriorityFilter("all"); setMaintTypeFilter("all"); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
+                    )}
                   </div>
 
-                  {/* Task list */}
-                  {scheduleList.length === 0 ? (
-                    <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>No tasks yet.</div>
-                  ) : scheduleList.map(t => {
+                  {/* Kanban Board */}
+                  {(() => {
+                    const boardTasks = maintTasks.filter(t => {
+                      if (maintTypeFilter !== "all" && t.type !== maintTypeFilter) return false;
+                      if (maintPropFilter && t.propertyId !== maintPropFilter) return false;
+                      if (maintPriorityFilter !== "all" && t.priority !== maintPriorityFilter) return false;
+                      return true;
+                    });
+                    const priorityWeight: Record<string, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
+                    const sortTasks = (arr: MaintenanceTask[]) => arr.slice().sort((a, b) => {
+                      const pw = (priorityWeight[a.priority] ?? 9) - (priorityWeight[b.priority] ?? 9);
+                      if (pw !== 0) return pw;
+                      return (a.scheduledDate || "9999").localeCompare(b.scheduledDate || "9999");
+                    });
+                    const columns: { id: string; label: string; accent: string; tasks: MaintenanceTask[] }[] = [
+                      { id: "todo", label: "To Do", accent: "var(--orange)", tasks: sortTasks(boardTasks.filter(t => t.status === "Open")) },
+                      { id: "inprogress", label: "In Progress", accent: "var(--blue)", tasks: sortTasks(boardTasks.filter(t => t.status === "In Progress")) },
+                      { id: "done", label: "Completed (7d)", accent: "var(--green)", tasks: sortTasks(boardTasks.filter(t => t.status === "Completed" && t.completedDate && t.completedDate >= new Date(Date.now() - 7 * 864e5).toISOString().split("T")[0])) },
+                    ];
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, alignItems: "start" }}>
+                        {columns.map(col => (
+                          <div key={col.id} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, padding: 14, minHeight: 200 }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 10, borderBottom: `2px solid ${col.accent}` }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: col.accent }}>{col.label}</div>
+                              <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600 }}>{col.tasks.length}</div>
+                            </div>
+                            {col.tasks.length === 0 ? (
+                              <div style={{ padding: "20px 8px", textAlign: "center" as const, color: "var(--text3)", fontSize: 11 }}>No tasks</div>
+                            ) : col.tasks.map(t => {
                     const pc = priorityColor(t.priority);
                     const sc = statusColor(t.status);
                     const isReactive = t.type === "Reactive";
@@ -3305,107 +3354,19 @@ export default function AdminDashboard() {
                       </div>
                     );
                   })}
-                </>
-              )}
-
-              {/* ---- REACTIVE INBOX TAB ---- */}
-              {!maintLoading && maintTab === "inbox" && (
-                <>
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14, color: "var(--text2)" }}>Open Requests <span style={{ fontSize: 12, color: "var(--text3)", fontWeight: 400 }}>({openReactive.length})</span></div>
-                  {openReactive.length === 0 ? (
-                    <div style={{ padding: 32, textAlign: "center", color: "var(--text3)", fontSize: 13, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 24 }}>No open reactive requests 🎉</div>
-                  ) : openReactive.map(t => {
-                    const pc = priorityColor(t.priority);
-                    const sc = statusColor(t.status);
-                    return (
-                      <div key={t.id} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px" }}>
-                          <div style={{ width: 4, height: 40, borderRadius: 4, background: "var(--red)", flexShrink: 0 }} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{t.title}</div>
-                            <div style={{ fontSize: 12, color: "var(--text3)" }}>{t.propertyName || "—"}{t.scheduledDate ? ` · ${t.scheduledDate}` : ""}</div>
-                            {t.notes && <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>{t.notes}</div>}
-                            {/* Approval status */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                              {t.approvalStatus && t.approvalStatus !== "Pending Approval" ? (
-                                <>
-                                  <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: t.approvalStatus === "Approved" ? "var(--green-s)" : t.approvalStatus === "Rejected" ? "var(--red-s)" : "rgba(207,196,110,0.12)", color: t.approvalStatus === "Approved" ? "var(--green)" : t.approvalStatus === "Rejected" ? "var(--red)" : "#CFC46E" }}>{t.approvalStatus}</span>
-                                  {t.approvalStatus === "Approved" && t.approvedBy && <span style={{ fontSize: 11, color: "var(--text3)" }}>by {t.approvedBy}{t.approvalDate ? ` on ${t.approvalDate}` : ""}</span>}
-                                </>
-                              ) : (
-                                <>
-                                  <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: "rgba(207,196,110,0.12)", color: "#CFC46E" }}>Pending Approval</span>
-                                  <button onClick={async () => { setTaskUpdating(t.id); try { await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, approvalStatus: "Approved", approvedBy: userName, approvalDate: new Date().toISOString().split("T")[0] }) }); const d = await fetch("/api/maintenance").then(r => r.json()); setMaintTasks(d.tasks || []); } catch (e) { console.error(e); } setTaskUpdating(null); }} disabled={taskUpdating === t.id} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", border: "1px solid rgba(110,207,151,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{taskUpdating === t.id ? "..." : "✓ Approve"}</button>
-                                </>
-                              )}
-                            </div>
                           </div>
-                          <div style={{ display: "flex", gap: 6, flexDirection: "column" as const, alignItems: "flex-end", flexShrink: 0 }}>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: pc.bg, color: pc.text, textTransform: "uppercase" as const }}>{t.priority}</span>
-                              <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: sc.bg, color: sc.text, textTransform: "uppercase" as const }}>{t.status}</span>
-                            </div>
-                            {/* Vendor assign */}
-                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                              <select defaultValue={t.vendorId} onChange={e => assignVendor(t.id, e.target.value)} style={{ ...sel, fontSize: 11, padding: "4px 28px 4px 8px", minWidth: 140 }} disabled={taskUpdating === t.id}>
-                                <option value="">Assign vendor…</option>
-                                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                              </select>
-                              <button onClick={() => updateTaskStatus(t.id, "Completed")} disabled={taskUpdating === t.id} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", border: "1px solid rgba(110,207,151,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>✓ Resolve</button>
-                            </div>
-                          </div>
-                        </div>
-                        {t.status === "Completed" && !t.expenseCreated && (
-                          <div style={{ padding: "8px 16px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
-                            <button onClick={() => generateExpense(t)} style={{ padding: "5px 14px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>⎙ Generate Expense</button>
-                          </div>
-                        )}
+                        ))}
                       </div>
                     );
-                  })}
+                  })()}
+                </>);
+              })()}
 
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14, marginTop: 28, color: "var(--text2)" }}>Recently Resolved</div>
-                  {recentlyResolved.length === 0 ? (
-                    <div style={{ padding: 20, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>No resolved tasks yet.</div>
-                  ) : recentlyResolved.map(t => (
-                    <div key={t.id} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8, opacity: 0.7 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px" }}>
-                        <div style={{ width: 4, height: 32, borderRadius: 4, background: "var(--green)", flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>{t.title}</div>
-                          <div style={{ fontSize: 12, color: "var(--text3)" }}>{t.propertyName || "—"}{t.completedDate ? ` · Completed ${t.completedDate}` : ""}{t.vendorName ? ` · ${t.vendorName}` : ""}</div>
-                          {/* Approval status */}
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                            {t.approvalStatus && t.approvalStatus !== "Pending Approval" ? (
-                              <>
-                                <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: t.approvalStatus === "Approved" ? "var(--green-s)" : t.approvalStatus === "Rejected" ? "var(--red-s)" : "rgba(207,196,110,0.12)", color: t.approvalStatus === "Approved" ? "var(--green)" : t.approvalStatus === "Rejected" ? "var(--red)" : "#CFC46E" }}>{t.approvalStatus}</span>
-                                {t.approvalStatus === "Approved" && t.approvedBy && <span style={{ fontSize: 11, color: "var(--text3)" }}>by {t.approvedBy}{t.approvalDate ? ` on ${t.approvalDate}` : ""}</span>}
-                              </>
-                            ) : (
-                              <>
-                                <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: "rgba(207,196,110,0.12)", color: "#CFC46E" }}>Pending Approval</span>
-                                <button onClick={async () => { setTaskUpdating(t.id); try { await fetch("/api/maintenance", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, approvalStatus: "Approved", approvedBy: userName, approvalDate: new Date().toISOString().split("T")[0] }) }); const d = await fetch("/api/maintenance").then(r => r.json()); setMaintTasks(d.tasks || []); } catch (e) { console.error(e); } setTaskUpdating(null); }} disabled={taskUpdating === t.id} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--green-s)", color: "var(--green)", border: "1px solid rgba(110,207,151,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{taskUpdating === t.id ? "..." : "✓ Approve"}</button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          {t.expenseCreated ? (
-                            <span style={{ fontSize: 11, color: "var(--green)" }}>✓ Expense created</span>
-                          ) : (
-                            <button onClick={() => generateExpense(t)} style={{ padding: "4px 12px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>⎙ Generate Expense</button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-
+              {/* ---- REACTIVE INBOX TAB (removed — folded into Board) ---- */}
               {/* ---- PREVENTIVE CONFIG TAB ---- */}
               {!maintLoading && maintTab === "config" && (
                 <>
-                  <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20 }}>Recurring maintenance schedules — these drive the preventive tasks on the Schedule tab</div>
+                  <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20 }}>Recurring maintenance schedules — these drive the preventive tasks on the Board</div>
 
                   {showAddConfig && (
                     <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
