@@ -31,7 +31,11 @@ export default function OwnerPortal() {
   const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activePage, setActivePage] = useState("home");
   const [currentMonth, setCurrentMonth] = useState(0);
-  const [enabledModules, setEnabledModules] = useState<string[]>(["home", "financials", "maintenance", "calendar", "concierge"]);
+  const [enabledModules, setEnabledModules] = useState<string[]>(["home", "financials", "maintenance", "calendar", "concierge", "help"]);
+  const [helpArticles, setHelpArticles] = useState<any[]>([]);
+  const [helpLoading, setHelpLoading] = useState(false);
+  const [helpSelectedId, setHelpSelectedId] = useState<string | null>(null);
+  const [helpSearch, setHelpSearch] = useState("");
   const [maintTasks, setMaintTasks] = useState<MaintTask[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [itineraryEvents, setItineraryEvents] = useState<ItineraryEvent[]>([]);
@@ -62,6 +66,17 @@ export default function OwnerPortal() {
       }
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (activePage === "help" && helpArticles.length === 0) {
+      setHelpLoading(true);
+      fetch("/api/help?audience=owner").then(r => r.json()).then(d => {
+        setHelpArticles(d.articles || []);
+        if ((d.articles || []).length > 0) setHelpSelectedId(d.articles[0].id);
+        setHelpLoading(false);
+      }).catch(() => setHelpLoading(false));
+    }
+  }, [activePage]);
 
   useEffect(() => {
     if (!linkedProperty) { setLoading(false); return; }
@@ -124,6 +139,7 @@ export default function OwnerPortal() {
     { id: "maintenance", icon: "⟡", label: "Maintenance" },
     { id: "calendar", icon: "▦", label: "Availability" },
     { id: "concierge", icon: "✦", label: "Concierge" },
+    { id: "help", icon: "?", label: "Help" },
   ];
 
   // YTD totals for chart
@@ -1017,6 +1033,56 @@ export default function OwnerPortal() {
                 </>);
               })()}
             </>)}
+
+            {/* HELP */}
+            {activePage === "help" && (() => {
+              const q = helpSearch.trim().toLowerCase();
+              const filtered = q ? helpArticles.filter(a => a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)) : helpArticles;
+              const byCategory: Record<string, any[]> = {};
+              filtered.forEach(a => { (byCategory[a.category] = byCategory[a.category] || []).push(a); });
+              const selected = helpArticles.find(a => a.id === helpSelectedId) || filtered[0] || null;
+              return (<>
+                <div style={{ marginBottom: 32 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 10 }}>Knowledge Base</div>
+                  <h1 style={{ fontFamily: "var(--fd)", fontSize: 38, fontWeight: 400, lineHeight: 1.05, marginBottom: 8, color: "var(--text)", letterSpacing: "-0.005em" }}>Help Center</h1>
+                  <div style={{ fontSize: 13, color: "var(--text2)" }}>Articles and how-tos for your owner portal</div>
+                  <span className="gold-rule" />
+                </div>
+                {helpLoading ? (
+                  <div style={{ padding: 40, textAlign: "center" as const, color: "var(--text3)", fontSize: 13 }}>Loading articles…</div>
+                ) : helpArticles.length === 0 ? (
+                  <div style={{ padding: 40, textAlign: "center" as const, color: "var(--text3)", fontSize: 13 }}>No articles published yet.</div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24, alignItems: "start" }}>
+                    <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, position: "sticky" as const, top: 24 }}>
+                      <input value={helpSearch} onChange={e => setHelpSearch(e.target.value)} placeholder="Search help…" style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg)", color: "var(--text)", fontSize: 13, fontFamily: "inherit", marginBottom: 14 }} />
+                      {Object.keys(byCategory).length === 0 && <div style={{ fontSize: 12, color: "var(--text3)", padding: "8px 4px" }}>No matches.</div>}
+                      {Object.entries(byCategory).map(([cat, arts]) => (
+                        <div key={cat} style={{ marginBottom: 14 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text3)", padding: "4px 6px 6px" }}>{cat}</div>
+                          {(arts as any[]).map((a: any) => (
+                            <div key={a.id} onClick={() => setHelpSelectedId(a.id)} style={{ padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontSize: 13, color: selected?.id === a.id ? "var(--accent)" : "var(--text2)", background: selected?.id === a.id ? "var(--accent-s)" : "transparent" }}>
+                              {a.title}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, padding: "28px 32px", minHeight: 300, boxShadow: "var(--shadow-sm)" }}>
+                      {selected ? (
+                        <>
+                          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 8 }}>{selected.category}</div>
+                          <h2 style={{ fontFamily: "'Georgia', serif", fontSize: 26, fontWeight: 400, margin: "0 0 16px", color: "var(--text)" }}>{selected.title}</h2>
+                          <div style={{ fontSize: 14, lineHeight: 1.7, color: "var(--text2)", whiteSpace: "pre-wrap" as const }}>{selected.body}</div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 13, color: "var(--text3)" }}>Select an article from the left.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>);
+            })()}
           </div>
 
           {/* Footer */}

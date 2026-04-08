@@ -42,7 +42,10 @@ const navItems = [
   { id: "calendar", icon: "▦", label: "Calendar" },
   { id: "properties", icon: "◫", label: "Properties" },
   { id: "users", icon: "◌", label: "Users" },
+  { id: "help", icon: "?", label: "Help" },
 ];
+
+type HelpArticle = { id: string; title: string; slug: string; audience: string; category: string; body: string; order: number; published: boolean };
 
 function getMonthOptions(): { label: string; value: string }[] {
   const o: { label: string; value: string }[] = [];
@@ -223,6 +226,11 @@ export default function AdminDashboard() {
   const [newCfgNextDue, setNewCfgNextDue] = useState("");
   const [newCfgNotes, setNewCfgNotes] = useState("");
   const [addingConfig, setAddingConfig] = useState(false);
+  const [editingCfgId, setEditingCfgId] = useState<string | null>(null);
+  const [helpArticles, setHelpArticles] = useState<HelpArticle[]>([]);
+  const [helpLoading, setHelpLoading] = useState(false);
+  const [helpSelectedId, setHelpSelectedId] = useState<string | null>(null);
+  const [helpSearch, setHelpSearch] = useState("");
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [taskUpdating, setTaskUpdating] = useState<string | null>(null);
   const [maintFilter, setMaintFilter] = useState<"all" | "today" | "week" | "month">("all");
@@ -420,6 +428,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     if ((activePage === "calendar" || activePage === "dashboard") && visits.length === 0) {
       fetch("/api/visits").then(r => r.json()).then(d => setVisits(d.visits || [])).catch(() => {});
+    }
+  }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "help" && helpArticles.length === 0) {
+      setHelpLoading(true);
+      fetch("/api/help?audience=admin").then(r => r.json()).then(d => {
+        setHelpArticles(d.articles || []);
+        if ((d.articles || []).length > 0) setHelpSelectedId(d.articles[0].id);
+        setHelpLoading(false);
+      }).catch(() => setHelpLoading(false));
     }
   }, [activePage]);
 
@@ -1287,10 +1306,29 @@ export default function AdminDashboard() {
               return (
                 <div>
                   <div style={{ marginBottom: 24 }}>
-                    <select value={previewProp} onChange={e => setPreviewProp(e.target.value)} style={{ ...sel, minWidth: 260 }}>
-                      <option value="">Select a property...</option>
-                      {active.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                    </select>
+                    {(() => {
+                      const statusFor = (name: string) => reports.find(r => r.house === name)?.status || "No Report";
+                      const groups: { label: string; status: string }[] = [
+                        { label: "No Report", status: "No Report" },
+                        { label: "Pending", status: "Pending" },
+                        { label: "Reviewed", status: "Reviewed" },
+                        { label: "Sent", status: "Sent" },
+                      ];
+                      const byStatus = groups.map(g => ({
+                        ...g,
+                        items: active.filter(p => statusFor(p.name) === g.status).sort((a, b) => a.name.localeCompare(b.name)),
+                      })).filter(g => g.items.length > 0);
+                      return (
+                        <select value={previewProp} onChange={e => setPreviewProp(e.target.value)} style={{ ...sel, minWidth: 260 }}>
+                          <option value="">Select a property...</option>
+                          {byStatus.map(g => (
+                            <optgroup key={g.status} label={`${g.label} (${g.items.length})`}>
+                              {g.items.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                            </optgroup>
+                          ))}
+                        </select>
+                      );
+                    })()}
                   </div>
 
                   {previewProp && !propReport && !repLoading && (
@@ -1531,10 +1569,10 @@ export default function AdminDashboard() {
                               <td style={{ ...td, textAlign: "left", padding: "10px 16px" }}><div style={{ fontSize: 13, fontWeight: 500 }}>{s.property}</div><div style={{ fontSize: 10, color: "var(--text3)" }}>{s.includedPerWeek}/wk</div></td>
                               {weekCols.map((wc, wi) => {
                                 const wb = (s.weeklyBreakdown || []).find((w: any) => w.weekStart === wc.ws);
-                                const incl = wb ? Math.min(wb.cleans, wb.included) : 0;
+                                const weeklyIncluded = wb?.included ?? s.includedPerWeek ?? 0;
                                 const extra = wb ? wb.extra : 0;
                                 return (<React.Fragment key={wc.ws}>
-                                  <td style={{ ...td, background: wi % 2 === 0 ? evenBg : "transparent", color: incl > 0 ? "var(--text)" : "var(--text3)" }}>{incl > 0 ? incl : "—"}</td>
+                                  <td style={{ ...td, background: wi % 2 === 0 ? evenBg : "transparent", color: weeklyIncluded > 0 ? "var(--text)" : "var(--text3)" }}>{weeklyIncluded > 0 ? weeklyIncluded : "—"}</td>
                                   <td style={{ ...td, background: wi % 2 === 0 ? evenBg : "transparent", color: extra > 0 ? "var(--orange)" : (wb?.cleans || 0) > 0 ? "var(--text)" : "var(--text3)", fontWeight: extra > 0 ? 600 : 400 }}>{(wb?.cleans || 0) > 0 ? wb!.cleans : "—"}</td>
                                 </React.Fragment>);
                               })}
@@ -2929,17 +2967,47 @@ export default function AdminDashboard() {
             setAddingTask(false);
           }
 
+          function resetCfgForm() {
+            setNewCfgName(""); setNewCfgProps([]); setNewCfgVendor(""); setNewCfgNextDue(""); setNewCfgNotes(""); setNewCfgCat("General"); setNewCfgFreq("Monthly");
+            setEditingCfgId(null);
+          }
+
+          function startEditConfig(c: any) {
+            setEditingCfgId(c.id);
+            setNewCfgName(c.taskName || "");
+            setNewCfgCat(c.category || "General");
+            setNewCfgProps(c.propertyIds || []);
+            setNewCfgFreq(c.frequency || "Monthly");
+            setNewCfgVendor(c.vendorId || "");
+            setNewCfgNextDue(c.nextDue || "");
+            setNewCfgNotes(c.notes || "");
+            setShowAddConfig(true);
+          }
+
           async function addConfig() {
             if (!newCfgName) return;
             setAddingConfig(true);
             try {
-              await fetch("/api/maintenance-config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskName: newCfgName, category: newCfgCat, propertyIds: newCfgProps, frequency: newCfgFreq, vendorId: newCfgVendor, nextDue: newCfgNextDue, notes: newCfgNotes }) });
+              const payload = { taskName: newCfgName, category: newCfgCat, propertyIds: newCfgProps, frequency: newCfgFreq, vendorId: newCfgVendor, nextDue: newCfgNextDue, notes: newCfgNotes };
+              if (editingCfgId) {
+                await fetch("/api/maintenance-config", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingCfgId, ...payload }) });
+              } else {
+                await fetch("/api/maintenance-config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+              }
               const d = await fetch("/api/maintenance-config").then(r => r.json());
               setMaintConfigs(d.configs || []);
-              setNewCfgName(""); setNewCfgProps([]); setNewCfgVendor(""); setNewCfgNextDue(""); setNewCfgNotes(""); setNewCfgCat("General"); setNewCfgFreq("Monthly");
+              resetCfgForm();
               setShowAddConfig(false);
             } catch (e) { console.error(e); }
             setAddingConfig(false);
+          }
+
+          async function toggleConfigActive(c: any) {
+            try {
+              await fetch("/api/maintenance-config", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: c.id, active: !c.active }) });
+              const d = await fetch("/api/maintenance-config").then(r => r.json());
+              setMaintConfigs(d.configs || []);
+            } catch (e) { console.error(e); }
           }
 
           async function updateTaskStatus(id: string, status: string, extra?: Record<string, any>) {
@@ -3001,7 +3069,7 @@ export default function AdminDashboard() {
                   <span className="a-gold-rule" />
                 </div>
                 {maintTab === "schedule" && <button onClick={() => setShowAddTask(!showAddTask)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Task</button>}
-                {maintTab === "config" && <button onClick={() => setShowAddConfig(!showAddConfig)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Schedule</button>}
+                {maintTab === "config" && <button onClick={() => { if (showAddConfig) { resetCfgForm(); setShowAddConfig(false); } else { resetCfgForm(); setShowAddConfig(true); } }} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ New Schedule</button>}
                 {maintTab === "vendors" && <button onClick={() => setShowAddMaintVendor(!showAddMaintVendor)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>+ Add Vendor</button>}
               </div>
 
@@ -3341,7 +3409,7 @@ export default function AdminDashboard() {
 
                   {showAddConfig && (
                     <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>New Preventive Schedule</div>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>{editingCfgId ? "Edit Preventive Schedule" : "New Preventive Schedule"}</div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
                         <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Task Name *</div><input value={newCfgName} onChange={e => setNewCfgName(e.target.value)} placeholder="e.g. Monthly pool inspection" style={inp} /></div>
                         <div><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Category</div><select value={newCfgCat} onChange={e => setNewCfgCat(e.target.value)} style={sel}><option>HVAC</option><option>Pool</option><option>Landscaping</option><option>Pest Control</option><option>Plumbing</option><option>Electrical</option><option>Appliances</option><option>General</option></select></div>
@@ -3365,8 +3433,8 @@ export default function AdminDashboard() {
                         <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>Notes</div><textarea value={newCfgNotes} onChange={e => setNewCfgNotes(e.target.value)} rows={2} style={{ ...inp, resize: "vertical" as const }} /></div>
                       </div>
                       <div style={{ display: "flex", gap: 10 }}>
-                        <button onClick={addConfig} disabled={addingConfig} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{addingConfig ? "Saving..." : "Save Schedule"}</button>
-                        <button onClick={() => setShowAddConfig(false)} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                        <button onClick={addConfig} disabled={addingConfig} style={{ padding: "9px 20px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{addingConfig ? "Saving..." : editingCfgId ? "Save Changes" : "Save Schedule"}</button>
+                        <button onClick={() => { setShowAddConfig(false); resetCfgForm(); }} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
                       </div>
                     </div>
                   )}
@@ -3391,7 +3459,8 @@ export default function AdminDashboard() {
                           {isDue && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 100, background: "var(--red-s)", color: "var(--red)" }}>DUE</span>}
                           <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: cc.bg, color: cc.text, textTransform: "uppercase" as const }}>{c.category}</span>
                           <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: fc.bg, color: fc.text }}>{c.frequency}</span>
-                          <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: c.active ? "var(--green-s)" : "rgba(255,255,255,0.05)", color: c.active ? "var(--green)" : "var(--text3)" }}>{c.active ? "Active" : "Inactive"}</span>
+                          <button onClick={() => toggleConfigActive(c)} title={c.active ? "Deactivate" : "Activate"} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 100, background: c.active ? "var(--green-s)" : "rgba(255,255,255,0.05)", color: c.active ? "var(--green)" : "var(--text3)", border: "none", cursor: "pointer", fontFamily: "inherit" }}>{c.active ? "Active" : "Inactive"}</button>
+                          <button onClick={() => startEditConfig(c)} style={{ fontSize: 11, fontWeight: 600, padding: "4px 10px", borderRadius: 100, background: "transparent", color: "var(--text2)", border: "1px solid var(--border2)", cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
                         </div>
                       </div>
                     );
@@ -3583,6 +3652,19 @@ export default function AdminDashboard() {
                 return (
                   <div style={{ overflowX: "auto" }}>
                     <div style={{ minWidth: 700 }}>
+                      {/* Weekly legend — matches monthly view */}
+                      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 18, padding: "0 4px 12px", flexWrap: "wrap" as const }}>
+                        {[["Owner", "var(--teal)"], ["Rental", "var(--blue)"], ["Guest", "#9B8EC4"]].map(([label, color]) => (
+                          <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text3)" }}>
+                            <div style={{ width: 22, height: 8, borderRadius: 3, background: color as string }} />
+                            {label}
+                          </div>
+                        ))}
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--accent)" }}>
+                          <div style={{ width: 2, height: 12, background: "var(--accent)" }} />
+                          Today
+                        </div>
+                      </div>
                       <div style={{ display: "grid", gridTemplateColumns: "180px repeat(7, 1fr)", gap: 1, marginBottom: 1 }}>
                         <div />
                         {weekDays.map(wd => {
@@ -3742,8 +3824,59 @@ export default function AdminDashboard() {
           );
         })()}
 
+        {/* HELP */}
+        {activePage === "help" && (() => {
+          const q = helpSearch.trim().toLowerCase();
+          const filtered = q ? helpArticles.filter(a => a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)) : helpArticles;
+          const byCategory: Record<string, HelpArticle[]> = {};
+          filtered.forEach(a => { (byCategory[a.category] = byCategory[a.category] || []).push(a); });
+          const selected = helpArticles.find(a => a.id === helpSelectedId) || filtered[0] || null;
+          return (
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1240, margin: "0 auto" }}>
+              <div style={{ marginBottom: 28 }}>
+                <span style={eyebrow}>Knowledge Base</span>
+                <h1 style={h1s}>Help Center</h1>
+                <p style={{ fontSize: 13, color: "var(--text2)" }}>Articles and how-tos for the admin portal</p>
+              </div>
+              {helpLoading ? (
+                <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>Loading articles…</div>
+              ) : helpArticles.length === 0 ? (
+                <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>No articles published yet.</div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24, alignItems: "start" }}>
+                  <div style={{ ...card, padding: 16, position: "sticky" as const, top: 24 }}>
+                    <input value={helpSearch} onChange={e => setHelpSearch(e.target.value)} placeholder="Search help…" style={{ ...inp, marginBottom: 14 }} />
+                    {Object.keys(byCategory).length === 0 && <div style={{ fontSize: 12, color: "var(--text3)", padding: "8px 4px" }}>No matches.</div>}
+                    {Object.entries(byCategory).map(([cat, arts]) => (
+                      <div key={cat} style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text3)", padding: "4px 6px 6px" }}>{cat}</div>
+                        {arts.map(a => (
+                          <div key={a.id} onClick={() => setHelpSelectedId(a.id)} style={{ padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontSize: 13, color: selected?.id === a.id ? "var(--accent)" : "var(--text2)", background: selected?.id === a.id ? "var(--accent-s)" : "transparent" }}>
+                            {a.title}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ ...card, padding: "28px 32px", minHeight: 300 }}>
+                    {selected ? (
+                      <>
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 8 }}>{selected.category}</div>
+                        <h2 style={{ ...h2s, margin: "0 0 16px", fontFamily: "'Georgia', serif" }}>{selected.title}</h2>
+                        <div style={{ fontSize: 14, lineHeight: 1.7, color: "var(--text2)", whiteSpace: "pre-wrap" as const }}>{selected.body}</div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 13, color: "var(--text3)" }}>Select an article from the left.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && activePage !== "calendar" && activePage !== "maintenance" && (
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && activePage !== "calendar" && activePage !== "maintenance" && activePage !== "help" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>
