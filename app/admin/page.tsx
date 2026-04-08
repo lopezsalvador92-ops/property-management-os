@@ -300,7 +300,7 @@ export default function AdminDashboard() {
 
   // Fetch feature flags — system_admin sees everything
   useEffect(() => {
-    if (userRole === "system_admin") return;
+    if (userRole === "system_admin") { setEnabledModules(allModuleIds); return; }
     fetch("/api/platform-config").then(r => r.json()).then(d => {
       const roles: { roleId: string; modules: string[]; active: boolean }[] = d.roles || [];
       const myRole = roles.find(r => r.roleId === userRole);
