@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
-type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number };
+type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number; pmFeeUSD: number; pmFeeMXN: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; houseId: string; total: number; currency: string; description: string; receiptUrl: string; owner: string };
 type Deposit = { id: string; date: string; house: string; houseId: string; owner: string; currency: string; amount: number; notes: string; month: string };
 type AppUser = { id: string; firstName: string; lastName: string; email: string; role: string; linkedProperty: string; createdAt: number; lastSignInAt: number | null; imageUrl: string };
@@ -1303,7 +1303,8 @@ export default function AdminDashboard() {
             {repView === "preview" && (() => {
               const propReport = reports.find(r => r.house === previewProp);
               const propExpenses = expenses.filter(e => e.house === previewProp && e.date && e.date.startsWith(monthToFilterValue(repMonth)));
-              const pmFee = propReport ? propReport.totalExpenses * 0.18 : 0;
+              const previewPropObj = properties.find(p => p.name === previewProp);
+              const pmFee = propReport && previewPropObj ? (propReport.currency === "USD" ? previewPropObj.pmFeeUSD : previewPropObj.pmFeeMXN) : 0;
               const catIcons: Record<string, string> = { "Villa Staff": "\u{1F464}", Utilities: "\u26A1", Maintenance: "\u{1F527}", "Cleaning Supplies": "\u{1F9F9}", Groceries: "\u{1F6D2}", Miscellaneous: "\u{1F4E6}", "Rental Expenses": "\u{1F3E0}", Others: "\u{1F4CB}" };
 
               return (
@@ -1375,7 +1376,7 @@ export default function AdminDashboard() {
                         <span style={{ fontSize: 14, fontWeight: 500, color: "var(--red)" }}>-{fmtCur(propReport.totalExpenses, propReport.currency)}</span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-                        <span style={{ fontSize: 14, color: "var(--text2)" }}>PM Fee (18%)</span>
+                        <span style={{ fontSize: 14, color: "var(--text2)" }}>PM Fee</span>
                         <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text3)" }}>{fmtCur(pmFee, propReport.currency)}</span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 4px" }}>

@@ -22,6 +22,8 @@ export async function GET() {
       status: record.fields["Status"]?.name || record.fields["Status"] || "",
       currency: record.fields["Preferred Currency"]?.name || record.fields["Preferred Currency"] || "",
       pmFee: record.fields["PM Fee (USD)"] || record.fields["PM Fee (MXN)"] || 0,
+      pmFeeUSD: record.fields["PM Fee (USD)"] || 0,
+      pmFeeMXN: record.fields["PM Fee (MXN)"] || 0,
     }));
 
     return NextResponse.json({ properties });
