@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
+import FirstLoginGate from "@/components/FirstLoginGate";
 
 type Report = {
   id: string; month: string; status: string; startingBalance: number;
@@ -148,6 +149,7 @@ export default function OwnerPortal() {
 
   return (
     <div style={{ fontFamily: "var(--fb)" }}>
+      <FirstLoginGate />
       <style>{`
         @media(max-width:900px){
           .owner-shell{grid-template-columns:1fr !important;}

@@ -3,11 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import FirstLoginGate from "@/components/FirstLoginGate";
 
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number; pmFeeUSD: number; pmFeeMXN: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; houseId: string; total: number; currency: string; description: string; receiptUrl: string; owner: string };
 type Deposit = { id: string; date: string; house: string; houseId: string; owner: string; currency: string; amount: number; notes: string; month: string };
-type AppUser = { id: string; firstName: string; lastName: string; email: string; role: string; linkedProperty: string; createdAt: number; lastSignInAt: number | null; imageUrl: string };
+type AppUser = { id: string; firstName: string; lastName: string; email: string; role: string; linkedProperty: string; createdAt: number; lastSignInAt: number | null; imageUrl: string; mustChangePassword?: boolean };
+type ActivityLog = { id: string; summary: string; timestamp: string; actorEmail: string; actorRole: string; action: string; targetEmail: string; targetRole: string; details: string };
 type PropertyDetail = { id: string; name: string; owner: string; email: string; secondaryEmail: string; currency: string; status: string; pmFeeUSD: number; pmFeeMXN: number; landscapingFeeUSD: number; landscapingFeeMXN: number; poolFeeUSD: number; poolFeeMXN: number; hskCadence: string; includedCleans: number; hskFeeUSD: number; hskFeeMXN: number; housemanFeeUSD: number; housemanFeeMXN: number };
 type HskLog = { id: string; housekeeper: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
 type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number; weeklyBreakdown: { weekStart: string; cleans: number; included: number; extra: number }[] };
@@ -107,6 +109,9 @@ export default function AdminDashboard() {
 
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [userTab, setUserTab] = useState<"directory" | "logs">("directory");
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserFirst, setNewUserFirst] = useState("");
@@ -351,6 +356,13 @@ export default function AdminDashboard() {
       fetch("/api/users").then(r => r.json()).then(d => { setAppUsers(d.users || []); setUsersLoading(false); }).catch(() => setUsersLoading(false));
     }
   }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "users" && userTab === "logs") {
+      setLogsLoading(true);
+      fetch("/api/user-logs").then(r => r.json()).then(d => { setActivityLogs(d.logs || []); setLogsLoading(false); }).catch(() => setLogsLoading(false));
+    }
+  }, [activePage, userTab]);
 
   async function createUser() {
     if (!newUserEmail || !newUserPass || !newUserRole) return;
@@ -598,6 +610,7 @@ export default function AdminDashboard() {
 
   return (
     <>
+    <FirstLoginGate />
     <style>{`
       .admin-mobile-bar{display:none}
       @media(max-width:900px){
@@ -2052,12 +2065,28 @@ export default function AdminDashboard() {
                 <p style={{ fontSize: 13, color: "var(--text2)" }}>{usersLoading ? "Loading…" : `${appUsers.length} users registered`}</p>
                 <span className="a-gold-rule" />
               </div>
-              <button onClick={() => setShowAddUser(!showAddUser)}
-                style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)", transition: "all var(--dur) var(--ease)" }}>
-                + Add User
-              </button>
+              {userTab === "directory" && (
+                <button onClick={() => setShowAddUser(!showAddUser)}
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)", transition: "all var(--dur) var(--ease)" }}>
+                  + Add User
+                </button>
+              )}
             </div>
 
+            {/* Sub-tabs: Directory | Logs */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 20, borderBottom: "1px solid var(--border)" }}>
+              {[
+                { id: "directory", label: "Directory" },
+                { id: "logs", label: "Logs" },
+              ].map(t => (
+                <button key={t.id} onClick={() => setUserTab(t.id as "directory" | "logs")}
+                  style={{ padding: "10px 18px", border: "none", background: "transparent", color: userTab === t.id ? "var(--text1)" : "var(--text3)", fontSize: 12, fontWeight: userTab === t.id ? 600 : 500, letterSpacing: "0.04em", cursor: "pointer", fontFamily: "inherit", borderBottom: userTab === t.id ? "2px solid var(--accent)" : "2px solid transparent", marginBottom: -1 }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {userTab === "directory" && (<>
             {/* Stat cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
               <div className="a-card" style={{ ...card, padding: "18px 22px" }}><div style={lbl}>Admins</div><div className="a-num" style={{ fontFamily: "var(--fd)", fontSize: 28, lineHeight: 1, color: "var(--teal)" }}>{appUsers.filter(u => u.role === "admin").length}</div></div>
@@ -2158,6 +2187,42 @@ export default function AdminDashboard() {
               })}
               {appUsers.length === 0 && !usersLoading && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>No users found.</div>}
             </div>
+            </>)}
+
+            {userTab === "logs" && (
+              <div style={{ ...card, padding: 0 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 160px 200px", padding: "10px 20px", borderBottom: "2px solid var(--border2)" }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>When</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Event</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Action</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)" }}>Actor</div>
+                </div>
+                {logsLoading && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading…</div>}
+                {!logsLoading && activityLogs.length === 0 && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>No activity yet.</div>}
+                {activityLogs.map((log, i) => {
+                  const ts = log.timestamp ? new Date(log.timestamp) : null;
+                  const whenLabel = ts ? ts.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
+                  const actionLabel = log.action.replace(/^user\./, "").replace(/_/g, " ");
+                  const actionColor = log.action === "user.deleted" ? "var(--red)" : log.action === "user.created" ? "var(--teal-l)" : log.action === "user.password_reset" || log.action === "user.first_login_password_set" ? "var(--accent)" : "var(--text2)";
+                  return (
+                    <div key={log.id} style={{ display: "grid", gridTemplateColumns: "150px 1fr 160px 200px", padding: "12px 20px", borderBottom: i < activityLogs.length - 1 ? "1px solid var(--border)" : "none", alignItems: "center" }}>
+                      <div style={{ fontSize: 12, color: "var(--text3)" }}>{whenLabel}</div>
+                      <div style={{ fontSize: 13, color: "var(--text1)" }}>
+                        {log.summary}
+                        {log.details && <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{log.details}</div>}
+                      </div>
+                      <div>
+                        <span style={{ padding: "3px 10px", borderRadius: 100, background: "var(--bg2)", color: actionColor, fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" as const }}>{actionLabel}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text2)" }}>
+                        {log.actorEmail || "—"}
+                        {log.actorRole && <div style={{ fontSize: 10, color: "var(--text3)" }}>{log.actorRole}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

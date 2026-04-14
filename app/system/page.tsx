@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
+import FirstLoginGate from "@/components/FirstLoginGate";
 
 type Role = {
   id: string;
@@ -87,6 +88,7 @@ export default function SystemSettings() {
 
   return (
     <div style={{ fontFamily: "var(--fb)", minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
+      <FirstLoginGate />
       <style>{`
         .sys-toggle{transition:background var(--dur) var(--ease);}
         .sys-toggle-knob{transition:left var(--dur) var(--ease);}
