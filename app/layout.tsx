@@ -2,8 +2,13 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 export const metadata = {
-  title: "Cape PM OS",
+  title: "Cape PM",
   description: "Property Management Operating System",
+  appleWebApp: {
+    title: "Cape PM",
+    capable: true,
+    statusBarStyle: "default" as const,
+  },
 };
 
 export default function RootLayout({
