@@ -11,7 +11,8 @@ type Deposit = { id: string; date: string; house: string; houseId: string; owner
 type AppUser = { id: string; firstName: string; lastName: string; email: string; role: string; linkedProperty: string; createdAt: number; lastSignInAt: number | null; imageUrl: string; mustChangePassword?: boolean };
 type ActivityLog = { id: string; summary: string; timestamp: string; actorEmail: string; actorRole: string; action: string; targetEmail: string; targetRole: string; details: string };
 type PropertyDetail = { id: string; name: string; owner: string; email: string; secondaryEmail: string; currency: string; status: string; pmFeeUSD: number; pmFeeMXN: number; landscapingFeeUSD: number; landscapingFeeMXN: number; poolFeeUSD: number; poolFeeMXN: number; hskCadence: string; includedCleans: number; hskFeeUSD: number; hskFeeMXN: number; housemanFeeUSD: number; housemanFeeMXN: number };
-type HskLog = { id: string; housekeeper: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
+type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+type HskLog = { id: string; housekeeper: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; dayIds: { mon: string[]; tue: string[]; wed: string[]; thu: string[]; fri: string[]; sat: string[]; sun: string[] }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
 type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number; weeklyBreakdown: { weekStart: string; cleans: number; included: number; extra: number }[] };
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
@@ -162,6 +163,10 @@ export default function AdminDashboard() {
   const [hskSummaryMonth, setHskSummaryMonth] = useState(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`; });
   const [editHskId, setEditHskId] = useState<string | null>(null);
   const [editHskComment, setEditHskComment] = useState("");
+  const [editDaysId, setEditDaysId] = useState<string | null>(null);
+  const [editDaysData, setEditDaysData] = useState<Record<DayKey, string[]>>({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] });
+  const [savingDays, setSavingDays] = useState(false);
+  const [approvedShowCount, setApprovedShowCount] = useState(20);
   const [previewId, setPreviewId] = useState<string | null>(null);
 
   // Concierge state
@@ -545,6 +550,33 @@ export default function AdminDashboard() {
       if (res.ok) { fetch("/api/housekeeping").then(r => r.json()).then(d => { setHskLogs(d.logs || []); setHskSummary(d.monthlySummary || []); setHskWeekStarts(d.weekStarts || []); }); }
     } catch (e) { console.error(e); }
     setHskUpdating(null);
+  }
+
+  function startEditDays(log: HskLog) {
+    setEditDaysId(log.id);
+    setEditDaysData({
+      mon: [...log.dayIds.mon], tue: [...log.dayIds.tue], wed: [...log.dayIds.wed],
+      thu: [...log.dayIds.thu], fri: [...log.dayIds.fri], sat: [...log.dayIds.sat], sun: [...log.dayIds.sun],
+    });
+  }
+
+  async function saveHskDays(recordId: string) {
+    setSavingDays(true);
+    try {
+      const res = await fetch("/api/housekeeping", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "editDays", recordId, days: editDaysData }),
+      });
+      if (res.ok) {
+        const d = await fetch(`/api/housekeeping?month=${hskSummaryMonth}`).then(r => r.json());
+        setHskLogs(d.logs || []);
+        setHskSummary(d.monthlySummary || []);
+        setHskWeekStarts(d.weekStarts || []);
+        setEditDaysId(null);
+      }
+    } catch (e) { console.error(e); }
+    setSavingDays(false);
   }
 
   async function updateReports(action: string, ids: string[]) {
@@ -1553,27 +1585,61 @@ export default function AdminDashboard() {
               {/* INDIVIDUAL VIEW */}
               {hskView === "individual" && (<>
                 {/* Pending */}
-                {pending.map(log => (
+                {pending.map(log => {
+                  const isEditingDays = editDaysId === log.id;
+                  const activeProps = properties.filter(p => p.status === "Active");
+                  return (
                   <div key={log.id} style={{ ...card, marginBottom: 16, padding: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
                       <div style={{ fontSize: 15, fontWeight: 500 }}>{formatWeek(log.weekStart)} — {log.housekeeper}</div>
-                      <span style={{ fontSize: 11, padding: "3px 12px", borderRadius: 100, fontWeight: 500, background: "var(--accent-s)", color: "var(--accent)" }}>PENDING</span>
+                      <span style={{ fontSize: 11, padding: "3px 12px", borderRadius: 100, fontWeight: 500, background: isEditingDays ? "var(--teal-s)" : "var(--accent-s)", color: isEditingDays ? "var(--teal-l)" : "var(--accent)" }}>{isEditingDays ? "EDITING" : "PENDING"}</span>
                     </div>
-                    {/* Grid */}
-                    <div style={{ overflowX: "auto" as const, padding: "16px 20px" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "120px repeat(7, 1fr)", gap: 0, minWidth: 700 }}>
-                        <div />
-                        {dayLabels.map(d => <div key={d} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const, padding: "0 4px 8px" }}>{d}</div>)}
-                        <div style={{ fontSize: 13, color: "var(--text2)", padding: "8px 0", display: "flex", alignItems: "center" }}>{log.housekeeper.split(" ")[0]}</div>
-                        {dayKeys.map(dk => (
-                          <div key={dk} style={{ padding: "4px", textAlign: "center" as const, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap" as const, gap: 2 }}>
-                            {log.days[dk] ? log.days[dk].split(", ").map((h, i) => <PropertyPill key={i} name={h.trim()} />) : <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>}
-                          </div>
-                        ))}
+                    {/* Day Grid OR Day Edit */}
+                    {isEditingDays ? (
+                      <div style={{ padding: "12px 20px 16px" }}>
+                        {dayKeys.map((dk, idx) => {
+                          const dayPropIds = editDaysData[dk] || [];
+                          const dayProps = dayPropIds.map(id => properties.find(p => p.id === id)).filter(Boolean) as Property[];
+                          const available = activeProps.filter(p => !dayPropIds.includes(p.id));
+                          return (
+                            <div key={dk} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                              <div style={{ width: 44, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--text3)" }}>{dayLabels[idx]}</div>
+                              <div style={{ flex: 1, display: "flex", flexWrap: "wrap" as const, gap: 4, alignItems: "center", minHeight: 28 }}>
+                                {dayProps.length === 0 && <span style={{ fontSize: 12, color: "var(--text3)", fontStyle: "italic" }}>No cleans</span>}
+                                {dayProps.map(p => (
+                                  <span key={p.id} onClick={() => setEditDaysData(d => ({ ...d, [dk]: d[dk].filter(id => id !== p.id) }))} title="Click to remove" style={{ padding: "3px 8px 3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500, background: "var(--accent-s)", color: "var(--accent)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                    {p.name}<span style={{ opacity: 0.55, fontSize: 11 }}>×</span>
+                                  </span>
+                                ))}
+                              </div>
+                              <select value="" onChange={(e) => { if (!e.target.value) return; setEditDaysData(d => ({ ...d, [dk]: [...d[dk], e.target.value] })); }} style={{ ...sel, padding: "6px 28px 6px 10px", fontSize: 12, minWidth: 160 }}>
+                                <option value="">+ Add property</option>
+                                {available.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              </select>
+                            </div>
+                          );
+                        })}
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
+                          <button onClick={() => setEditDaysId(null)} disabled={savingDays} style={{ padding: "7px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, cursor: savingDays ? "not-allowed" : "pointer", fontFamily: "inherit" }}>Cancel</button>
+                          <button onClick={() => saveHskDays(log.id)} disabled={savingDays} style={{ padding: "7px 18px", borderRadius: 100, border: "none", background: "var(--teal)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: savingDays ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: savingDays ? 0.7 : 1 }}>{savingDays ? "Saving…" : "Save Days"}</button>
+                        </div>
                       </div>
-                    </div>
-                    {/* Comments */}
-                    {editHskId === log.id ? (
+                    ) : (
+                      <div style={{ overflowX: "auto" as const, padding: "16px 20px" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "120px repeat(7, 1fr)", gap: 0, minWidth: 700 }}>
+                          <div />
+                          {dayLabels.map(d => <div key={d} style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center" as const, padding: "0 4px 8px" }}>{d}</div>)}
+                          <div style={{ fontSize: 13, color: "var(--text2)", padding: "8px 0", display: "flex", alignItems: "center" }}>{log.housekeeper.split(" ")[0]}</div>
+                          {dayKeys.map(dk => (
+                            <div key={dk} style={{ padding: "4px", textAlign: "center" as const, minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap" as const, gap: 2 }}>
+                              {log.days[dk] ? log.days[dk].split(", ").map((h, i) => <PropertyPill key={i} name={h.trim()} />) : <span style={{ color: "var(--text3)", fontSize: 12 }}>—</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Comments — hidden during day edit */}
+                    {!isEditingDays && (editHskId === log.id ? (
                       <div style={{ padding: "8px 20px 12px", display: "flex", gap: 8, alignItems: "center" }}>
                         <input value={editHskComment} onChange={ev => setEditHskComment(ev.target.value)} placeholder="Add a note before approving..." style={{ ...inp, flex: 1, padding: "7px 12px", fontSize: 12 }} />
                         <button onClick={async () => { await fetch("/api/housekeeping", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "editComment", recordId: log.id, comments: editHskComment }) }); const d = await fetch(`/api/housekeeping?month=${hskSummaryMonth}`).then(r => r.json()); setHskLogs(d.logs || []); setEditHskId(null); }} style={{ padding: "5px 14px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
@@ -1581,23 +1647,30 @@ export default function AdminDashboard() {
                       </div>
                     ) : log.comments ? (
                       <div style={{ padding: "0 20px 12px", fontSize: 12, color: "var(--text3)", fontStyle: "italic", cursor: "pointer" }} onClick={() => { setEditHskId(log.id); setEditHskComment(log.comments); }}>{log.comments} <span style={{ color: "var(--accent)", fontStyle: "normal" }}>✎</span></div>
-                    ) : null}
-                    {/* Actions */}
-                    <div style={{ display: "flex", gap: 8, padding: "12px 20px", borderTop: "1px solid var(--border)", justifyContent: "flex-end" }}>
-                      {editHskId !== log.id && <button onClick={() => { setEditHskId(log.id); setEditHskComment(log.comments || ""); }} style={{ padding: "7px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", marginRight: "auto" }}>✎ Edit Note</button>}
-                      <button onClick={() => updateHsk("reject", [log.id])} disabled={hskUpdating !== null}
-                        style={{ padding: "7px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
-                      <button onClick={() => updateHsk("approve", [log.id])} disabled={hskUpdating !== null}
-                        style={{ padding: "7px 18px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Approve & Create Expenses</button>
-                    </div>
+                    ) : null)}
+                    {/* Actions — hidden during day edit (Save/Cancel are above) */}
+                    {!isEditingDays && (
+                      <div style={{ display: "flex", gap: 8, padding: "12px 20px", borderTop: "1px solid var(--border)", justifyContent: "flex-end" }}>
+                        {editHskId !== log.id && <button onClick={() => startEditDays(log)} style={{ padding: "7px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", marginRight: "auto" }}>✎ Edit Days</button>}
+                        {editHskId !== log.id && <button onClick={() => { setEditHskId(log.id); setEditHskComment(log.comments || ""); }} style={{ padding: "7px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit Note</button>}
+                        <button onClick={() => updateHsk("reject", [log.id])} disabled={hskUpdating !== null}
+                          style={{ padding: "7px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
+                        <button onClick={() => updateHsk("approve", [log.id])} disabled={hskUpdating !== null}
+                          style={{ padding: "7px 18px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Approve &amp; Create Expenses</button>
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
 
                 {/* Approved */}
                 {approved.length > 0 && (
                   <>
-                    <h2 style={{ ...h2s, marginTop: 28, marginBottom: 12 }}>Approved</h2>
-                    {approved.slice(0, 10).map(log => (
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 28, marginBottom: 12 }}>
+                      <h2 style={{ ...h2s, margin: 0 }}>Approved</h2>
+                      <span style={{ fontSize: 11, color: "var(--text3)" }}>Showing {Math.min(approvedShowCount, approved.length)} of {approved.length}</span>
+                    </div>
+                    {approved.slice(0, approvedShowCount).map(log => (
                       <div key={log.id} style={{ ...card, marginBottom: 12, padding: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
                           <div style={{ fontSize: 15, fontWeight: 500 }}>{formatWeek(log.weekStart)} — {log.housekeeper}</div>
@@ -1621,6 +1694,13 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     ))}
+                    {approved.length > approvedShowCount && (
+                      <div style={{ display: "flex", justifyContent: "center", marginTop: 16, marginBottom: 8 }}>
+                        <button onClick={() => setApprovedShowCount(c => c + 20)} style={{ padding: "9px 22px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>
+                          Load 20 more ({approved.length - approvedShowCount} remaining)
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </>)}

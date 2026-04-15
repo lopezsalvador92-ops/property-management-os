@@ -43,6 +43,7 @@ export async function GET(request: Request) {
       "Housekeeper Name", "Start of the Week",
       "Monday Houses", "Tuesday Houses", "Wednesday Houses",
       "Thursday Houses", "Friday Houses", "Saturday Houses", "Sunday Houses",
+      "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
       "Approval Status", "Expenses Created?", "Comments", "Approval Time Stamp",
     ];
     fields.forEach(f => hskParams.append("fields[]", f));
@@ -50,6 +51,11 @@ export async function GET(request: Request) {
     hskParams.set("sort[0][field]", "Start of the Week");
     hskParams.set("sort[0][direction]", "desc");
     const hskData = await airtableGet(HSK_TABLE, hskParams);
+
+    const extractIds = (raw: any): string[] => {
+      if (!Array.isArray(raw)) return [];
+      return raw.map((x: any) => (typeof x === "string" ? x : x?.id || "")).filter(Boolean);
+    };
 
     const logs = hskData.records.map((record: any) => {
       const statusRaw = record.fields["Approval Status"];
@@ -68,6 +74,15 @@ export async function GET(request: Request) {
           fri: record.fields["Friday Houses"] || "",
           sat: record.fields["Saturday Houses"] || "",
           sun: record.fields["Sunday Houses"] || "",
+        },
+        dayIds: {
+          mon: extractIds(record.fields["Monday"]),
+          tue: extractIds(record.fields["Tuesday"]),
+          wed: extractIds(record.fields["Wednesday"]),
+          thu: extractIds(record.fields["Thursday"]),
+          fri: extractIds(record.fields["Friday"]),
+          sat: extractIds(record.fields["Saturday"]),
+          sun: extractIds(record.fields["Sunday"]),
         },
         status,
         expensesCreated: expCreated,
@@ -168,6 +183,39 @@ export async function PATCH(request: Request) {
         body: JSON.stringify({ records: [{ id: recordId, fields: { "Comments": comments || "" } }] }),
       });
       if (!res.ok) return NextResponse.json({ error: "Failed to update comment" }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+
+    // Edit day-level property assignments (before approval)
+    if (action === "editDays" && recordId) {
+      const { days } = body as { days: Record<string, string[]> };
+      if (!days || typeof days !== "object") {
+        return NextResponse.json({ error: "Missing days payload" }, { status: 400 });
+      }
+      const dayKeyToField: Record<string, string> = {
+        mon: "Monday", tue: "Tuesday", wed: "Wednesday",
+        thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday",
+      };
+      const fields: Record<string, any> = {};
+      for (const [key, propIds] of Object.entries(days)) {
+        const fieldName = dayKeyToField[key];
+        if (!fieldName) continue;
+        if (!Array.isArray(propIds)) continue;
+        fields[fieldName] = propIds.filter(Boolean);
+      }
+      if (Object.keys(fields).length === 0) {
+        return NextResponse.json({ error: "No valid day fields to update" }, { status: 400 });
+      }
+      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${HSK_TABLE}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ records: [{ id: recordId, fields }] }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("HSK editDays error:", errData);
+        return NextResponse.json({ error: "Failed to update days" }, { status: 500 });
+      }
       return NextResponse.json({ success: true });
     }
 
