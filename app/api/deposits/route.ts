@@ -132,6 +132,66 @@ export async function GET() {
   }
 }
 
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, houseId, amount, date, notes } = body;
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    const fields: Record<string, any> = {};
+    if (houseId !== undefined) fields["House Name"] = [houseId];
+    if (amount !== undefined && amount !== "") fields["Amount"] = parseFloat(amount);
+    if (date !== undefined) fields["Date"] = date;
+    if (notes !== undefined) fields["Notes"] = notes;
+
+    const res = await fetch(
+      `https://api.airtable.com/v0/${BASE_ID}/${DEPOSITS_TABLE}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ records: [{ id, fields }] }),
+      }
+    );
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      console.error("Airtable patch error:", errData);
+      return NextResponse.json({ error: "Failed to update deposit" }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Update deposit error:", error);
+    return NextResponse.json({ error: "Failed to update deposit" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    const res = await fetch(
+      `https://api.airtable.com/v0/${BASE_ID}/${DEPOSITS_TABLE}/${id}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
+      }
+    );
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      console.error("Airtable delete error:", errData);
+      return NextResponse.json({ error: "Failed to delete deposit" }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete deposit error:", error);
+    return NextResponse.json({ error: "Failed to delete deposit" }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

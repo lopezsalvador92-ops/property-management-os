@@ -99,6 +99,10 @@ export default function AdminDashboard() {
   const [depNotes, setDepNotes] = useState("");
   const [depSubmitting, setDepSubmitting] = useState(false);
   const [depSuccess, setDepSuccess] = useState(false);
+  const [editDepId, setEditDepId] = useState<string | null>(null);
+  const [editDepForm, setEditDepForm] = useState({ houseId: "", amount: "", date: "", notes: "" });
+  const [savingDep, setSavingDep] = useState(false);
+  const [deletingDep, setDeletingDep] = useState<string | null>(null);
 
   const [reports, setReports] = useState<Report[]>([]);
   const [repLoading, setRepLoading] = useState(false);
@@ -608,6 +612,47 @@ export default function AdminDashboard() {
     setDepSubmitting(false);
   }
 
+  function startEditDeposit(d: Deposit) {
+    setEditDepId(d.id);
+    setEditDepForm({
+      houseId: d.houseId || "",
+      amount: String(d.amount || ""),
+      date: d.date || "",
+      notes: d.notes || "",
+    });
+  }
+
+  async function saveEditDeposit() {
+    if (!editDepId) return;
+    setSavingDep(true);
+    try {
+      const res = await fetch("/api/deposits", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editDepId, ...editDepForm }),
+      });
+      if (res.ok) {
+        setEditDepId(null);
+        fetch("/api/deposits").then(r => r.json()).then(d => setDeposits(d.deposits || []));
+        fetch("/api/balances").then(r => r.json()).then(d => { setBalances(d.balances || []); if (d.reportStatus) setReportStatus(d.reportStatus); });
+      }
+    } catch (e) { console.error(e); }
+    setSavingDep(false);
+  }
+
+  async function deleteDeposit(id: string) {
+    if (!confirm("Delete this deposit? This cannot be undone.")) return;
+    setDeletingDep(id);
+    try {
+      const res = await fetch(`/api/deposits?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) {
+        fetch("/api/deposits").then(r => r.json()).then(d => setDeposits(d.deposits || []));
+        fetch("/api/balances").then(r => r.json()).then(d => { setBalances(d.balances || []); if (d.reportStatus) setReportStatus(d.reportStatus); });
+      }
+    } catch (e) { console.error(e); }
+    setDeletingDep(null);
+  }
+
   return (
     <>
     <FirstLoginGate />
@@ -1059,14 +1104,48 @@ export default function AdminDashboard() {
             <div style={{ ...card, marginBottom: 28, padding: 0 }}>
               {depLoading && <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>Loading...</div>}
               {deposits.slice(0, 15).map((d, i) => (
-                <div key={`dep-${d.id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", borderBottom: i < Math.min(deposits.length, 15) - 1 ? "1px solid var(--border)" : "none" }}>
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--green-s)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--green)", fontSize: 14, flexShrink: 0 }}>↓</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, marginBottom: 2 }}>{d.house} — {d.owner}</div>
-                    <div style={{ fontSize: 12, color: "var(--text3)" }}>{d.notes || "Deposit"} · {fmtDate(d.date)}</div>
+                <React.Fragment key={`dep-${d.id}-${i}`}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", borderBottom: editDepId === d.id ? "none" : i < Math.min(deposits.length, 15) - 1 ? "1px solid var(--border)" : "none" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--green-s)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--green)", fontSize: 14, flexShrink: 0 }}>↓</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, marginBottom: 2 }}>{d.house} — {d.owner}</div>
+                      <div style={{ fontSize: 12, color: "var(--text3)" }}>{d.notes || "Deposit"} · {fmtDate(d.date)}</div>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: "var(--green)", whiteSpace: "nowrap" as const }}>+{d.currency} ${(d.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                    <div style={{ display: "flex", gap: 6, marginLeft: 6 }}>
+                      <button onClick={() => startEditDeposit(d)} title="Edit deposit" style={{ padding: "5px 11px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" as const, cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button>
+                      <button onClick={() => deleteDeposit(d.id)} disabled={deletingDep === d.id} title="Delete deposit" style={{ padding: "5px 11px", borderRadius: 100, border: "1px solid rgba(224,133,133,0.30)", background: "transparent", color: "var(--red)", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" as const, cursor: "pointer", fontFamily: "inherit" }}>{deletingDep === d.id ? "…" : "Delete"}</button>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: "var(--green)", whiteSpace: "nowrap" as const }}>+{d.currency} ${(d.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-                </div>
+                  {editDepId === d.id && (
+                    <div style={{ padding: "14px 20px", background: "var(--accent-s)", borderBottom: i < Math.min(deposits.length, 15) - 1 ? "1px solid var(--border)" : "none" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 110px 130px 1fr auto", gap: 10, alignItems: "end" }}>
+                        <div>
+                          <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Property</div>
+                          <select value={editDepForm.houseId} onChange={e => setEditDepForm(f => ({ ...f, houseId: e.target.value }))} style={{ ...inp, padding: "6px 10px", fontSize: 12, appearance: "none" as const }}>
+                            {active.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Amount</div>
+                          <input type="number" value={editDepForm.amount} onChange={e => setEditDepForm(f => ({ ...f, amount: e.target.value }))} style={{ ...inp, padding: "6px 10px", fontSize: 12 }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Date</div>
+                          <input type="date" value={editDepForm.date} onChange={e => setEditDepForm(f => ({ ...f, date: e.target.value }))} style={{ ...inp, padding: "6px 10px", fontSize: 12 }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Notes</div>
+                          <input type="text" value={editDepForm.notes} onChange={e => setEditDepForm(f => ({ ...f, notes: e.target.value }))} style={{ ...inp, padding: "6px 10px", fontSize: 12 }} />
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={saveEditDeposit} disabled={savingDep} style={{ padding: "6px 14px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{savingDep ? "…" : "Save"}</button>
+                          <button onClick={() => setEditDepId(null)} style={{ padding: "6px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>✕</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
               ))}
             </div>
 
