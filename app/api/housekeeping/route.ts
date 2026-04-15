@@ -4,6 +4,7 @@ const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
 const HSK_TABLE = "tblG8udG0Wdo6Wms6";
 const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
+const HOUSEKEEPERS_TABLE = "tblHxw0Mqcs5X76cL";
 
 async function airtableGet(tableId: string, params: URLSearchParams) {
   const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
@@ -16,14 +17,34 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const monthParam = searchParams.get("month"); // optional YYYY-MM
-    // Step 1: Fetch properties with clean configs
+    // Step 1: Fetch properties (with clean configs) + housekeepers in parallel
     const propParams = new URLSearchParams();
     propParams.append("fields[]", "House Name");
     propParams.append("fields[]", "Included Cleans");
     propParams.append("fields[]", "HSK Fixed Fee");
     propParams.append("fields[]", "Status");
     propParams.set("pageSize", "50");
-    const propData = await airtableGet(PROPERTIES_TABLE, propParams);
+
+    const hkParams = new URLSearchParams();
+    hkParams.append("fields[]", "Name");
+    hkParams.append("fields[]", "Active");
+    hkParams.set("pageSize", "100");
+
+    const [propData, hkData] = await Promise.all([
+      airtableGet(PROPERTIES_TABLE, propParams),
+      airtableGet(HOUSEKEEPERS_TABLE, hkParams),
+    ]);
+
+    const hkById: Record<string, { id: string; name: string; active: boolean }> = {};
+    const housekeepers: { id: string; name: string; active: boolean }[] = [];
+    for (const rec of hkData.records) {
+      const name = rec.fields["Name"] || "";
+      const active = rec.fields["Active"] === true;
+      const entry = { id: rec.id, name, active };
+      hkById[rec.id] = entry;
+      housekeepers.push(entry);
+    }
+    housekeepers.sort((a, b) => a.name.localeCompare(b.name));
 
     const propConfigs: Record<string, { name: string; includedCleans: number; cadence: string }> = {};
     for (const rec of propData.records) {
@@ -40,7 +61,7 @@ export async function GET(request: Request) {
     // Step 2: Fetch housekeeping logs
     const hskParams = new URLSearchParams();
     const fields = [
-      "Housekeeper Name", "Start of the Week",
+      "Housekeeper Name", "Housekeeper", "Start of the Week",
       "Monday Houses", "Tuesday Houses", "Wednesday Houses",
       "Thursday Houses", "Friday Houses", "Saturday Houses", "Sunday Houses",
       "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
@@ -62,9 +83,17 @@ export async function GET(request: Request) {
       const status = typeof statusRaw === "string" ? statusRaw : statusRaw?.name || "";
       const expRaw = record.fields["Expenses Created?"];
       const expCreated = (typeof expRaw === "string" ? expRaw : expRaw?.name || "") === "True";
+      const legacyName = (record.fields["Housekeeper Name"] || "").toString().trim();
+      const hkLinkIds = extractIds(record.fields["Housekeeper"]);
+      const hkId = hkLinkIds[0] || "";
+      const hkRec = hkId ? hkById[hkId] : undefined;
+      // Prefer canonical name from Housekeepers table; fall back to legacy free-text if unlinked
+      const housekeeperName = hkRec?.name || legacyName;
       return {
         id: record.id,
-        housekeeper: (record.fields["Housekeeper Name"] || "").trim(),
+        housekeeper: housekeeperName,
+        housekeeperId: hkId,
+        housekeeperLegacy: legacyName,
         weekStart: record.fields["Start of the Week"] || "",
         days: {
           mon: record.fields["Monday Houses"] || "",
@@ -163,6 +192,7 @@ export async function GET(request: Request) {
       monthlySummary,
       weekStarts,
       currentMonth: currentMonthLabel,
+      housekeepers,
     });
   } catch (error) {
     console.error("HSK error:", error);

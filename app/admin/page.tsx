@@ -159,7 +159,13 @@ export default function AdminDashboard() {
   const [hskWeekStarts, setHskWeekStarts] = useState<string[]>([]);
   const [hskLoading, setHskLoading] = useState(false);
   const [hskUpdating, setHskUpdating] = useState<string | null>(null);
-  const [hskView, setHskView] = useState<"individual" | "weekly" | "summary">("individual");
+  const [hskView, setHskView] = useState<"individual" | "weekly" | "summary" | "housekeepers">("individual");
+  const [housekeepersList, setHousekeepersList] = useState<{ id: string; name: string; active: boolean; notes: string; logCount: number }[]>([]);
+  const [hkListLoading, setHkListLoading] = useState(false);
+  const [editingHkId, setEditingHkId] = useState<string | null>(null);
+  const [hkForm, setHkForm] = useState<{ name: string; active: boolean; notes: string }>({ name: "", active: true, notes: "" });
+  const [hkSaving, setHkSaving] = useState(false);
+  const [hkShowAdd, setHkShowAdd] = useState(false);
   const [hskSummaryMonth, setHskSummaryMonth] = useState(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`; });
   const [editHskId, setEditHskId] = useState<string | null>(null);
   const [editHskComment, setEditHskComment] = useState("");
@@ -542,6 +548,42 @@ export default function AdminDashboard() {
       fetch(`/api/housekeeping?month=${hskSummaryMonth}`).then(r => r.json()).then(d => { setHskLogs(d.logs || []); setHskSummary(d.monthlySummary || []); setHskMonth(d.currentMonth || ""); setHskWeekStarts(d.weekStarts || []); setHskLoading(false); }).catch(() => setHskLoading(false));
     }
   }, [activePage, hskSummaryMonth]);
+
+  async function loadHousekeepers() {
+    setHkListLoading(true);
+    try {
+      const res = await fetch("/api/housekeepers");
+      const d = await res.json();
+      setHousekeepersList(d.housekeepers || []);
+    } catch (e) { console.error(e); }
+    setHkListLoading(false);
+  }
+
+  useEffect(() => {
+    if (activePage === "housekeeping" && hskView === "housekeepers") {
+      loadHousekeepers();
+    }
+  }, [activePage, hskView]);
+
+  async function saveHousekeeper() {
+    if (!hkForm.name.trim()) return;
+    setHkSaving(true);
+    try {
+      const isEdit = !!editingHkId;
+      const res = await fetch("/api/housekeepers", {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(isEdit ? { id: editingHkId, ...hkForm } : hkForm),
+      });
+      if (res.ok) {
+        setEditingHkId(null);
+        setHkShowAdd(false);
+        setHkForm({ name: "", active: true, notes: "" });
+        await loadHousekeepers();
+      }
+    } catch (e) { console.error(e); }
+    setHkSaving(false);
+  }
 
   async function updateHsk(action: string, ids: string[]) {
     setHskUpdating(action);
@@ -1566,6 +1608,7 @@ export default function AdminDashboard() {
                   <button onClick={() => setHskView("individual")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "individual" ? "var(--accent-s)" : "transparent", color: hskView === "individual" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Individual</button>
                   <button onClick={() => setHskView("weekly")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "weekly" ? "var(--accent-s)" : "transparent", color: hskView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Weekly</button>
                   <button onClick={() => setHskView("summary")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "summary" ? "var(--accent-s)" : "transparent", color: hskView === "summary" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Monthly</button>
+                  <button onClick={() => setHskView("housekeepers")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "housekeepers" ? "var(--accent-s)" : "transparent", color: hskView === "housekeepers" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Housekeepers</button>
                 </div>
               </div>
 
@@ -1800,6 +1843,127 @@ export default function AdminDashboard() {
                       </div>
                     );
                   })}
+                </>);
+              })()}
+
+              {/* HOUSEKEEPERS MANAGEMENT */}
+              {hskView === "housekeepers" && (() => {
+                const startEdit = (hk: { id: string; name: string; active: boolean; notes: string }) => {
+                  setEditingHkId(hk.id);
+                  setHkShowAdd(false);
+                  setHkForm({ name: hk.name, active: hk.active, notes: hk.notes });
+                };
+                const startAdd = () => {
+                  setEditingHkId(null);
+                  setHkShowAdd(true);
+                  setHkForm({ name: "", active: true, notes: "" });
+                };
+                const cancelForm = () => {
+                  setEditingHkId(null);
+                  setHkShowAdd(false);
+                  setHkForm({ name: "", active: true, notes: "" });
+                };
+                const showForm = hkShowAdd || !!editingHkId;
+                const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text)", fontSize: 13, fontFamily: "inherit" };
+                const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "var(--text3)", display: "block", marginBottom: 6 };
+                const activeList = housekeepersList.filter(h => h.active);
+                const inactiveList = housekeepersList.filter(h => !h.active);
+
+                return (<>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                    <div style={{ fontSize: 13, color: "var(--text2)" }}>
+                      {hkListLoading ? "Loading…" : `${activeList.length} active · ${inactiveList.length} inactive`}
+                    </div>
+                    {!showForm && (
+                      <button onClick={startAdd}
+                        style={{ padding: "9px 18px", borderRadius: 100, border: "1px solid var(--accent-line)", background: "var(--accent-s)", color: "var(--accent)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, cursor: "pointer", fontFamily: "inherit" }}>
+                        + Add Housekeeper
+                      </button>
+                    )}
+                  </div>
+
+                  {showForm && (
+                    <div style={{ ...card, padding: 20, marginBottom: 20 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
+                        {editingHkId ? "Edit housekeeper" : "New housekeeper"}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
+                        <div>
+                          <label style={labelStyle}>Name</label>
+                          <input
+                            type="text"
+                            value={hkForm.name}
+                            onChange={e => setHkForm(f => ({ ...f, name: e.target.value }))}
+                            placeholder="Full name"
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Status</label>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 0" }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
+                              <input type="checkbox" checked={hkForm.active} onChange={e => setHkForm(f => ({ ...f, active: e.target.checked }))} />
+                              Active
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={labelStyle}>Notes</label>
+                        <textarea
+                          value={hkForm.notes}
+                          onChange={e => setHkForm(f => ({ ...f, notes: e.target.value }))}
+                          placeholder="Optional notes (variants seen in logs, status context, etc.)"
+                          rows={3}
+                          style={{ ...inputStyle, resize: "vertical" as const, fontFamily: "inherit" }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                        <button onClick={cancelForm} disabled={hkSaving}
+                          style={{ padding: "9px 18px", borderRadius: 100, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, cursor: "pointer", fontFamily: "inherit" }}>
+                          Cancel
+                        </button>
+                        <button onClick={saveHousekeeper} disabled={hkSaving || !hkForm.name.trim()}
+                          style={{ padding: "9px 22px", borderRadius: 100, border: "1px solid var(--accent-line)", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, cursor: "pointer", fontFamily: "inherit", opacity: (hkSaving || !hkForm.name.trim()) ? 0.5 : 1 }}>
+                          {hkSaving ? "Saving…" : (editingHkId ? "Save Changes" : "Create")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!hkListLoading && housekeepersList.length === 0 && (
+                    <div style={{ padding: 20, color: "var(--text3)", fontSize: 13 }}>No housekeepers yet.</div>
+                  )}
+
+                  {housekeepersList.length > 0 && (
+                    <div style={{ ...card, padding: 0, overflow: "hidden" as const }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 3fr 1fr 100px", gap: 0, padding: "12px 20px", borderBottom: "1px solid var(--border)", background: "var(--bg2)" }}>
+                        <div style={labelStyle}>Name</div>
+                        <div style={labelStyle}>Status</div>
+                        <div style={labelStyle}>Notes</div>
+                        <div style={{ ...labelStyle, textAlign: "right" as const }}>Logs</div>
+                        <div style={labelStyle}></div>
+                      </div>
+                      {housekeepersList.map(hk => (
+                        <div key={hk.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 3fr 1fr 100px", gap: 0, padding: "14px 20px", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
+                          <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)" }}>{hk.name}</div>
+                          <div>
+                            <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 100, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, background: hk.active ? "var(--green-s)" : "var(--bg2)", color: hk.active ? "var(--green)" : "var(--text3)", border: hk.active ? "none" : "1px solid var(--border)" }}>
+                              {hk.active ? "Active" : "Inactive"}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--text2)", whiteSpace: "pre-wrap" as const }}>{hk.notes || <span style={{ color: "var(--text3)" }}>—</span>}</div>
+                          <div style={{ fontSize: 13, textAlign: "right" as const, color: "var(--text2)", fontVariantNumeric: "tabular-nums" as const }}>{hk.logCount}</div>
+                          <div style={{ textAlign: "right" as const }}>
+                            <button onClick={() => startEdit(hk)}
+                              style={{ padding: "6px 14px", borderRadius: 100, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, cursor: "pointer", fontFamily: "inherit" }}>
+                              Edit
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>);
               })()}
             </div>
