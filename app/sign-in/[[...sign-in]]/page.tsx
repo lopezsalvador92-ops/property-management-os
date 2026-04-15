@@ -21,7 +21,7 @@ export default function SignInPage() {
         <img
           src="/cape-logo.png"
           alt="Cape PM"
-          style={{ height: 64, marginBottom: 18, opacity: 0.95 }}
+          style={{ height: 64, display: "block", margin: "0 auto 18px", opacity: 0.95 }}
         />
         <div
           style={{

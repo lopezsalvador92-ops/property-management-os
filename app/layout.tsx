@@ -17,7 +17,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      localization={{
+        signIn: {
+          start: { title: "Continue to Cape PM Services", subtitle: "" },
+        },
+        signUp: {
+          start: { title: "Continue to Cape PM Services", subtitle: "" },
+        },
+      }}
+    >
       <html lang="en">
         <head>
           <link rel="preconnect" href="https://fonts.googleapis.com" />
