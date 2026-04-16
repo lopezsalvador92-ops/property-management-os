@@ -22,6 +22,9 @@ type MaintenanceConfig = { id: string; taskName: string; category: string; prope
 type Visit = { id: string; visitName: string; guestName: string; visitType: string; checkIn: string; checkOut: string; status: string; propertyId: string; propertyName: string; notes: string; checklist: string; adults: number; children: number; questionnaire: Record<string, any>; published: boolean };
 type Vendor = { id: string; name: string; category: string; contact: string; location: string; tags: string; notes: string };
 type ItineraryEvent = { id: string; eventName: string; visitId: string; vendorId: string; vendorName: string; date: string; time: string; details: string; status: string; eventType: string; extraDetails: Record<string, any>; showVendor: boolean; chargeable: boolean; estimatedCost: number; expenseCreated: boolean; total: number; currency: string };
+type RentalExpenseRow = { id: string; receiptNo: string; date: string; category: string; supplier: string; description: string; total: number; currency: string; totalUSD: number; receiptUrl: string };
+type Rental = { id: string; guestName: string; folioId: string; arrivalDate: string; departureDate: string; status: string; exchangeRate: number; finalBalance: number; propertyId: string; propertyName: string; expenseCount: number; autoId: number };
+type RentalDetail = Rental & { propertyOwner: string; expenses: RentalExpenseRow[] };
 
 const catColors: Record<string, { bg: string; text: string }> = {
   Utilities: { bg: "rgba(207,196,110,0.1)", text: "#CFC46E" },
@@ -41,6 +44,7 @@ const navItems = [
   { id: "deposits", icon: "↓", label: "Deposits" },
   { id: "reports", icon: "↗", label: "Reports" },
   { id: "concierge", icon: "✦", label: "Concierge" },
+  { id: "rentals", icon: "◉", label: "Rentals" },
   { id: "maintenance", icon: "⟡", label: "Maintenance" },
   { id: "calendar", icon: "▦", label: "Calendar" },
   { id: "properties", icon: "◫", label: "Properties" },
@@ -222,6 +226,24 @@ export default function AdminDashboard() {
   // CSV import
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvResult, setCsvResult] = useState<string | null>(null);
+  // Rentals module state
+  const [rentals, setRentals] = useState<Rental[]>([]);
+  const [rentalsLoading, setRentalsLoading] = useState(false);
+  const [selectedRentalId, setSelectedRentalId] = useState<string | null>(null);
+  const [rentalDetail, setRentalDetail] = useState<RentalDetail | null>(null);
+  const [rentalDetailLoading, setRentalDetailLoading] = useState(false);
+  const [rentalStatusFilter, setRentalStatusFilter] = useState<string>("all");
+  const [showAddRental, setShowAddRental] = useState(false);
+  const [newRentalGuest, setNewRentalGuest] = useState("");
+  const [newRentalProp, setNewRentalProp] = useState("");
+  const [newRentalArrival, setNewRentalArrival] = useState("");
+  const [newRentalDeparture, setNewRentalDeparture] = useState("");
+  const [newRentalStatus, setNewRentalStatus] = useState("Reserved");
+  const [newRentalFX, setNewRentalFX] = useState("");
+  const [addingRental, setAddingRental] = useState(false);
+  const [editRentalId, setEditRentalId] = useState<string | null>(null);
+  const [editRentalForm, setEditRentalForm] = useState<Partial<Rental>>({});
+  const [savingRental, setSavingRental] = useState(false);
   // Transportation tab state
   const [transView, setTransView] = useState<"schedule" | "completed" | "report">("schedule");
   const [transReportFrom, setTransReportFrom] = useState("");
@@ -493,6 +515,28 @@ export default function AdminDashboard() {
       }).catch(() => setConcLoading(false));
     }
   }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "rentals") {
+      setRentalsLoading(true);
+      fetch("/api/rentals").then(r => r.json()).then(d => {
+        setRentals(d.rentals || []);
+        setRentalsLoading(false);
+      }).catch(() => setRentalsLoading(false));
+    }
+  }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "rentals" && selectedRentalId) {
+      setRentalDetailLoading(true);
+      fetch(`/api/rentals?rentalId=${selectedRentalId}`).then(r => r.json()).then(d => {
+        setRentalDetail(d.rental || null);
+        setRentalDetailLoading(false);
+      }).catch(() => setRentalDetailLoading(false));
+    } else {
+      setRentalDetail(null);
+    }
+  }, [activePage, selectedRentalId]);
 
   useEffect(() => {
     if (activePage === "concierge" && (concTab === "builder" || concTab === "charges" || concTab === "transportation")) {
@@ -3829,6 +3873,296 @@ export default function AdminDashboard() {
                   </>
                 );
               })()}
+            </div>
+          );
+        })()}
+
+        {/* ====== RENTALS ====== */}
+        {activePage === "rentals" && (() => {
+          async function createRental() {
+            if (!newRentalGuest || !newRentalProp || !newRentalArrival || !newRentalDeparture) return;
+            setAddingRental(true);
+            try {
+              const res = await fetch("/api/rentals", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  guestName: newRentalGuest,
+                  propertyId: newRentalProp,
+                  arrivalDate: newRentalArrival,
+                  departureDate: newRentalDeparture,
+                  status: newRentalStatus,
+                  exchangeRate: newRentalFX || undefined,
+                }),
+              });
+              if (res.ok) {
+                setNewRentalGuest(""); setNewRentalProp(""); setNewRentalArrival("");
+                setNewRentalDeparture(""); setNewRentalFX(""); setNewRentalStatus("Reserved");
+                setShowAddRental(false);
+                const d = await fetch("/api/rentals").then(r => r.json());
+                setRentals(d.rentals || []);
+              }
+            } catch (e) { console.error(e); }
+            setAddingRental(false);
+          }
+
+          async function saveRentalEdit() {
+            if (!editRentalId) return;
+            setSavingRental(true);
+            try {
+              await fetch("/api/rentals", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: editRentalId, ...editRentalForm }),
+              });
+              const d = await fetch("/api/rentals").then(r => r.json());
+              setRentals(d.rentals || []);
+              if (selectedRentalId === editRentalId) {
+                const rd = await fetch(`/api/rentals?rentalId=${editRentalId}`).then(r => r.json());
+                setRentalDetail(rd.rental || null);
+              }
+              setEditRentalId(null); setEditRentalForm({});
+            } catch (e) { console.error(e); }
+            setSavingRental(false);
+          }
+
+          const filteredRentals = rentals.filter(r => rentalStatusFilter === "all" || r.status === rentalStatusFilter);
+          const statusColors: Record<string, { bg: string; text: string }> = {
+            "Reserved": { bg: "var(--orange-s)", text: "var(--orange)" },
+            "In House": { bg: "var(--green-s)", text: "var(--green)" },
+            "Checked Out": { bg: "var(--bg3)", text: "var(--text3)" },
+            "Cancelled": { bg: "var(--red-s)", text: "var(--red)" },
+          };
+
+          // ---- FOLIO DETAIL VIEW ----
+          if (selectedRentalId && rentalDetail) {
+            const expenses = rentalDetail.expenses;
+            const fx = rentalDetail.exchangeRate || 17;
+            // Convert everything to USD. If currency is USD, use total. If MXN, divide by exchange rate.
+            const toUSD = (e: RentalExpenseRow) => {
+              if (e.currency === "USD") return e.total;
+              // Prefer the formula-computed USD if present
+              if (e.totalUSD) return e.totalUSD;
+              return fx > 0 ? e.total / fx : 0;
+            };
+            // Group by supplier (the "guest section" column in the reference folio)
+            const groups: Record<string, RentalExpenseRow[]> = {};
+            for (const e of expenses) {
+              const k = e.supplier || "Other";
+              if (!groups[k]) groups[k] = [];
+              groups[k].push(e);
+            }
+            const subtotalUSD = expenses.reduce((s, e) => s + toUSD(e), 0);
+            const iva = subtotalUSD * 0.16;
+            const grandUSD = subtotalUSD + iva;
+            const fmtMoney = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+            const sc = statusColors[rentalDetail.status] || { bg: "var(--bg3)", text: "var(--text3)" };
+
+            return (
+              <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1100, margin: "0 auto" }}>
+                {/* Breadcrumb */}
+                <button onClick={() => setSelectedRentalId(null)} style={{ background: "transparent", border: "none", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", marginBottom: 18, padding: 0 }}>← Back to Rentals</button>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
+                  <div>
+                    <span style={eyebrow}>Rental Folio</span>
+                    <h1 style={h1s}>{rentalDetail.guestName}</h1>
+                    <p style={{ fontSize: 13, color: "var(--text2)" }}>
+                      {rentalDetail.propertyName}
+                      {rentalDetail.arrivalDate && ` · ${rentalDetail.arrivalDate} → ${rentalDetail.departureDate}`}
+                    </p>
+                    <span className="a-gold-rule" />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => window.open(`/api/pdf/rental-folio?rentalId=${rentalDetail.id}`, "_blank")} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>Download Folio PDF</button>
+                    <button onClick={() => { setEditRentalId(rentalDetail.id); setEditRentalForm({ guestName: rentalDetail.guestName, propertyId: rentalDetail.propertyId, arrivalDate: rentalDetail.arrivalDate, departureDate: rentalDetail.departureDate, status: rentalDetail.status, exchangeRate: rentalDetail.exchangeRate }); }} style={{ padding: "10px 18px", borderRadius: 100, background: "transparent", color: "var(--text2)", border: "1px solid var(--border2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button>
+                  </div>
+                </div>
+
+                {/* Info strip */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+                  {[
+                    { label: "Folio ID", value: rentalDetail.folioId || "—" },
+                    { label: "Status", value: rentalDetail.status, pill: sc },
+                    { label: "Exchange Rate", value: rentalDetail.exchangeRate ? `${rentalDetail.exchangeRate} MXN/USD` : "—" },
+                    { label: "Expenses", value: `${expenses.length} line${expenses.length === 1 ? "" : "s"}` },
+                  ].map(item => (
+                    <div key={item.label} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 18px" }}>
+                      <div style={{ fontSize: 9, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{item.label}</div>
+                      {item.pill ? (
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: item.pill.bg, color: item.pill.text, textTransform: "uppercase", letterSpacing: "0.04em", display: "inline-block" }}>{item.value}</span>
+                      ) : (
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)" }}>{item.value}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Edit form */}
+                {editRentalId === rentalDetail.id && (
+                  <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Edit Rental</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                      <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Guest Name</div><input value={editRentalForm.guestName || ""} onChange={e => setEditRentalForm(f => ({ ...f, guestName: e.target.value }))} style={inp} /></div>
+                      <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Property</div><select value={editRentalForm.propertyId || ""} onChange={e => setEditRentalForm(f => ({ ...f, propertyId: e.target.value }))} style={sel}><option value="">-- Select --</option>{properties.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                      <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Arrival</div><input type="date" value={editRentalForm.arrivalDate || ""} onChange={e => setEditRentalForm(f => ({ ...f, arrivalDate: e.target.value }))} style={inp} /></div>
+                      <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Departure</div><input type="date" value={editRentalForm.departureDate || ""} onChange={e => setEditRentalForm(f => ({ ...f, departureDate: e.target.value }))} style={inp} /></div>
+                      <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Status</div><select value={editRentalForm.status || ""} onChange={e => setEditRentalForm(f => ({ ...f, status: e.target.value }))} style={sel}><option value="Reserved">Reserved</option><option value="In House">In House</option><option value="Checked Out">Checked Out</option><option value="Cancelled">Cancelled</option></select></div>
+                      <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Exchange Rate (MXN/USD)</div><input type="number" step="0.01" value={editRentalForm.exchangeRate || ""} onChange={e => setEditRentalForm(f => ({ ...f, exchangeRate: Number(e.target.value) }))} style={inp} /></div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button onClick={() => { setEditRentalId(null); setEditRentalForm({}); }} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                      <button disabled={savingRental} onClick={saveRentalEdit} style={{ padding: "8px 18px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", opacity: savingRental ? 0.6 : 1 }}>{savingRental ? "Saving…" : "Save"}</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Folio body */}
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 16, padding: "28px 32px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, paddingBottom: 20, borderBottom: `2px solid var(--accent)` }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>Cape Property Management</div>
+                      <div style={{ fontSize: 20, fontFamily: "var(--fd)", color: "var(--text1)", fontWeight: 500 }}>Folio Statement</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>Folio</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)" }}>{rentalDetail.folioId || `FOL-${rentalDetail.autoId}`}</div>
+                    </div>
+                  </div>
+
+                  {expenses.length === 0 ? (
+                    <div style={{ fontSize: 13, color: "var(--text3)", padding: 40, textAlign: "center" }}>No expenses linked to this rental yet.</div>
+                  ) : (
+                    <>
+                      {/* Table header */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 90px 110px", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+                        <div style={{ fontSize: 9, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>Description</div>
+                        <div style={{ fontSize: 9, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", textAlign: "right" }}>Currency</div>
+                        <div style={{ fontSize: 9, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", textAlign: "right" }}>Original</div>
+                        <div style={{ fontSize: 9, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", textAlign: "right" }}>USD Total</div>
+                      </div>
+
+                      {/* Grouped line items */}
+                      {Object.entries(groups).map(([group, items]) => (
+                        <div key={group}>
+                          <div style={{ fontSize: 10, color: "var(--accent)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", padding: "14px 0 6px" }}>{group}</div>
+                          {items.map(e => (
+                            <div key={e.id} style={{ display: "grid", gridTemplateColumns: "1fr 90px 90px 110px", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--border)", alignItems: "baseline" }}>
+                              <div>
+                                <div style={{ fontSize: 13, color: "var(--text1)" }}>{e.description || e.category}</div>
+                                <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 2 }}>
+                                  {e.date}
+                                  {e.category && ` · ${e.category}`}
+                                  {e.receiptUrl && <> · <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--teal)", textDecoration: "none" }}>Receipt</a></>}
+                                </div>
+                              </div>
+                              <div style={{ fontSize: 11, color: "var(--text3)", textAlign: "right" }}>{e.currency}</div>
+                              <div style={{ fontSize: 12, color: "var(--text2)", textAlign: "right", fontFamily: "monospace" }}>{e.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                              <div style={{ fontSize: 13, color: "var(--text1)", textAlign: "right", fontWeight: 600, fontFamily: "monospace" }}>{fmtMoney(toUSD(e))}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+
+                      {/* Totals footer */}
+                      <div style={{ marginTop: 24, padding: "20px 0 0", borderTop: `2px solid var(--accent)` }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <div style={{ minWidth: 320 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 12 }}>
+                              <span style={{ color: "var(--text3)" }}>Subtotal (w/o tax)</span>
+                              <span style={{ color: "var(--text1)", fontFamily: "monospace" }}>{fmtMoney(subtotalUSD)}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 12 }}>
+                              <span style={{ color: "var(--text3)" }}>Tax (IVA 16%)</span>
+                              <span style={{ color: "var(--text1)", fontFamily: "monospace" }}>{fmtMoney(iva)}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 0", marginTop: 6, borderTop: "1px solid var(--border)", fontSize: 15 }}>
+                              <span style={{ color: "var(--text1)", fontWeight: 600 }}>Grand Total</span>
+                              <span style={{ color: "var(--teal)", fontFamily: "var(--fd)", fontWeight: 600, fontSize: 18 }}>{fmtMoney(grandUSD)} USD</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          if (selectedRentalId && rentalDetailLoading) {
+            return (
+              <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1100, margin: "0 auto" }}>
+                <div style={{ fontSize: 13, color: "var(--text3)" }}>Loading folio…</div>
+              </div>
+            );
+          }
+
+          // ---- LIST VIEW ----
+          return (
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1240, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
+                <div>
+                  <span style={eyebrow}>Guest Billing</span>
+                  <h1 style={h1s}>Rentals</h1>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Hotel-style folios for rental stays — groceries, chef services, butler, and more</p>
+                  <span className="a-gold-rule" />
+                </div>
+                <button onClick={() => setShowAddRental(!showAddRental)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>{showAddRental ? "Cancel" : "+ New Rental"}</button>
+              </div>
+
+              {/* Add rental form */}
+              {showAddRental && (
+                <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>New Rental Stay</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                    <div style={{ gridColumn: "1/-1" }}><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Guest Name *</div><input value={newRentalGuest} onChange={e => setNewRentalGuest(e.target.value)} placeholder="e.g. Mrs. Caroline Halaby" style={inp} /></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Property *</div><select value={newRentalProp} onChange={e => setNewRentalProp(e.target.value)} style={sel}><option value="">-- Select --</option>{properties.filter(p => p.status === "Active").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Status</div><select value={newRentalStatus} onChange={e => setNewRentalStatus(e.target.value)} style={sel}><option value="Reserved">Reserved</option><option value="In House">In House</option><option value="Checked Out">Checked Out</option><option value="Cancelled">Cancelled</option></select></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Arrival Date *</div><input type="date" value={newRentalArrival} onChange={e => setNewRentalArrival(e.target.value)} style={inp} /></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Departure Date *</div><input type="date" value={newRentalDeparture} onChange={e => setNewRentalDeparture(e.target.value)} style={inp} /></div>
+                    <div><div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Exchange Rate (MXN/USD)</div><input type="number" step="0.01" value={newRentalFX} onChange={e => setNewRentalFX(e.target.value)} placeholder="e.g. 17" style={inp} /></div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button disabled={addingRental || !newRentalGuest || !newRentalProp || !newRentalArrival || !newRentalDeparture} onClick={createRental} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", opacity: addingRental ? 0.6 : 1 }}>{addingRental ? "Creating…" : "Create Rental"}</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status filter */}
+              <div style={{ display: "flex", gap: 0, padding: 3, background: "var(--bg2)", borderRadius: 100, marginBottom: 24, width: "fit-content", border: "1px solid var(--border)" }}>
+                {[["all", "All"], ["Reserved", "Reserved"], ["In House", "In House"], ["Checked Out", "Checked Out"], ["Cancelled", "Cancelled"]].map(([id, label]) => (
+                  <button key={id} onClick={() => setRentalStatusFilter(id)} style={{ padding: "7px 16px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: rentalStatusFilter === id ? "var(--accent)" : "var(--text3)", background: rentalStatusFilter === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit" }}>{label}</button>
+                ))}
+              </div>
+
+              {rentalsLoading && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20 }}>Loading rentals…</div>}
+
+              {!rentalsLoading && filteredRentals.length === 0 && (
+                <div style={{ fontSize: 13, color: "var(--text3)", padding: 40, textAlign: "center", background: "var(--bg2)", borderRadius: 14, border: "1px solid var(--border)" }}>No rentals found.</div>
+              )}
+
+              {!rentalsLoading && filteredRentals.length > 0 && (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {filteredRentals.map(r => {
+                    const sc = statusColors[r.status] || { bg: "var(--bg3)", text: "var(--text3)" };
+                    return (
+                      <button key={r.id} onClick={() => setSelectedRentalId(r.id)} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 140px 120px 130px", gap: 14, alignItems: "center", padding: "16px 20px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, cursor: "pointer", textAlign: "left" as const, fontFamily: "inherit", width: "100%" }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text1)" }}>{r.guestName}</div>
+                          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{r.folioId || `FOL-${r.autoId}`}</div>
+                        </div>
+                        <div style={{ fontSize: 13, color: "var(--text2)" }}>{r.propertyName}</div>
+                        <div style={{ fontSize: 12, color: "var(--text3)" }}>{r.arrivalDate} → {r.departureDate}</div>
+                        <div style={{ fontSize: 11, color: "var(--text3)" }}>{r.expenseCount} expense{r.expenseCount === 1 ? "" : "s"}</div>
+                        <div><span style={{ fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: sc.bg, color: sc.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>{r.status}</span></div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", textAlign: "right" }}>View Folio →</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })()}
