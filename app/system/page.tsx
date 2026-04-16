@@ -19,10 +19,12 @@ const ALL_ADMIN_MODULES = [
   { id: "reports", label: "Reports", description: "Monthly report management with status tracking" },
   { id: "housekeeping", label: "Housekeeping", description: "HSK logs, weekly overview, monthly summary" },
   { id: "concierge", label: "Concierge", description: "Visits, itinerary builder, vendor directory" },
+  { id: "rentals", label: "Rentals", description: "Guest rentals with hotel-style folios and PDF export" },
   { id: "maintenance", label: "Maintenance", description: "Reactive/preventive tasks, vendor management" },
   { id: "calendar", label: "Availability Calendar", description: "Portfolio-wide occupancy grid, weekly/monthly views" },
   { id: "properties", label: "Properties", description: "Property details, fees, HSK config, availability" },
   { id: "users", label: "Users", description: "Clerk user management, roles, passwords" },
+  { id: "help", label: "Help", description: "In-app knowledge base and support articles" },
   { id: "settings", label: "Settings", description: "System admin role and module configuration" },
 ];
 
@@ -32,6 +34,7 @@ const ALL_OWNER_MODULES = [
   { id: "maintenance", label: "Maintenance", description: "Read-only view of scheduled and completed maintenance" },
   { id: "calendar", label: "Availability", description: "Property calendar, upcoming visits, register visits" },
   { id: "concierge", label: "Concierge", description: "Itinerary timeline for upcoming visits" },
+  { id: "help", label: "Help", description: "In-app knowledge base and support articles" },
 ];
 
 export default function SystemSettings() {

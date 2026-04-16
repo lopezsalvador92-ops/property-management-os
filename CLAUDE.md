@@ -109,13 +109,14 @@ Admin + owner pages filter `navItems` by `enabledModules` (see `app/admin/page.t
 
 Checklist when adding a top-level module (admin or owner):
 1. Add the `{ id, icon, label }` entry to `navItems` in the relevant page.
-2. Update the `Modules` JSON array on each role in the `Platform Roles` Airtable table that should see it:
+2. Add the module to the hardcoded list in `app/system/page.tsx` — `ALL_ADMIN_MODULES` for admin-panel modules, `ALL_OWNER_MODULES` for owner-portal modules. Without this the toggle won't render in /system.
+3. Update the `Modules` JSON array on each role in the `Platform Roles` Airtable table that should see it:
    - `admin` (`recMBstawdoWHxA4y`) — for admin-panel modules
    - `system_admin` (`recmAuKRfuo2QviF8`) — mirror for consistency
    - `owner` (`recBSSvG1qU9FIms9`) — for owner-portal modules
    - `house_manager` (`rec1PPXoZyyyf5843`) — if scoped to them
-3. Preferred: use the Airtable MCP `update_records_for_table` (field id `fldIF3Xg877ArAVl6`). Salvador can also toggle it in /system.
-4. Module order inside the JSON array should mirror the nav order so the /system toggles read naturally.
+4. Preferred: use the Airtable MCP `update_records_for_table` (field id `fldIF3Xg877ArAVl6`). Salvador can also toggle it in /system once step 2 is done.
+5. Module order inside the JSON array + ALL_*_MODULES should mirror the nav order so the /system toggles read naturally.
 
 ## Pending Work
 1. Build new modules: Availability Calendar, Documents Vault (behind feature flags)
