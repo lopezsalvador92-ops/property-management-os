@@ -104,10 +104,22 @@ Cleaning Supplies, Groceries, Maintenance, Miscellaneous, Utilities, Villa Staff
 - Uses Mac (MacBook Air), git email: salvador.lopez@axviasolutions.com
 - Vercel auto-deploys from main branch
 
+## Adding a New Module (always do this — nav gate is live)
+Admin + owner pages filter `navItems` by `enabledModules` (see `app/admin/page.tsx` ~line 847 and 861). `enabledModules` is populated from the `Platform Roles` Airtable table (`tblsc0oGX6dygiY3U`) in the `fetch("/api/platform-config")` effect (~line 358). `system_admin` bypasses the check and sees everything, but every other role is strictly gated. **A new nav entry will be invisible to `admin`/`owner`/`house_manager` until its id is added to the role's `Modules` JSON array.**
+
+Checklist when adding a top-level module (admin or owner):
+1. Add the `{ id, icon, label }` entry to `navItems` in the relevant page.
+2. Update the `Modules` JSON array on each role in the `Platform Roles` Airtable table that should see it:
+   - `admin` (`recMBstawdoWHxA4y`) — for admin-panel modules
+   - `system_admin` (`recmAuKRfuo2QviF8`) — mirror for consistency
+   - `owner` (`recBSSvG1qU9FIms9`) — for owner-portal modules
+   - `house_manager` (`rec1PPXoZyyyf5843`) — if scoped to them
+3. Preferred: use the Airtable MCP `update_records_for_table` (field id `fldIF3Xg877ArAVl6`). Salvador can also toggle it in /system.
+4. Module order inside the JSON array should mirror the nav order so the /system toggles read naturally.
+
 ## Pending Work
-1. Wire feature flags into admin/owner pages (toggles save but don't control visibility yet)
-2. Build new modules: Concierge, Availability Calendar, Documents Vault (behind feature flags)
-3. Production deploy (Clerk prod keys + custom domain)
-4. Refactor admin page into separate component files
-5. Mobile responsiveness (needs different approach — file transfers corrupt the code)
-6. Delete empty record accidentally created in Properties table
+1. Build new modules: Availability Calendar, Documents Vault (behind feature flags)
+2. Production deploy (Clerk prod keys + custom domain)
+3. Refactor admin page into separate component files
+4. Mobile responsiveness (needs different approach — file transfers corrupt the code)
+5. Delete empty record accidentally created in Properties table
