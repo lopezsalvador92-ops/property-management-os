@@ -5,6 +5,7 @@ const BASE_ID = process.env.AIRTABLE_BASE_ID!;
 const HSK_TABLE = "tblG8udG0Wdo6Wms6";
 const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
 const HOUSEKEEPERS_TABLE = "tblHxw0Mqcs5X76cL";
+const EXPENSES_TABLE = "tblHeiBjXhsKW9Opj";
 
 async function airtableGet(tableId: string, params: URLSearchParams) {
   const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
@@ -200,6 +201,219 @@ export async function GET(request: Request) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Extras-on-approval: after approving HSK logs, compute overages and UPSERT
+// extra-clean expenses. Runs across ALL approved logs for the affected weeks
+// so that cleans by multiple housekeepers are counted together.
+// ---------------------------------------------------------------------------
+async function computeAndUpsertExtras(approvedRecordIds: string[]) {
+  const dayFields = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  // 1. Fetch the just-approved records to determine affected weeks + day data
+  const idFormula = approvedRecordIds.map(id => `RECORD_ID()='${id}'`).join(",");
+  const logParams = new URLSearchParams();
+  logParams.append("fields[]", "Start of the Week");
+  dayFields.forEach(d => logParams.append("fields[]", d));
+  logParams.set("filterByFormula", `OR(${idFormula})`);
+  logParams.set("pageSize", "100");
+  const logData = await airtableGet(HSK_TABLE, logParams);
+
+  // Collect affected week-start dates
+  const weekStarts = new Set<string>();
+  for (const rec of logData.records) {
+    const ws = rec.fields["Start of the Week"];
+    if (ws) weekStarts.add(ws);
+  }
+  if (weekStarts.size === 0) return { weeks: 0, expenses: [] };
+
+  // 2. Fetch ALL approved logs for those weeks (not just the ones being approved now)
+  const weekFormulas = Array.from(weekStarts).map(ws => `{Start of the Week}='${ws}'`);
+  const allLogsParams = new URLSearchParams();
+  allLogsParams.append("fields[]", "Start of the Week");
+  allLogsParams.append("fields[]", "Approval Status");
+  dayFields.forEach(d => allLogsParams.append("fields[]", d));
+  allLogsParams.set("filterByFormula",
+    `AND({Approval Status}='Approved', OR(${weekFormulas.join(",")}))`
+  );
+  allLogsParams.set("pageSize", "100");
+  const allLogsData = await airtableGet(HSK_TABLE, allLogsParams);
+
+  // 3. Fetch property configs
+  const propParams = new URLSearchParams();
+  ["House Name", "Status", "HSK Fixed Fee", "Included Cleans",
+   "Preferred Currency", "Housekeeping Fee USD", "Housekeeping Fee MXN",
+  ].forEach(f => propParams.append("fields[]", f));
+  propParams.set("pageSize", "50");
+  const propData = await airtableGet(PROPERTIES_TABLE, propParams);
+
+  // Build property lookup: id → config
+  const propById: Record<string, {
+    name: string; cadence: string; included: number;
+    currency: string; fee: number;
+  }> = {};
+  for (const rec of propData.records) {
+    const f = rec.fields;
+    const cadence = typeof f["HSK Fixed Fee"] === "string" ? f["HSK Fixed Fee"] : f["HSK Fixed Fee"]?.name || "None";
+    const currency = typeof f["Preferred Currency"] === "string" ? f["Preferred Currency"] : f["Preferred Currency"]?.name || "MXN";
+    const fee = currency === "USD" ? (f["Housekeeping Fee USD"] || 0) : (f["Housekeeping Fee MXN"] || 0);
+    propById[rec.id] = {
+      name: f["House Name"] || "",
+      cadence,
+      included: f["Included Cleans"] || 0,
+      currency,
+      fee: Number(fee) || 0,
+    };
+  }
+
+  // 4. Count cleans per property per week across all approved logs
+  // cleans[weekStart][propId] = count
+  const cleans: Record<string, Record<string, number>> = {};
+  for (const rec of allLogsData.records) {
+    const ws = rec.fields["Start of the Week"];
+    if (!ws) continue;
+    if (!cleans[ws]) cleans[ws] = {};
+    for (const dayField of dayFields) {
+      const linked = rec.fields[dayField];
+      if (!Array.isArray(linked)) continue;
+      for (const entry of linked) {
+        const propId = typeof entry === "string" ? entry : entry?.id || "";
+        if (propId) {
+          cleans[ws][propId] = (cleans[ws][propId] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  // 5. Compute extras per property per week
+  type ExtraEntry = {
+    propId: string; propName: string; weekStart: string;
+    totalCleans: number; included: number; extras: number;
+    total: number; currency: string; receipt: string;
+  };
+  const extraEntries: ExtraEntry[] = [];
+
+  for (const ws of Object.keys(cleans)) {
+    for (const [propId, count] of Object.entries(cleans[ws])) {
+      const cfg = propById[propId];
+      if (!cfg) continue;
+      // Weekly: extras = cleans - included. None: extras = all cleans.
+      // Bi-weekly: skip for now.
+      let extras = 0;
+      if (cfg.cadence === "Weekly") {
+        extras = Math.max(0, count - cfg.included);
+      } else if (cfg.cadence === "None") {
+        extras = count;
+      } else {
+        continue; // Bi-weekly or unknown: skip
+      }
+      if (extras <= 0 || cfg.fee <= 0) continue;
+
+      extraEntries.push({
+        propId,
+        propName: cfg.name,
+        weekStart: ws,
+        totalCleans: count,
+        included: cfg.included,
+        extras,
+        total: Number((extras * cfg.fee).toFixed(2)),
+        currency: cfg.currency,
+        receipt: `HSKEXW-${propId}-${ws}`,
+      });
+    }
+  }
+
+  if (extraEntries.length === 0) return { weeks: weekStarts.size, expenses: [], message: "No extras" };
+
+  // 6. Check existing expenses with matching receipt numbers (for UPSERT)
+  const receiptList = extraEntries.map(e => e.receipt);
+  const receiptFormula = receiptList.map(r => `{Receipt No}='${r}'`).join(",");
+  const existParams = new URLSearchParams();
+  existParams.append("fields[]", "Receipt No");
+  existParams.append("fields[]", "Total");
+  existParams.set("filterByFormula", `OR(${receiptFormula})`);
+  existParams.set("pageSize", "100");
+  const existData = await airtableGet(EXPENSES_TABLE, existParams);
+
+  const existingByReceipt: Record<string, { id: string; total: number }> = {};
+  for (const rec of existData.records) {
+    const rn = typeof rec.fields["Receipt No"] === "string" ? rec.fields["Receipt No"] : "";
+    if (rn) existingByReceipt[rn] = { id: rec.id, total: rec.fields["Total"] || 0 };
+  }
+
+  // 7. UPSERT: create new or update existing
+  const created: string[] = [];
+  const updated: string[] = [];
+  const unchanged: string[] = [];
+
+  for (const entry of extraEntries) {
+    const existing = existingByReceipt[entry.receipt];
+    if (existing) {
+      // Already exists — update only if total changed
+      if (Math.abs(existing.total - entry.total) < 0.01) {
+        unchanged.push(entry.receipt);
+        continue;
+      }
+      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${EXPENSES_TABLE}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          records: [{
+            id: existing.id,
+            fields: {
+              "Total": entry.total,
+              "Description": `Extra cleans (${entry.extras}) — week of ${entry.weekStart}`,
+            },
+          }],
+        }),
+      });
+      if (!res.ok) {
+        console.error(`Failed to update extra expense ${entry.receipt}`);
+      } else {
+        updated.push(entry.receipt);
+      }
+    } else {
+      // Create new
+      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${EXPENSES_TABLE}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          records: [{
+            fields: {
+              "House": [entry.propId],
+              "Date": entry.weekStart,
+              "Expense Category": "Villa Staff",
+              "Total": entry.total,
+              "Currency": entry.currency,
+              "Description": `Extra cleans (${entry.extras}) — week of ${entry.weekStart}`,
+              "Supplier": "Housekeeping",
+              "Receipt No": entry.receipt,
+            },
+          }],
+          typecast: true,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error(`Failed to create extra expense ${entry.receipt}:`, err);
+      } else {
+        created.push(entry.receipt);
+      }
+    }
+  }
+
+  return {
+    weeks: weekStarts.size,
+    expenses: extraEntries.map(e => ({
+      property: e.propName, week: e.weekStart,
+      cleans: e.totalCleans, included: e.included,
+      extras: e.extras, total: e.total, currency: e.currency,
+    })),
+    created,
+    updated,
+    unchanged,
+  };
+}
+
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
@@ -268,7 +482,19 @@ export async function PATCH(request: Request) {
       });
       if (!res.ok) return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
-    return NextResponse.json({ success: true, updated: recordIds.length });
+
+    // --- Extras-on-approval: compute and UPSERT extra-clean expenses ---
+    let extrasResult: any = null;
+    if (action === "approve") {
+      try {
+        extrasResult = await computeAndUpsertExtras(recordIds);
+      } catch (err) {
+        console.error("Extras-on-approval error (non-fatal):", err);
+        extrasResult = { error: String(err) };
+      }
+    }
+
+    return NextResponse.json({ success: true, updated: recordIds.length, extras: extrasResult });
   } catch (error) {
     console.error("HSK update error:", error);
     return NextResponse.json({ error: "Failed to update" }, { status: 500 });
