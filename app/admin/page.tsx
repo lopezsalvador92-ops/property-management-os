@@ -1583,6 +1583,83 @@ export default function AdminDashboard() {
           const dayKeys: (keyof HskLog["days"])[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
           const dayLabels = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
+          // === Discrepancy detection: compute warnings per pending log ===
+          type Warning = { type: "dup-day" | "dup-hk" | "inactive" | "overage"; message: string };
+          const warningsByLogId: Record<string, Warning[]> = {};
+
+          const activePropertyNames = new Set(properties.filter(p => p.status === "Active").map(p => p.name));
+          const summaryByPropName: Record<string, HskSummary> = {};
+          for (const s of hskSummary) summaryByPropName[s.property] = s;
+          const allViewLogs = [...pending, ...approved];
+
+          const logsByWeek: Record<string, typeof allViewLogs> = {};
+          for (const l of allViewLogs) {
+            if (!logsByWeek[l.weekStart]) logsByWeek[l.weekStart] = [];
+            logsByWeek[l.weekStart].push(l);
+          }
+
+          for (const log of pending) {
+            const warns: Warning[] = [];
+            const weekLogs = logsByWeek[log.weekStart] || [];
+
+            // 1. Same property assigned twice on the same day (across all logs this week)
+            for (let di = 0; di < dayKeys.length; di++) {
+              const dk = dayKeys[di];
+              const propsThisDay: string[] = [];
+              for (const wl of weekLogs) {
+                const ds = wl.days[dk] || "";
+                if (ds.trim()) ds.split(",").map(s => s.trim()).filter(Boolean).forEach(p => propsThisDay.push(p));
+              }
+              const ct: Record<string, number> = {};
+              for (const p of propsThisDay) ct[p] = (ct[p] || 0) + 1;
+              for (const [prop, n] of Object.entries(ct)) {
+                if (n > 1 && (log.days[dk] || "").includes(prop)) {
+                  warns.push({ type: "dup-day", message: `${prop} is assigned ${n}× on ${dayLabels[di]}` });
+                }
+              }
+            }
+
+            // 2. Same housekeeper has multiple logs for this week
+            const hkCount = weekLogs.filter(wl => wl.housekeeper === log.housekeeper).length;
+            if (hkCount > 1) {
+              warns.push({ type: "dup-hk", message: `${log.housekeeper} has ${hkCount} logs for this week` });
+            }
+
+            // 3. Inactive property in the log
+            for (const dk of dayKeys) {
+              const ds = log.days[dk] || "";
+              if (!ds.trim()) continue;
+              for (const prop of ds.split(",").map(s => s.trim()).filter(Boolean)) {
+                if (!activePropertyNames.has(prop)) {
+                  warns.push({ type: "inactive", message: `${prop} is not an active property` });
+                }
+              }
+            }
+
+            // 4. Cadence overage — total cleans this week exceed included
+            const weekCleans: Record<string, number> = {};
+            for (const wl of weekLogs) {
+              for (const dk of dayKeys) {
+                const ds = wl.days[dk] || "";
+                if (!ds.trim()) continue;
+                ds.split(",").map(s => s.trim()).filter(Boolean).forEach(p => { weekCleans[p] = (weekCleans[p] || 0) + 1; });
+              }
+            }
+            for (const [prop, count] of Object.entries(weekCleans)) {
+              const sm = summaryByPropName[prop];
+              if (!sm || sm.cadence !== "Weekly") continue;
+              const extras = Math.max(0, count - sm.includedPerWeek);
+              if (extras > 0 && dayKeys.some(dk => (log.days[dk] || "").includes(prop))) {
+                warns.push({ type: "overage", message: `${prop}: ${count} cleans this week (included: ${sm.includedPerWeek}) — ${extras} extra will be charged` });
+              }
+            }
+
+            // Deduplicate
+            const seen = new Set<string>();
+            warningsByLogId[log.id] = warns.filter(w => { if (seen.has(w.message)) return false; seen.add(w.message); return true; });
+          }
+          // === End discrepancy detection ===
+
           function formatWeek(dateStr: string) {
             if (!dateStr) return "";
             try { const d = new Date(dateStr + "T12:00:00"); return `Week of ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`; } catch { return dateStr; }
@@ -1613,15 +1690,20 @@ export default function AdminDashboard() {
               </div>
 
               {/* Summary bar */}
-              {pending.length > 0 && (
+              {(() => {
+                const totalWarnings = pending.reduce((sum, l) => sum + (warningsByLogId[l.id]?.length || 0), 0);
+                return pending.length > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 22px", background: "var(--accent-s)", border: "1px solid var(--accent-line)", borderRadius: 12, marginBottom: 24, boxShadow: "var(--shadow-sm)" }}>
-                  <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}><span style={{ fontFamily: "var(--fd)", fontSize: 18, color: "var(--accent)", marginRight: 6 }}>{pending.length}</span>{pending.length === 1 ? "log" : "logs"} pending your approval</span>
+                  <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}>
+                    <span style={{ fontFamily: "var(--fd)", fontSize: 18, color: "var(--accent)", marginRight: 6 }}>{pending.length}</span>{pending.length === 1 ? "log" : "logs"} pending your approval
+                    {totalWarnings > 0 && <span style={{ marginLeft: 12, fontSize: 11, color: "var(--orange)", fontWeight: 600 }}>{totalWarnings} {totalWarnings === 1 ? "warning" : "warnings"}</span>}
+                  </span>
                   <button onClick={() => updateHsk("approve", pending.map(l => l.id))} disabled={hskUpdating !== null}
                     style={{ padding: "9px 22px", borderRadius: 100, border: "1px solid var(--accent-line)", background: "var(--bg2)", color: "var(--accent)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>
                     {hskUpdating === "approve" ? "Approving…" : "Approve All"}
                   </button>
                 </div>
-              )}
+              );})()}
 
               {hskLoading && <div style={{ padding: 20, color: "var(--text3)" }}>Loading logs...</div>}
 
@@ -1691,6 +1773,17 @@ export default function AdminDashboard() {
                     ) : log.comments ? (
                       <div style={{ padding: "0 20px 12px", fontSize: 12, color: "var(--text3)", fontStyle: "italic", cursor: "pointer" }} onClick={() => { setEditHskId(log.id); setEditHskComment(log.comments); }}>{log.comments} <span style={{ color: "var(--accent)", fontStyle: "normal" }}>✎</span></div>
                     ) : null)}
+                    {/* Discrepancy warnings */}
+                    {!isEditingDays && (warningsByLogId[log.id] || []).length > 0 && (
+                      <div style={{ padding: "8px 20px 4px" }}>
+                        {(warningsByLogId[log.id]).map((w, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", marginBottom: 4, background: w.type === "inactive" ? "var(--red-s, rgba(220,60,60,0.08))" : "var(--orange-s, rgba(207,149,110,0.08))", borderRadius: 8, fontSize: 12, color: w.type === "inactive" ? "var(--red)" : "var(--orange)" }}>
+                            <span style={{ flexShrink: 0, fontSize: 13 }}>{w.type === "dup-day" ? "\u26A0" : w.type === "dup-hk" ? "\u26A0" : w.type === "inactive" ? "\u2718" : "\u25B2"}</span>
+                            <span>{w.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {/* Actions — hidden during day edit (Save/Cancel are above) */}
                     {!isEditingDays && (
                       <div style={{ display: "flex", gap: 8, padding: "12px 20px", borderTop: "1px solid var(--border)", justifyContent: "flex-end" }}>
