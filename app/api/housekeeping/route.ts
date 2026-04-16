@@ -500,3 +500,48 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   }
 }
+
+// Create blank HSK log records (backfill for housekeepers missing a log for a given week)
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { weekStart, housekeeperIds } = body;
+    if (!weekStart || !Array.isArray(housekeeperIds) || housekeeperIds.length === 0) {
+      return NextResponse.json({ error: "Missing weekStart or housekeeperIds" }, { status: 400 });
+    }
+    // Validate weekStart is a Monday (ISO day 1)
+    const d = new Date(weekStart + "T12:00:00Z");
+    if (d.getUTCDay() !== 1) {
+      return NextResponse.json({ error: "weekStart must be a Monday" }, { status: 400 });
+    }
+
+    const records = housekeeperIds.map((hkId: string) => ({
+      fields: {
+        "Start of the Week": weekStart,
+        "Housekeeper": [hkId],
+      },
+    }));
+
+    let created = 0;
+    for (let i = 0; i < records.length; i += 10) {
+      const batch = records.slice(i, i + 10);
+      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${HSK_TABLE}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ records: batch, typecast: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("HSK backfill error:", err);
+        return NextResponse.json({ error: "Failed to create logs", detail: err }, { status: 500 });
+      }
+      const data = await res.json();
+      created += data.records.length;
+    }
+
+    return NextResponse.json({ success: true, created });
+  } catch (error) {
+    console.error("HSK POST error:", error);
+    return NextResponse.json({ error: "Failed to create logs" }, { status: 500 });
+  }
+}

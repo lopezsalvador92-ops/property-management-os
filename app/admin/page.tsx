@@ -12,7 +12,7 @@ type AppUser = { id: string; firstName: string; lastName: string; email: string;
 type ActivityLog = { id: string; summary: string; timestamp: string; actorEmail: string; actorRole: string; action: string; targetEmail: string; targetRole: string; details: string };
 type PropertyDetail = { id: string; name: string; owner: string; email: string; secondaryEmail: string; currency: string; status: string; pmFeeUSD: number; pmFeeMXN: number; landscapingFeeUSD: number; landscapingFeeMXN: number; poolFeeUSD: number; poolFeeMXN: number; hskCadence: string; includedCleans: number; hskFeeUSD: number; hskFeeMXN: number; housemanFeeUSD: number; housemanFeeMXN: number };
 type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
-type HskLog = { id: string; housekeeper: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; dayIds: { mon: string[]; tue: string[]; wed: string[]; thu: string[]; fri: string[]; sat: string[]; sun: string[] }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
+type HskLog = { id: string; housekeeper: string; housekeeperId: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; dayIds: { mon: string[]; tue: string[]; wed: string[]; thu: string[]; fri: string[]; sat: string[]; sun: string[] }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
 type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number; weeklyBreakdown: { weekStart: string; cleans: number; included: number; extra: number }[] };
 type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
@@ -159,7 +159,9 @@ export default function AdminDashboard() {
   const [hskWeekStarts, setHskWeekStarts] = useState<string[]>([]);
   const [hskLoading, setHskLoading] = useState(false);
   const [hskUpdating, setHskUpdating] = useState<string | null>(null);
-  const [hskView, setHskView] = useState<"individual" | "weekly" | "summary" | "housekeepers">("individual");
+  const [hskView, setHskView] = useState<"individual" | "weekly" | "summary" | "schedule" | "housekeepers">("individual");
+  const [scheduleWeek, setScheduleWeek] = useState<string>(() => { const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1); const mon = new Date(d); mon.setDate(diff); return mon.toISOString().split("T")[0]; });
+  const [scheduleView, setScheduleView] = useState<"property" | "housekeeper">("property");
   const [housekeepersList, setHousekeepersList] = useState<{ id: string; name: string; active: boolean; notes: string; logCount: number }[]>([]);
   const [hkListLoading, setHkListLoading] = useState(false);
   const [editingHkId, setEditingHkId] = useState<string | null>(null);
@@ -1685,6 +1687,7 @@ export default function AdminDashboard() {
                   <button onClick={() => setHskView("individual")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "individual" ? "var(--accent-s)" : "transparent", color: hskView === "individual" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Individual</button>
                   <button onClick={() => setHskView("weekly")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "weekly" ? "var(--accent-s)" : "transparent", color: hskView === "weekly" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Weekly</button>
                   <button onClick={() => setHskView("summary")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "summary" ? "var(--accent-s)" : "transparent", color: hskView === "summary" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Monthly</button>
+                  <button onClick={() => setHskView("schedule")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "schedule" ? "var(--accent-s)" : "transparent", color: hskView === "schedule" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Schedule</button>
                   <button onClick={() => setHskView("housekeepers")} style={{ padding: "9px 18px", borderRadius: 100, border: "none", background: hskView === "housekeepers" ? "var(--accent-s)" : "transparent", color: hskView === "housekeepers" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>Housekeepers</button>
                 </div>
               </div>
@@ -1937,6 +1940,203 @@ export default function AdminDashboard() {
                     );
                   })}
                 </>);
+              })()}
+
+              {/* SCHEDULE VIEW */}
+              {hskView === "schedule" && (() => {
+                const weekDayLabels = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+                const schDayKeys: (keyof HskLog["days"])[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+                const weekLogs = hskLogs.filter(l => l.weekStart === scheduleWeek);
+                const activeHousekeepers = housekeepersList.filter(h => h.active);
+                const weeklyProps = hskSummary.filter(s => s.cadence === "Weekly");
+
+                // Build date labels for column headers
+                const weekDates = weekDayLabels.map((_, i) => {
+                  const d = new Date(scheduleWeek + "T12:00:00Z");
+                  d.setUTCDate(d.getUTCDate() + i);
+                  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+                });
+
+                // Format the week header
+                const wkStart = new Date(scheduleWeek + "T12:00:00Z");
+                const wkEnd = new Date(wkStart); wkEnd.setUTCDate(wkEnd.getUTCDate() + 6);
+                const wkLabel = `${wkStart.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })} — ${wkEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`;
+
+                // Navigation helpers
+                const shiftWeek = (delta: number) => {
+                  const d = new Date(scheduleWeek + "T12:00:00Z");
+                  d.setUTCDate(d.getUTCDate() + delta * 7);
+                  setScheduleWeek(d.toISOString().split("T")[0]);
+                };
+
+                // Housekeepers without a log this week
+                const loggedHkIds = new Set(weekLogs.map(l => l.housekeeperId).filter(Boolean));
+                const missingHks = activeHousekeepers.filter(h => !loggedHkIds.has(h.id));
+
+                // Backfill handler
+                const backfillMissing = async () => {
+                  if (missingHks.length === 0) return;
+                  const res = await fetch("/api/housekeeping", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ weekStart: scheduleWeek, housekeeperIds: missingHks.map(h => h.id) }),
+                  });
+                  if (res.ok) {
+                    // Refresh logs
+                    const d = await fetch(`/api/housekeeping?month=${hskSummaryMonth}`).then(r => r.json());
+                    setHskLogs(d.logs || []); setHskSummary(d.monthlySummary || []); setHskWeekStarts(d.weekStarts || []);
+                  }
+                };
+
+                // Property → housekeeper(s) per day
+                const propDayMap: Record<string, Record<string, string[]>> = {};
+                for (const log of weekLogs) {
+                  for (const dk of schDayKeys) {
+                    const dayStr = log.days[dk] || "";
+                    if (!dayStr.trim()) continue;
+                    for (const prop of dayStr.split(",").map(s => s.trim()).filter(Boolean)) {
+                      if (!propDayMap[prop]) propDayMap[prop] = {};
+                      if (!propDayMap[prop][dk]) propDayMap[prop][dk] = [];
+                      propDayMap[prop][dk].push(log.housekeeper.split(" ")[0]);
+                    }
+                  }
+                }
+
+                // Housekeeper → properties per day
+                const hkDayMap: Record<string, Record<string, string[]>> = {};
+                for (const log of weekLogs) {
+                  const hkName = log.housekeeper;
+                  if (!hkDayMap[hkName]) hkDayMap[hkName] = {};
+                  for (const dk of schDayKeys) {
+                    const dayStr = log.days[dk] || "";
+                    if (!dayStr.trim()) continue;
+                    if (!hkDayMap[hkName][dk]) hkDayMap[hkName][dk] = [];
+                    for (const prop of dayStr.split(",").map(s => s.trim()).filter(Boolean)) {
+                      hkDayMap[hkName][dk].push(prop);
+                    }
+                  }
+                }
+
+                const cellStyle: React.CSSProperties = { padding: "6px 4px", textAlign: "center", minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 2, borderBottom: "1px solid var(--border)" };
+                const headerCell: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--text3)", textAlign: "center", padding: "8px 4px" };
+                const nameCell: React.CSSProperties = { fontSize: 13, fontWeight: 500, padding: "8px 12px", display: "flex", alignItems: "center", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+
+                return (<div>
+                  {/* Week navigator + view toggle */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <button onClick={() => shiftWeek(-1)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text2)" }}>{"\u2039"}</button>
+                      <span style={{ fontSize: 15, fontWeight: 600, minWidth: 200, textAlign: "center" }}>{wkLabel}</span>
+                      <button onClick={() => shiftWeek(1)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border2)", background: "var(--bg2)", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text2)" }}>{"\u203A"}</button>
+                    </div>
+                    <div style={{ display: "flex", gap: 0, background: "var(--bg2)", borderRadius: 8, padding: 3, border: "1px solid var(--border)" }}>
+                      <button onClick={() => setScheduleView("property")} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: scheduleView === "property" ? "var(--bg)" : "transparent", color: scheduleView === "property" ? "var(--text)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: scheduleView === "property" ? "var(--shadow-sm)" : "none" }}>By Property</button>
+                      <button onClick={() => setScheduleView("housekeeper")} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: scheduleView === "housekeeper" ? "var(--bg)" : "transparent", color: scheduleView === "housekeeper" ? "var(--text)" : "var(--text3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: scheduleView === "housekeeper" ? "var(--shadow-sm)" : "none" }}>By Housekeeper</button>
+                    </div>
+                  </div>
+
+                  {/* Missing housekeepers alert */}
+                  {missingHks.length > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px", background: "var(--orange-s, rgba(207,149,110,0.08))", border: "1px solid rgba(207,149,110,0.15)", borderRadius: 10, marginBottom: 20, fontSize: 13 }}>
+                      <span><span style={{ fontWeight: 600, color: "var(--orange)" }}>{missingHks.length}</span> active {missingHks.length === 1 ? "housekeeper has" : "housekeepers have"} no log for this week: {missingHks.map(h => h.name.split(" ")[0]).join(", ")}</span>
+                      <button onClick={backfillMissing} style={{ padding: "7px 18px", borderRadius: 100, border: "none", background: "var(--teal)", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>Create Missing Logs</button>
+                    </div>
+                  )}
+
+                  {/* PROPERTY-CENTRIC GRID */}
+                  {scheduleView === "property" && (
+                    <div style={{ ...card, overflow: "auto" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "180px repeat(7, 1fr)", minWidth: 750 }}>
+                        <div style={{ ...headerCell, textAlign: "left", padding: "8px 12px" }}>PROPERTY</div>
+                        {weekDayLabels.map((d, i) => (
+                          <div key={d} style={headerCell}>
+                            <div>{d}</div>
+                            <div style={{ fontWeight: 400, fontSize: 9, opacity: 0.6, marginTop: 2 }}>{weekDates[i]}</div>
+                          </div>
+                        ))}
+                        {weeklyProps.length === 0 && <div style={{ gridColumn: "1 / -1", padding: 20, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>No properties with Weekly cadence configured.</div>}
+                        {weeklyProps.map(sp => {
+                          const propData = propDayMap[sp.property] || {};
+                          return (<React.Fragment key={sp.property}>
+                            <div style={nameCell}>
+                              <div>
+                                <div>{sp.property}</div>
+                                <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 400 }}>{sp.includedPerWeek} incl/wk</div>
+                              </div>
+                            </div>
+                            {schDayKeys.map(dk => {
+                              const hks = propData[dk] || [];
+                              return (
+                                <div key={dk} style={cellStyle}>
+                                  {hks.length > 0 ? hks.map((name, i) => (
+                                    <span key={i} style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 500, background: "var(--teal-s, rgba(56,140,145,0.1))", color: "var(--teal)" }}>{name}</span>
+                                  )) : <span style={{ color: "var(--text3)", fontSize: 12 }}>{"\u2014"}</span>}
+                                </div>
+                              );
+                            })}
+                          </React.Fragment>);
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* HOUSEKEEPER-CENTRIC GRID */}
+                  {scheduleView === "housekeeper" && (
+                    <div style={{ ...card, overflow: "auto" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "180px repeat(7, 1fr)", minWidth: 750 }}>
+                        <div style={{ ...headerCell, textAlign: "left", padding: "8px 12px" }}>HOUSEKEEPER</div>
+                        {weekDayLabels.map((d, i) => (
+                          <div key={d} style={headerCell}>
+                            <div>{d}</div>
+                            <div style={{ fontWeight: 400, fontSize: 9, opacity: 0.6, marginTop: 2 }}>{weekDates[i]}</div>
+                          </div>
+                        ))}
+                        {weekLogs.length === 0 && <div style={{ gridColumn: "1 / -1", padding: 20, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>No logs for this week. Use "Create Missing Logs" above to get started.</div>}
+                        {weekLogs.map(log => {
+                          const hkData = hkDayMap[log.housekeeper] || {};
+                          return (<React.Fragment key={log.id}>
+                            <div style={nameCell}>
+                              <div>
+                                <div>{log.housekeeper}</div>
+                                <div style={{ fontSize: 10, color: log.status === "Approved" ? "var(--green)" : log.status === "Pending" ? "var(--accent)" : "var(--text3)", fontWeight: 400 }}>{log.status}</div>
+                              </div>
+                            </div>
+                            {schDayKeys.map(dk => {
+                              const props = hkData[dk] || [];
+                              return (
+                                <div key={dk} style={cellStyle}>
+                                  {props.length > 0 ? props.map((p, i) => {
+                                    const colors = ["var(--teal)", "var(--accent)", "var(--green)", "var(--blue)", "var(--orange)", "#9B8EC4", "#CFC46E"];
+                                    const idx = p.split("").reduce((a: number, c: string) => a + c.charCodeAt(0), 0) % colors.length;
+                                    return <span key={i} style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 500, background: `${colors[idx]}18`, color: colors[idx] }}>{p}</span>;
+                                  }) : <span style={{ color: "var(--text3)", fontSize: 12 }}>{"\u2014"}</span>}
+                                </div>
+                              );
+                            })}
+                          </React.Fragment>);
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Week stats */}
+                  {weekLogs.length > 0 && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 20 }}>
+                      <div style={card}>
+                        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 6 }}>Logs This Week</div>
+                        <div style={{ fontFamily: "var(--fd)", fontSize: 24 }}>{weekLogs.length}</div>
+                      </div>
+                      <div style={card}>
+                        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 6 }}>Total Cleans</div>
+                        <div style={{ fontFamily: "var(--fd)", fontSize: 24 }}>{weekLogs.reduce((sum, l) => sum + schDayKeys.reduce((ds, dk) => ds + (l.days[dk] ? l.days[dk].split(",").filter(s => s.trim()).length : 0), 0), 0)}</div>
+                      </div>
+                      <div style={card}>
+                        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "var(--text3)", marginBottom: 6 }}>Properties Covered</div>
+                        <div style={{ fontFamily: "var(--fd)", fontSize: 24 }}>{new Set(weekLogs.flatMap(l => schDayKeys.flatMap(dk => (l.days[dk] || "").split(",").map(s => s.trim()).filter(Boolean)))).size}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>);
               })()}
 
               {/* HOUSEKEEPERS MANAGEMENT */}
