@@ -3225,7 +3225,10 @@ export default function AdminDashboard() {
                         const footer = `\n${"─".repeat(40)}\nPrepared by Cape Property Management`;
                         navigator.clipboard.writeText(header + body + footer).then(() => alert("Itinerary copied to clipboard!"));
                       }
-                      return <button onClick={copyItinerary} style={{ padding: "9px 18px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.3)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>📋 Copy</button>;
+                      return (<>
+                        <button onClick={copyItinerary} style={{ padding: "9px 18px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.3)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Copy</button>
+                        <button onClick={() => window.open(`/api/pdf/itinerary?visitId=${selectedVisitId}`, "_blank")} style={{ padding: "9px 18px", borderRadius: 100, background: "var(--accent-s)", color: "var(--accent)", border: "1px solid rgba(201,169,110,0.3)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
+                      </>);
                     })()}
                   </div>
 
@@ -3356,6 +3359,7 @@ export default function AdminDashboard() {
                                     {!ev.total && ev.chargeable && ev.estimatedCost > 0 && <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}>$ {ev.estimatedCost.toFixed(2)} (chargeable)</div>}
                                   </div>
                                   <button onClick={() => { setEditEventId(ev.id); setEditEventForm({ eventName: ev.eventName, date: ev.date, time: ev.time, eventType: ev.eventType, vendorId: ev.vendorId, details: ev.details, status: ev.status, showVendor: ev.showVendor, chargeable: ev.chargeable, estimatedCost: ev.estimatedCost, extraDetails: ev.extraDetails || {}, total: ev.total, currency: ev.currency }); }} style={{ padding: "4px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>✎ Edit</button>
+                                  <button onClick={() => window.open(`/api/pdf/event-confirmation?eventId=${ev.id}`, "_blank")} title="Download event confirmation PDF" style={{ padding: "4px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--teal)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>PDF</button>
                                   <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, textTransform: "uppercase", letterSpacing: "0.04em", background: ec.bg, color: ec.text, flexShrink: 0 }}>{ev.status}</span>
                                 </div>
                                 )}
