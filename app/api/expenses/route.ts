@@ -73,7 +73,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { propertyId, date, category, amount, currency, description, supplier, receiptUrl } = body;
+    const { propertyId, date, category, amount, currency, description, supplier, receiptUrl, rentalId } = body;
 
     if (!propertyId || !date || !category || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -89,6 +89,7 @@ export async function POST(request: Request) {
     if (description) fields["Description"] = description;
     if (supplier) fields["Supplier"] = supplier;
     if (receiptUrl) fields["Receipt URL"] = receiptUrl;
+    if (rentalId) fields["Guest Rentals"] = [rentalId];
 
     const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${EXPENSES_TABLE}`, {
       method: "POST",

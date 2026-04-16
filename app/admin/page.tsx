@@ -193,6 +193,8 @@ export default function AdminDashboard() {
   const [vendorSearch, setVendorSearch] = useState("");
   const [editChargeId, setEditChargeId] = useState<string | null>(null);
   const [editChargeForm, setEditChargeForm] = useState<{ amount: string; description: string; currency: string }>({ amount: "", description: "", currency: "USD" });
+  // Guest folio routing per event: true = charge to folio, false/undefined = charge to property
+  const [guestChargeToFolio, setGuestChargeToFolio] = useState<Record<string, boolean>>({});
   const [approvingCharge, setApprovingCharge] = useState<string | null>(null);
   const [editVendorId, setEditVendorId] = useState<string | null>(null);
   const [editVendorForm, setEditVendorForm] = useState<Record<string, any>>({});
@@ -3514,22 +3516,67 @@ export default function AdminDashboard() {
                 const processedCharges = chargeableEvents.filter(e => e.expenseCreated);
                 const pendingTotal = pendingCharges.reduce((sum, e) => sum + (e.total || e.estimatedCost || 0), 0);
 
+                // Find or create a Guest Rental record for a visit (used when routing to a folio)
+                async function findOrCreateRentalForVisit(visit: Visit): Promise<string | null> {
+                  try {
+                    // Look for existing rental matching this property + overlapping dates + guest name
+                    const rList = await fetch("/api/rentals").then(r => r.json());
+                    const existing = (rList.rentals || []).find((r: Rental) =>
+                      r.propertyId === visit.propertyId &&
+                      r.guestName.toLowerCase().trim() === (visit.guestName || "").toLowerCase().trim() &&
+                      r.arrivalDate === visit.checkIn &&
+                      r.departureDate === visit.checkOut
+                    );
+                    if (existing) return existing.id;
+
+                    // Create a new rental stub
+                    const created = await fetch("/api/rentals", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        guestName: visit.guestName || visit.visitName,
+                        propertyId: visit.propertyId,
+                        arrivalDate: visit.checkIn,
+                        departureDate: visit.checkOut,
+                        status: "In House",
+                      }),
+                    }).then(r => r.json());
+                    return created?.id || null;
+                  } catch (e) {
+                    console.error("findOrCreateRentalForVisit failed:", e);
+                    return null;
+                  }
+                }
+
                 async function approveCharge(ev: ItineraryEvent, overrideAmount?: number, overrideDesc?: string, overrideCurrency?: string) {
                   const visit = visits.find(v => v.id === ev.visitId);
                   if (!visit) return;
                   setApprovingCharge(ev.id);
                   try {
+                    // Determine routing based on visit type
+                    const routeToFolio =
+                      visit.visitType === "Rental" ||
+                      (visit.visitType === "Guest" && guestChargeToFolio[ev.id]);
+
+                    let rentalId: string | null = null;
+                    let category = "Concierge";
+                    if (routeToFolio) {
+                      rentalId = await findOrCreateRentalForVisit(visit);
+                      category = "Rental Expenses";
+                    }
+
                     await fetch("/api/expenses", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         propertyId: visit.propertyId,
                         date: ev.date,
-                        category: "Concierge",
+                        category,
                         amount: overrideAmount ?? ev.total ?? ev.estimatedCost,
                         currency: overrideCurrency ?? (ev.currency || "USD"),
                         description: overrideDesc ?? ev.eventName,
                         supplier: ev.vendorName || "",
+                        rentalId: rentalId || undefined,
                       }),
                     });
                     await fetch("/api/itinerary", {
@@ -3543,6 +3590,13 @@ export default function AdminDashboard() {
                   } catch (e) { console.error(e); }
                   setApprovingCharge(null);
                 }
+
+                const visitTypeColor = (t: string) => {
+                  if (t === "Owner") return { bg: "var(--teal-s)", text: "var(--teal)" };
+                  if (t === "Rental") return { bg: "var(--blue-s)", text: "var(--blue)" };
+                  if (t === "Guest") return { bg: "rgba(155,142,196,0.12)", text: "#9B8EC4" };
+                  return { bg: "var(--bg3)", text: "var(--text3)" };
+                };
 
                 return (
                   <>
@@ -3564,13 +3618,33 @@ export default function AdminDashboard() {
                               <div key={ev.id} style={{ padding: 18, background: "var(--bg2)", borderRadius: 12, border: "1px solid var(--border2)" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                                   <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)", marginBottom: 6 }}>{ev.eventName}</div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+                                      <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text1)" }}>{ev.eventName}</div>
+                                      {visit?.visitType && (() => {
+                                        const vc = visitTypeColor(visit.visitType);
+                                        return <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", padding: "2px 8px", borderRadius: 100, background: vc.bg, color: vc.text }}>{visit.visitType}</span>;
+                                      })()}
+                                    </div>
                                     <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12, color: "var(--text3)" }}>
                                       <span>{ev.date}</span>
                                       {visit && <span>{visit.visitName} · {visit.propertyName}</span>}
                                       {ev.vendorName && <span>Vendor: {ev.vendorName}</span>}
                                     </div>
-                                    <div style={{ marginTop: 8, fontSize: 15, fontWeight: 600, color: "var(--accent)" }}>${(ev.total || ev.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {ev.currency || "USD"}</div>
+                                    <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                                      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--accent)" }}>${(ev.total || ev.estimatedCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {ev.currency || "USD"}</div>
+                                      {visit?.visitType === "Rental" && (
+                                        <span style={{ fontSize: 11, color: "var(--blue)", background: "var(--blue-s)", padding: "3px 10px", borderRadius: 100, fontWeight: 500 }}>{"\u2192"} Rental Folio</span>
+                                      )}
+                                      {visit?.visitType === "Owner" && (
+                                        <span style={{ fontSize: 11, color: "var(--text3)", background: "var(--bg3)", padding: "3px 10px", borderRadius: 100 }}>{"\u2192"} Property Expense</span>
+                                      )}
+                                      {visit?.visitType === "Guest" && (
+                                        <div style={{ display: "inline-flex", borderRadius: 100, border: "1px solid var(--border2)", overflow: "hidden" }}>
+                                          <button onClick={() => setGuestChargeToFolio(m => ({ ...m, [ev.id]: false }))} style={{ padding: "4px 12px", fontSize: 11, border: "none", background: !guestChargeToFolio[ev.id] ? "var(--teal)" : "transparent", color: !guestChargeToFolio[ev.id] ? "#fff" : "var(--text3)", cursor: "pointer", fontFamily: "inherit", fontWeight: !guestChargeToFolio[ev.id] ? 600 : 400 }}>Property Expense</button>
+                                          <button onClick={() => setGuestChargeToFolio(m => ({ ...m, [ev.id]: true }))} style={{ padding: "4px 12px", fontSize: 11, border: "none", background: guestChargeToFolio[ev.id] ? "var(--teal)" : "transparent", color: guestChargeToFolio[ev.id] ? "#fff" : "var(--text3)", cursor: "pointer", fontFamily: "inherit", fontWeight: guestChargeToFolio[ev.id] ? 600 : 400 }}>Guest Folio</button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                                     {!isEditing && (
