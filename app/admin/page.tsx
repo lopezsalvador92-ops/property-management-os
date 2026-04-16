@@ -182,7 +182,7 @@ export default function AdminDashboard() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [itineraryEvents, setItineraryEvents] = useState<ItineraryEvent[]>([]);
   const [concLoading, setConcLoading] = useState(false);
-  const [concTab, setConcTab] = useState<"visits" | "builder" | "directory" | "charges">("visits");
+  const [concTab, setConcTab] = useState<"visits" | "builder" | "directory" | "charges" | "transportation">("visits");
   const [selectedVisitId, setSelectedVisitId] = useState<string>("");
   const [visitStatusFilter, setVisitStatusFilter] = useState<"all" | "Active" | "Upcoming" | "Completed">("all");
   const [vendorFilter, setVendorFilter] = useState("all");
@@ -222,6 +222,12 @@ export default function AdminDashboard() {
   // CSV import
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvResult, setCsvResult] = useState<string | null>(null);
+  // Transportation tab state
+  const [transView, setTransView] = useState<"schedule" | "completed" | "report">("schedule");
+  const [transReportFrom, setTransReportFrom] = useState("");
+  const [transReportTo, setTransReportTo] = useState("");
+  const [transVendorFilter, setTransVendorFilter] = useState<string>("all");
+  const [transPropFilter, setTransPropFilter] = useState<string>("all");
 
   // Maintenance state
   const [maintTasks, setMaintTasks] = useState<MaintenanceTask[]>([]);
@@ -489,7 +495,7 @@ export default function AdminDashboard() {
   }, [activePage]);
 
   useEffect(() => {
-    if (activePage === "concierge" && (concTab === "builder" || concTab === "charges")) {
+    if (activePage === "concierge" && (concTab === "builder" || concTab === "charges" || concTab === "transportation")) {
       // Fetch all events (client-side filters by visitId since Airtable's ARRAYJOIN on linked fields returns names not IDs)
       fetch(`/api/itinerary`).then(r => r.json()).then(d => setItineraryEvents(d.events || [])).catch(() => {});
     }
@@ -3006,7 +3012,7 @@ export default function AdminDashboard() {
                 <div>
                   <span style={eyebrow}>Guest Experience</span>
                   <h1 style={h1s}>Concierge</h1>
-                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Manage owner & guest visits, itineraries, and vendors</p>
+                  <p style={{ fontSize: 13, color: "var(--text2)" }}>Manage owner & guest visits, itineraries, transportation, and vendors</p>
                   <span className="a-gold-rule" />
                 </div>
                 {concTab === "visits" && <button onClick={() => setShowAddVisit(!showAddVisit)} style={{ padding: "10px 22px", borderRadius: 100, background: "var(--accent)", color: "#fff", border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)", transition: "all var(--dur) var(--ease)" }}>+ New Visit</button>}
@@ -3023,7 +3029,7 @@ export default function AdminDashboard() {
 
               {/* Sub-tabs */}
               <div style={{ display: "flex", gap: 0, padding: 4, background: "var(--bg2)", borderRadius: 100, marginBottom: 28, width: "fit-content", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
-                {([["visits","Visits"],["builder","Itinerary Builder"],["directory","Vendor Directory"],["charges","Charges"]] as [string,string][]).map(([id, label]) => (
+                {([["visits","Visits"],["builder","Itinerary Builder"],["directory","Vendor Directory"],["charges","Charges"],["transportation","Transportation"]] as [string,string][]).map(([id, label]) => (
                   <button key={id} onClick={() => setConcTab(id as any)} style={{ padding: "9px 18px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: concTab === id ? "var(--accent)" : "var(--text3)", background: concTab === id ? "var(--accent-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>{label}</button>
                 ))}
               </div>
@@ -3581,6 +3587,244 @@ export default function AdminDashboard() {
                           })}
                         </div>
                       </div>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* ---- TRANSPORTATION TAB ---- */}
+              {!concLoading && concTab === "transportation" && (() => {
+                const TRANSPORT_TYPES = ["Arrival Transportation", "Departure Transportation", "Private Transportation"];
+                const transportEvents = itineraryEvents.filter(e => TRANSPORT_TYPES.includes(e.eventType));
+                const todayStr = new Date().toISOString().split("T")[0];
+
+                // Apply vendor & property filters
+                const filtered = transportEvents.filter(e => {
+                  if (transVendorFilter !== "all" && e.vendorId !== transVendorFilter) return false;
+                  const visit = visits.find(v => v.id === e.visitId);
+                  if (transPropFilter !== "all" && visit?.propertyId !== transPropFilter) return false;
+                  return true;
+                });
+
+                const upcoming = filtered.filter(e => e.date >= todayStr && e.status !== "Cancelled").sort((a, b) => a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || ""));
+                const completed = filtered.filter(e => e.date < todayStr || e.status === "Cancelled").sort((a, b) => b.date.localeCompare(a.date));
+
+                // Report: group by vendor (transport company)
+                const reportFiltered = filtered.filter(e => {
+                  if (transReportFrom && e.date < transReportFrom) return false;
+                  if (transReportTo && e.date > transReportTo) return false;
+                  return true;
+                });
+                const vendorGroups: Record<string, { vendorName: string; trips: typeof reportFiltered; totalCost: number }> = {};
+                for (const e of reportFiltered) {
+                  const vk = e.vendorId || "_none";
+                  if (!vendorGroups[vk]) vendorGroups[vk] = { vendorName: e.vendorName || "No vendor assigned", trips: [], totalCost: 0 };
+                  vendorGroups[vk].trips.push(e);
+                  vendorGroups[vk].totalCost += (e.total || e.estimatedCost || 0);
+                }
+
+                // Unique vendors in transport events for filter
+                const transportVendors = Array.from(new Set(transportEvents.filter(e => e.vendorId).map(e => e.vendorId))).map(vid => {
+                  const ev = transportEvents.find(e => e.vendorId === vid);
+                  return { id: vid, name: ev?.vendorName || vid };
+                });
+                // Unique properties in transport events
+                const transportProps = Array.from(new Set(transportEvents.map(e => e.visitId).filter(Boolean))).map(vid => {
+                  const visit = visits.find(v => v.id === vid);
+                  return visit ? { id: visit.propertyId, name: visit.propertyName } : null;
+                }).filter((p): p is { id: string; name: string } => !!p && !!p.id);
+                const uniqueProps = Array.from(new Map(transportProps.map(p => [p.id, p])).values());
+
+                // Stat cards
+                const totalUpcoming = upcoming.length;
+                const arrivals = upcoming.filter(e => e.eventType === "Arrival Transportation").length;
+                const departures = upcoming.filter(e => e.eventType === "Departure Transportation").length;
+                const privateT = upcoming.filter(e => e.eventType === "Private Transportation").length;
+
+                const typeIcon = (t: string) => t === "Arrival Transportation" ? "✈↓" : t === "Departure Transportation" ? "✈↑" : "🚐";
+                const typeBg = (t: string) => t === "Arrival Transportation" ? "var(--green-s)" : t === "Departure Transportation" ? "var(--blue-s)" : "var(--accent-s)";
+                const typeColor = (t: string) => t === "Arrival Transportation" ? "var(--green)" : t === "Departure Transportation" ? "var(--blue)" : "var(--accent)";
+                const typeLabel = (t: string) => t.replace(" Transportation", "");
+
+                const statusColor = (s: string) => s === "Confirmed" ? { bg: "var(--green-s)", text: "var(--green)" } : s === "Cancelled" ? { bg: "var(--red-s)", text: "var(--red)" } : { bg: "var(--orange-s)", text: "var(--orange)" };
+
+                return (
+                  <>
+                    {/* Stat cards */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+                      {[
+                        { label: "Upcoming", value: totalUpcoming, color: "var(--teal)" },
+                        { label: "Arrivals", value: arrivals, color: "var(--green)" },
+                        { label: "Departures", value: departures, color: "var(--blue)" },
+                        { label: "Private", value: privateT, color: "var(--accent)" },
+                      ].map(c => (
+                        <div key={c.label} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: "18px 20px", textAlign: "center" }}>
+                          <div style={{ fontSize: 26, fontWeight: 700, color: c.color, fontFamily: "var(--font-heading)" }}>{c.value}</div>
+                          <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 4 }}>{c.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Sub-view toggle + filters */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 0, padding: 3, background: "var(--bg3)", borderRadius: 100, border: "1px solid var(--border)" }}>
+                        {(["schedule", "completed", "report"] as const).map(v => (
+                          <button key={v} onClick={() => setTransView(v)} style={{ padding: "7px 16px", borderRadius: 100, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: transView === v ? "var(--teal)" : "var(--text3)", background: transView === v ? "var(--teal-s)" : "transparent", border: "none", cursor: "pointer", fontFamily: "inherit" }}>{v === "schedule" ? "Schedule" : v === "completed" ? "Completed" : "Payment Report"}</button>
+                        ))}
+                      </div>
+                      <select value={transVendorFilter} onChange={e => setTransVendorFilter(e.target.value)} style={{ ...sel, padding: "7px 12px", fontSize: 12, minWidth: 140 }}>
+                        <option value="all">All vendors</option>
+                        {transportVendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                      </select>
+                      <select value={transPropFilter} onChange={e => setTransPropFilter(e.target.value)} style={{ ...sel, padding: "7px 12px", fontSize: 12, minWidth: 140 }}>
+                        <option value="all">All properties</option>
+                        {uniqueProps.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+
+                    {/* SCHEDULE VIEW */}
+                    {transView === "schedule" && (
+                      <>
+                        {upcoming.length === 0 && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20, textAlign: "center" }}>No upcoming transportation events.</div>}
+                        {(() => {
+                          const byDate: Record<string, typeof upcoming> = {};
+                          for (const e of upcoming) { const d = e.date || "Unscheduled"; if (!byDate[d]) byDate[d] = []; byDate[d].push(e); }
+                          return Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b)).map(([date, evts]) => {
+                            const dateObj = new Date(date + "T12:00:00Z");
+                            const isToday = date === todayStr;
+                            const dayLabel = dateObj.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+                            return (
+                              <div key={date} style={{ marginBottom: 20 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: isToday ? "var(--teal)" : "var(--text1)" }}>{isToday ? "Today" : dayLabel}</span>
+                                  {isToday && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "var(--teal-s)", color: "var(--teal)", fontWeight: 600 }}>{dayLabel}</span>}
+                                  <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                                  <span style={{ fontSize: 11, color: "var(--text3)" }}>{evts.length} trip{evts.length > 1 ? "s" : ""}</span>
+                                </div>
+                                {evts.map(ev => {
+                                  const visit = visits.find(v => v.id === ev.visitId);
+                                  const sc = statusColor(ev.status);
+                                  return (
+                                    <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 18px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8 }}>
+                                      <span style={{ fontSize: 18, width: 36, textAlign: "center", flexShrink: 0 }}>{typeIcon(ev.eventType)}</span>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                                          <span style={{ fontSize: 14, fontWeight: 500 }}>{ev.eventName}</span>
+                                          <span style={{ fontSize: 9, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: typeBg(ev.eventType), color: typeColor(ev.eventType), textTransform: "uppercase", letterSpacing: "0.04em" }}>{typeLabel(ev.eventType)}</span>
+                                        </div>
+                                        <div style={{ fontSize: 12, color: "var(--text3)" }}>
+                                          {[ev.time, visit?.guestName, visit?.propertyName, ev.vendorName].filter(Boolean).join(" · ")}
+                                        </div>
+                                        {ev.details && <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{ev.details}</div>}
+                                      </div>
+                                      {(ev.total > 0 || ev.estimatedCost > 0) && (
+                                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text1)", whiteSpace: "nowrap" }}>${(ev.total || ev.estimatedCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {ev.currency || "USD"}</span>
+                                      )}
+                                      <span style={{ fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: 100, background: sc.bg, color: sc.text, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>{ev.status}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          });
+                        })()}
+                      </>
+                    )}
+
+                    {/* COMPLETED VIEW */}
+                    {transView === "completed" && (
+                      <>
+                        {completed.length === 0 && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20, textAlign: "center" }}>No completed transportation events.</div>}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {completed.map(ev => {
+                            const visit = visits.find(v => v.id === ev.visitId);
+                            const sc = statusColor(ev.status);
+                            return (
+                              <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 16px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10 }}>
+                                <span style={{ fontSize: 16, width: 32, textAlign: "center", flexShrink: 0, opacity: 0.6 }}>{typeIcon(ev.eventType)}</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <span style={{ fontSize: 13, fontWeight: 500 }}>{ev.eventName}</span>
+                                  <div style={{ fontSize: 11, color: "var(--text3)" }}>{[ev.date, visit?.guestName, visit?.propertyName, ev.vendorName].filter(Boolean).join(" · ")}</div>
+                                </div>
+                                {(ev.total > 0 || ev.estimatedCost > 0) && (
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", whiteSpace: "nowrap" }}>${(ev.total || ev.estimatedCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {ev.currency || "USD"}</span>
+                                )}
+                                <span style={{ fontSize: 9, fontWeight: 600, padding: "2px 8px", borderRadius: 100, background: sc.bg, color: sc.text, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>{ev.status}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {/* PAYMENT REPORT VIEW */}
+                    {transView === "report" && (
+                      <>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600 }}>From</span>
+                            <input type="date" value={transReportFrom} onChange={e => setTransReportFrom(e.target.value)} style={{ ...inp, padding: "6px 10px", fontSize: 12, width: 150 }} />
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600 }}>To</span>
+                            <input type="date" value={transReportTo} onChange={e => setTransReportTo(e.target.value)} style={{ ...inp, padding: "6px 10px", fontSize: 12, width: 150 }} />
+                          </div>
+                          <button onClick={() => { setTransReportFrom(""); setTransReportTo(""); }} style={{ padding: "6px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
+                        </div>
+
+                        {Object.keys(vendorGroups).length === 0 && <div style={{ fontSize: 13, color: "var(--text3)", padding: 20, textAlign: "center" }}>No transportation events in selected range.</div>}
+
+                        {Object.entries(vendorGroups).sort(([, a], [, b]) => b.totalCost - a.totalCost).map(([vk, group]) => (
+                          <div key={vk} style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 14, padding: "20px 24px", marginBottom: 16 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                              <div>
+                                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text1)" }}>{group.vendorName}</div>
+                                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{group.trips.length} trip{group.trips.length > 1 ? "s" : ""}{transReportFrom || transReportTo ? ` · ${transReportFrom || "start"} → ${transReportTo || "now"}` : ""}</div>
+                              </div>
+                              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--teal)", fontFamily: "var(--font-heading)" }}>${group.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            </div>
+                            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                                <thead>
+                                  <tr style={{ textAlign: "left" }}>
+                                    <th style={{ padding: "6px 8px", fontSize: 10, fontWeight: 700, color: "var(--text3)", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--border)" }}>Date</th>
+                                    <th style={{ padding: "6px 8px", fontSize: 10, fontWeight: 700, color: "var(--text3)", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--border)" }}>Type</th>
+                                    <th style={{ padding: "6px 8px", fontSize: 10, fontWeight: 700, color: "var(--text3)", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--border)" }}>Event</th>
+                                    <th style={{ padding: "6px 8px", fontSize: 10, fontWeight: 700, color: "var(--text3)", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--border)" }}>Guest</th>
+                                    <th style={{ padding: "6px 8px", fontSize: 10, fontWeight: 700, color: "var(--text3)", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--border)" }}>Property</th>
+                                    <th style={{ padding: "6px 8px", fontSize: 10, fontWeight: 700, color: "var(--text3)", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid var(--border)", textAlign: "right" }}>Cost</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {group.trips.sort((a, b) => a.date.localeCompare(b.date)).map(ev => {
+                                    const visit = visits.find(v => v.id === ev.visitId);
+                                    return (
+                                      <tr key={ev.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                                        <td style={{ padding: "8px 8px", fontSize: 12, color: "var(--text2)" }}>{ev.date}</td>
+                                        <td style={{ padding: "8px 8px" }}><span style={{ fontSize: 9, fontWeight: 600, padding: "2px 6px", borderRadius: 100, background: typeBg(ev.eventType), color: typeColor(ev.eventType), textTransform: "uppercase", letterSpacing: "0.04em" }}>{typeLabel(ev.eventType)}</span></td>
+                                        <td style={{ padding: "8px 8px", fontSize: 12, color: "var(--text1)", fontWeight: 500 }}>{ev.eventName}</td>
+                                        <td style={{ padding: "8px 8px", fontSize: 12, color: "var(--text3)" }}>{visit?.guestName || "—"}</td>
+                                        <td style={{ padding: "8px 8px", fontSize: 12, color: "var(--text3)" }}>{visit?.propertyName || "—"}</td>
+                                        <td style={{ padding: "8px 8px", fontSize: 12, color: "var(--text1)", fontWeight: 600, textAlign: "right" }}>{(ev.total || ev.estimatedCost) ? `$${(ev.total || ev.estimatedCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Grand total */}
+                        {Object.keys(vendorGroups).length > 0 && (
+                          <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 24px", background: "var(--bg3)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>Grand Total</div>
+                              <div style={{ fontSize: 24, fontWeight: 700, color: "var(--teal)", fontFamily: "var(--font-heading)" }}>${Object.values(vendorGroups).reduce((s, g) => s + g.totalCost, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 );
