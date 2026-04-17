@@ -713,7 +713,7 @@ export default function AdminDashboard() {
             amount: amount.toFixed(2),
             currency: property.currency,
             description: desc,
-            supplier: "Cape PM",
+            supplier: "Property Management OS",
           }),
         });
         if (res.ok) {
@@ -993,8 +993,8 @@ export default function AdminDashboard() {
         {/* Mobile top bar */}
         <div className="admin-mobile-bar">
           <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginBottom: 8 }}>
-            <img src="/cape-logo.png" alt="Cape PM" style={{ height: 22 }} />
-            <span style={{ fontSize: 13, fontWeight: 500 }}>Cape PM</span>
+            <img src="/axvia-icon.svg" alt="Property Management OS" style={{ height: 22 }} />
+            <span style={{ fontSize: 13, fontWeight: 500 }}>Property Management OS</span>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
               <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "☀" : "🌙"}</button>
               <UserButton appearance={{ elements: { avatarBox: { width: 24, height: 24 } } }} />
@@ -1010,8 +1010,8 @@ export default function AdminDashboard() {
         {/* SIDEBAR */}
       <div className="admin-sidebar-wrap" style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", height: "100vh", position: "sticky" as const, top: 0, display: "flex", flexDirection: "column" as const, overflow: "hidden", transition: "width 0.2s ease", width: sidebarWidth }}>
         <div style={{ padding: sidebarOpen ? "24px 20px 20px" : "24px 12px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, minHeight: 78 }}>
-          <img src="/cape-logo.png" alt="Cape PM" style={{ height: 28 }} />
-          {sidebarOpen && <div><div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text2)" }}>Cape PM</div><div style={{ fontSize: 10, color: "var(--text3)" }}>Admin Panel</div></div>}
+          <img src="/axvia-icon.svg" alt="Property Management OS" style={{ height: 28 }} />
+          {sidebarOpen && <div><div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text2)" }}>Property Management OS</div><div style={{ fontSize: 10, color: "var(--text3)" }}>Admin Panel</div></div>}
         </div>
         <div style={{ padding: sidebarOpen ? "16px 12px 8px" : "16px 8px 8px", flex: 1, overflowY: "auto" as const, minHeight: 0 }}>
           {sidebarOpen && <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "var(--text3)", padding: "0 12px 8px", fontWeight: 600 }}>Management</div>}
@@ -3570,7 +3570,7 @@ export default function AdminDashboard() {
                           const events = eventsByDate[date].map(ev => `  ${ev.time || "     "} · ${ev.eventName}${ev.vendorName ? ` (${ev.vendorName})` : ""}${ev.details ? `\n          ${ev.details}` : ""}${ev.status !== "Confirmed" ? ` [${ev.status}]` : ""}`).join("\n");
                           return `\n${dayLabel}\n${events}`;
                         }).join("\n");
-                        const footer = `\n${"─".repeat(40)}\nPrepared by Cape Property Management`;
+                        const footer = `\n${"─".repeat(40)}\nPrepared by Property Management OS`;
                         navigator.clipboard.writeText(header + body + footer).then(() => alert("Itinerary copied to clipboard!"));
                       }
                       return (<>
@@ -3727,7 +3727,7 @@ export default function AdminDashboard() {
               {/* ---- VENDOR DIRECTORY TAB ---- */}
               {!concLoading && concTab === "directory" && (
                 <>
-                  <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20 }}>Cape PM's vendor and activity directory · <span style={{ color: "var(--text3)" }}>CSV format: Name, Category, Contact, Location, Tags, Notes</span></div>
+                  <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 20 }}>Your vendor and activity directory · <span style={{ color: "var(--text3)" }}>CSV format: Name, Category, Contact, Location, Tags, Notes</span></div>
                   {csvResult && <div style={{ padding: "10px 16px", background: csvResult.startsWith("✓") ? "var(--green-s)" : "var(--red-s)", color: csvResult.startsWith("✓") ? "var(--green)" : "var(--red)", borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{csvResult}</div>}
 
                   {/* Add Vendor Form */}
@@ -4392,7 +4392,7 @@ export default function AdminDashboard() {
                 <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 16, padding: "28px 32px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, paddingBottom: 20, borderBottom: `2px solid var(--accent)` }}>
                     <div>
-                      <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>Cape Property Management</div>
+                      <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>Property Management OS</div>
                       <div style={{ fontSize: 20, fontFamily: "var(--fd)", color: "var(--text1)", fontWeight: 500 }}>Folio Statement</div>
                     </div>
                     <div style={{ textAlign: "right" }}>

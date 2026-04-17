@@ -1,11 +1,9 @@
 /**
- * Shared Cape PM PDF branding: styles, colors, header/footer components.
+ * Shared PDF branding: styles, colors, header/footer components.
  * Used by event-confirmation, itinerary, and rental folio PDFs.
  */
 import React from "react";
 import { Text, View, Image, StyleSheet } from "@react-pdf/renderer";
-import path from "path";
-import fs from "fs";
 
 // ---------- Colors ----------
 export const C = {
@@ -22,17 +20,9 @@ export const C = {
 };
 
 // ---------- Logo ----------
-let logoBase64: string | null = null;
+// SVG logos aren't supported by @react-pdf/renderer Image — fall back to wordmark text.
 export function getLogoDataUri(): string {
-  if (logoBase64) return logoBase64;
-  try {
-    const logoPath = path.join(process.cwd(), "public", "cape-logo.png");
-    const buf = fs.readFileSync(logoPath);
-    logoBase64 = `data:image/png;base64,${buf.toString("base64")}`;
-  } catch {
-    logoBase64 = "";
-  }
-  return logoBase64;
+  return "";
 }
 
 // ---------- Common styles ----------
@@ -88,7 +78,7 @@ export function PdfHeader({ title, subtitle }: { title: string; subtitle?: strin
   return (
     <View>
       <View style={s.headerRow}>
-        {logo ? <Image src={logo} style={s.logo} /> : <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold" }}>Cape PM</Text>}
+        {logo ? <Image src={logo} style={s.logo} /> : <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold" }}>Property Management OS</Text>}
         <View style={s.headerRight}>
           <Text style={{ fontSize: 16, fontFamily: "Times-Bold", color: C.dark, letterSpacing: 0.5 }}>{title}</Text>
           {subtitle && <Text style={{ fontSize: 9, color: C.text2, marginTop: 2 }}>{subtitle}</Text>}
@@ -104,7 +94,7 @@ export function PdfFooter() {
   return (
     <View style={s.footer} fixed>
       <View style={s.footerRule} />
-      <Text style={s.footerText}>Cape Property Management Services  |  admin@capepm.com.mx  |  624 113 2714</Text>
+      <Text style={s.footerText}>Property Management OS  |  by Axvia Solutions</Text>
       <Text style={{ ...s.footerText, marginTop: 2 }}>Los Cabos, Mexico</Text>
     </View>
   );

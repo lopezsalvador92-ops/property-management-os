@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240" width="220" height="240">
+  <!-- Large triangle (back) - Dark Navy — wide, squat equilateral -->
+  <polygon points="110,20 195,180 25,180" fill="#1B2D3E"/>
+
+  <!-- Medium triangle (middle) - Teal — wide overlap -->
+  <polygon points="110,70 178,198 42,198" fill="#3D8A8F"/>
+
+  <!-- Small triangle (front) - Bright Cyan — compact, wide base -->
+  <polygon points="110,125 160,215 60,215" fill="#52C9C3"/>
+</svg>

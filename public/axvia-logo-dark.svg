@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 220" width="500" height="220">
+  <rect width="500" height="220" fill="#0F1C28"/>
+
+  <!-- Large triangle - lighter navy for dark bg -->
+  <polygon points="100,20 185,180 15,180" fill="#2A4A5E"/>
+
+  <!-- Medium triangle - Teal -->
+  <polygon points="100,70 168,198 32,198" fill="#3D8A8F"/>
+
+  <!-- Small triangle - Bright Cyan -->
+  <polygon points="100,125 150,215 50,215" fill="#52C9C3"/>
+
+  <!-- AXVIA text -->
+  <text x="220" y="115" font-family="Inter, Arial, Helvetica, sans-serif" font-size="48" font-weight="800" fill="#FFFFFF" letter-spacing="3">AXVIA</text>
+
+  <!-- SOLUTIONS text -->
+  <text x="222" y="145" font-family="Inter, Arial, Helvetica, sans-serif" font-size="18" font-weight="300" fill="#8BA3B5" letter-spacing="5.5">SOLUTIONS</text>
+</svg>

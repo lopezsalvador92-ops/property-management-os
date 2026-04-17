@@ -131,7 +131,7 @@ export default function OwnerPortal() {
   };
 
   if (loading) return <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text3)", fontFamily: "var(--fb)", fontSize: 13, letterSpacing: "0.02em" }}>Loading your property data…</div>;
-  if (!linkedProperty) return <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", color: "var(--text2)", fontFamily: "var(--fb)", textAlign: "center" as const, padding: 40 }}><img src="/cape-logo.png" alt="Cape PM" style={{ height: 52, marginBottom: 22, opacity: 0.65 }} /><h2 style={{ fontFamily: "var(--fd)", fontSize: 26, fontWeight: 400, marginBottom: 10, color: "var(--text)" }}>No property linked</h2><p style={{ fontSize: 14, color: "var(--text3)", maxWidth: 360, lineHeight: 1.6 }}>Contact your property manager to link your property to this account.</p></div>;
+  if (!linkedProperty) return <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", color: "var(--text2)", fontFamily: "var(--fb)", textAlign: "center" as const, padding: 40 }}><img src="/axvia-icon.svg" alt="Property Management OS" style={{ height: 52, marginBottom: 22, opacity: 0.65 }} /><h2 style={{ fontFamily: "var(--fd)", fontSize: 26, fontWeight: 400, marginBottom: 10, color: "var(--text)" }}>No property linked</h2><p style={{ fontSize: 14, color: "var(--text3)", maxWidth: 360, lineHeight: 1.6 }}>Contact your property manager to link your property to this account.</p></div>;
   if (error) return <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--red)", fontFamily: "var(--fb)" }}>{error}</div>;
 
   const navItems = [
@@ -239,7 +239,7 @@ export default function OwnerPortal() {
             }
           `}</style>
           <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", marginBottom: 4 }}>
-            <img src="/cape-logo.png" alt="Cape PM" style={{ height: 24 }} />
+            <img src="/axvia-icon.svg" alt="Property Management OS" style={{ height: 24 }} />
             <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.01em" }}>{property?.name}</span>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
               <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "☀" : "🌙"}</button>
@@ -256,10 +256,10 @@ export default function OwnerPortal() {
         {/* SIDEBAR */}
         <div className="owner-sidebar" style={{ background: "var(--bg2)", borderRight: "1px solid var(--border)", position: "sticky", top: 0, height: "100vh", display: "flex", flexDirection: "column" as const, overflow: "hidden" }}>
           <div style={{ padding: "26px 22px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 13 }}>
-            <img src="/cape-logo.png" alt="Cape PM" style={{ height: 30 }} />
+            <img src="/axvia-icon.svg" alt="Property Management OS" style={{ height: 30 }} />
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text)" }}>Cape PM</div>
-              <div style={{ fontSize: 10, color: "var(--text3)", letterSpacing: "0.06em", marginTop: 2 }}>Powered by Axvia</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text)" }}>Property Management OS</div>
+              <div style={{ fontSize: 10, color: "var(--text3)", letterSpacing: "0.06em", marginTop: 2 }}>by Axvia Solutions</div>
             </div>
           </div>
           <div style={{ padding: "20px 14px 12px" }}>
@@ -1095,7 +1095,7 @@ export default function OwnerPortal() {
 
           {/* Footer */}
           <div style={{ padding: "24px 48px", borderTop: "1px solid var(--border)", textAlign: "center" as const, fontSize: 10, color: "var(--text3)", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
-            Powered by Cape PM OS · Axvia Solutions
+            Powered by Property Management OS · Axvia Solutions
           </div>
         </div>
       </div>

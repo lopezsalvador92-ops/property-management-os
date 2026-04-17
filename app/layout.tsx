@@ -2,10 +2,10 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 export const metadata = {
-  title: "Cape PM",
-  description: "Property Management Operating System",
+  title: "Property Management OS",
+  description: "Property Management OS by Axvia Solutions",
   appleWebApp: {
-    title: "Cape PM",
+    title: "Property Management OS",
     capable: true,
     statusBarStyle: "default" as const,
   },
@@ -20,10 +20,10 @@ export default function RootLayout({
     <ClerkProvider
       localization={{
         signIn: {
-          start: { title: "Continue to Cape PM Services", subtitle: "" },
+          start: { title: "Continue to Property Management OS", subtitle: "" },
         },
         signUp: {
-          start: { title: "Continue to Cape PM Services", subtitle: "" },
+          start: { title: "Continue to Property Management OS", subtitle: "" },
         },
       }}
     >

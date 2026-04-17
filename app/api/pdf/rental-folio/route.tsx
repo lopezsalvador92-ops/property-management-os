@@ -174,7 +174,7 @@ function RentalFolioDoc({
         {/* Folio heading */}
         <View style={local.folioHeader}>
           <View>
-            <Text style={local.folioSubtitle}>Cape Property Management</Text>
+            <Text style={local.folioSubtitle}>Property Management OS</Text>
             <Text style={local.folioTitle}>Folio Statement</Text>
           </View>
           <View style={{ alignItems: "flex-end" as const }}>

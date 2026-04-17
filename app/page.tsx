@@ -27,7 +27,7 @@ export default function RootPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#F5F7FA", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <div style={{ textAlign: "center" }}>
-        <img src="/cape-logo.png" alt="Cape PM" style={{ height: 40, marginBottom: 16, opacity: 0.5 }} />
+        <img src="/axvia-logo-light.svg" alt="Property Management OS" style={{ height: 40, marginBottom: 16, opacity: 0.5 }} />
         <div style={{ fontSize: 13, color: "#8795A8" }}>Loading...</div>
       </div>
     </div>

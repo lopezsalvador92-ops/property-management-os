@@ -19,8 +19,8 @@ export default function SignInPage() {
     >
       <div style={{ marginBottom: 36, textAlign: "center" as const }}>
         <img
-          src="/cape-logo.png"
-          alt="Cape PM"
+          src="/axvia-logo-dark.svg"
+          alt="Property Management OS"
           style={{ height: 64, display: "block", margin: "0 auto 18px", opacity: 0.95 }}
         />
         <div
@@ -33,7 +33,7 @@ export default function SignInPage() {
             letterSpacing: "-0.005em",
           }}
         >
-          Cape PM
+          Property Management OS
         </div>
         <div
           style={{
@@ -44,7 +44,7 @@ export default function SignInPage() {
             color: "#D4B57A",
           }}
         >
-          Property Management OS
+          by Axvia Solutions
         </div>
         <div
           style={{

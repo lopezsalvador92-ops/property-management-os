@@ -115,10 +115,10 @@ export default function SystemSettings() {
       {/* Top bar */}
       <div style={{ background: "var(--bg2)", borderBottom: "1px solid var(--border)", padding: "18px 36px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "var(--shadow-sm)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <img src="/cape-logo.png" alt="Cape PM" style={{ height: 30 }} />
+          <img src="/axvia-icon.svg" alt="Property Management OS" style={{ height: 30 }} />
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text)" }}>System Settings</div>
-            <div style={{ fontSize: 10, color: "var(--text3)", letterSpacing: "0.06em", marginTop: 2 }}>Cape PM OS · Axvia Solutions</div>
+            <div style={{ fontSize: 10, color: "var(--text3)", letterSpacing: "0.06em", marginTop: 2 }}>Property Management OS · Axvia Solutions</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>

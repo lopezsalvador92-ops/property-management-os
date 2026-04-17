@@ -128,7 +128,7 @@ export default function AdminDashboard() {
             <path d="M27 32L38 54H16L27 32Z" fill="url(#lg3)" opacity=".95" />
           </svg>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text2)" }}>Cape PM</div>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text2)" }}>Property Management OS</div>
             <div style={{ fontSize: 10, color: "var(--text3)", letterSpacing: "0.04em" }}>Admin Panel</div>
           </div>
         </div>
