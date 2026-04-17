@@ -6,10 +6,10 @@ import { PdfHeader, PdfFooter, DetailRow, s, C, fmtDate, fmtCurrency } from "../
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const ITINERARY_TABLE = "tblppsIgEI1hrM3wR";
-const VISITS_TABLE = "tblJ1iEgHCeJy2CnR";
-const VENDORS_TABLE = "tblqm6eBgSSYcGcyl";
-const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
+const ITINERARY_TABLE = process.env.AIRTABLE_TABLE_ITINERARY!;
+const VISITS_TABLE = process.env.AIRTABLE_TABLE_VISITS!;
+const VENDORS_TABLE = process.env.AIRTABLE_TABLE_VENDORS!;
+const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
 async function airtableGetRecord(tableId: string, recordId: string, fields?: string[]) {
   const params = new URLSearchParams();

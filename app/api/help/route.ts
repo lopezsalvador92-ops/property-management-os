@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const HELP_TABLE = "tbliXqbGd7o02HnMY";
+const HELP_TABLE = process.env.AIRTABLE_TABLE_HELP!;
 
 export async function GET(request: Request) {
   try {

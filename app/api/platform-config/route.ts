@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const ROLES_TABLE = "tblsc0oGX6dygiY3U";
+const ROLES_TABLE = process.env.AIRTABLE_TABLE_ROLES!;
 
 async function airtableGet(params: URLSearchParams) {
   const url = `https://api.airtable.com/v0/${BASE_ID}/${ROLES_TABLE}?${params}`;

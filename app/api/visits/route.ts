@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const VISITS_TABLE = "tblJ1iEgHCeJy2CnR";
-const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
+const VISITS_TABLE = process.env.AIRTABLE_TABLE_VISITS!;
+const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
 async function airtableFetch(path: string, options?: RequestInit) {
   const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${path}`, {

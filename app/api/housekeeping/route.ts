@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const HSK_TABLE = "tblG8udG0Wdo6Wms6";
-const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
-const HOUSEKEEPERS_TABLE = "tblHxw0Mqcs5X76cL";
-const EXPENSES_TABLE = "tblHeiBjXhsKW9Opj";
+const HSK_TABLE = process.env.AIRTABLE_TABLE_HOUSEKEEPING!;
+const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
+const HOUSEKEEPERS_TABLE = process.env.AIRTABLE_TABLE_HOUSEKEEPERS!;
+const EXPENSES_TABLE = process.env.AIRTABLE_TABLE_EXPENSES!;
 
 async function airtableGet(tableId: string, params: URLSearchParams) {
   const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;

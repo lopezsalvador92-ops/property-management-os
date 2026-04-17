@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const REPORTS_TABLE = "tblBei4KzIMDMT87X";
-const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
+const REPORTS_TABLE = process.env.AIRTABLE_TABLE_REPORTS!;
+const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 

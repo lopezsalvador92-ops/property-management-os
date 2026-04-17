@@ -2,12 +2,12 @@ const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
 
 const TABLES = {
-  properties: "tblCTRtMtVNv0F63W",
-  expenses: "tblHeiBjXhsKW9Opj",
-  deposits: "tblVrgidgJKKfdFQ2",
-  monthlyReports: "tblBei4KzIMDMT87X",
-  housekeepingLog: "tblG8udG0Wdo6Wms6",
-  guestRentals: "tblAG4GqV5jCgAC7x",
+  properties: process.env.AIRTABLE_TABLE_PROPERTIES!,
+  expenses: process.env.AIRTABLE_TABLE_EXPENSES!,
+  deposits: process.env.AIRTABLE_TABLE_DEPOSITS!,
+  monthlyReports: process.env.AIRTABLE_TABLE_REPORTS!,
+  housekeepingLog: process.env.AIRTABLE_TABLE_HOUSEKEEPING!,
+  guestRentals: process.env.AIRTABLE_TABLE_RENTALS!,
 };
 
 export async function airtableFetch(

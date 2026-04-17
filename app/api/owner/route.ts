@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
-const REPORTS_TABLE = "tblBei4KzIMDMT87X";
-const EXPENSES_TABLE = "tblHeiBjXhsKW9Opj";
-const DEPOSITS_TABLE = "tblVrgidgJKKfdFQ2";
-const MAINTENANCE_TABLE = "tblC5Muegq8fVfuQf";
-const VISITS_TABLE = "tblJ1iEgHCeJy2CnR";
-const ITINERARY_TABLE = "tblppsIgEI1hrM3wR";
-const VENDORS_TABLE = "tblqm6eBgSSYcGcyl";
+const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
+const REPORTS_TABLE = process.env.AIRTABLE_TABLE_REPORTS!;
+const EXPENSES_TABLE = process.env.AIRTABLE_TABLE_EXPENSES!;
+const DEPOSITS_TABLE = process.env.AIRTABLE_TABLE_DEPOSITS!;
+const MAINTENANCE_TABLE = process.env.AIRTABLE_TABLE_MAINTENANCE!;
+const VISITS_TABLE = process.env.AIRTABLE_TABLE_VISITS!;
+const ITINERARY_TABLE = process.env.AIRTABLE_TABLE_ITINERARY!;
+const VENDORS_TABLE = process.env.AIRTABLE_TABLE_VENDORS!;
 
 function safeNum(val: any): number {
   if (typeof val === "number" && isFinite(val)) return val;
