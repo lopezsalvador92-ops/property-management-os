@@ -155,19 +155,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch property to build Report Name
-    const propParams = new URLSearchParams();
-    propParams.append("fields[]", "House Name");
-    propParams.set("pageSize", "1");
-    propParams.set("filterByFormula", `RECORD_ID()="${propertyId}"`);
-    const propData = await airtableGet(PROPERTIES_TABLE, propParams);
-    if (!propData.records || propData.records.length === 0) {
-      return NextResponse.json({ error: "Property not found" }, { status: 404 });
-    }
-    const houseName = propData.records[0].fields["House Name"] || "";
-
     const fields: Record<string, any> = {
-      "Report Name": `${houseName} - ${month}`,
       "House Name": [propertyId],
       "Month and Year": month,
       "Starting Balance": typeof startingBalance === "number" ? startingBalance : parseFloat(startingBalance ?? "0") || 0,
