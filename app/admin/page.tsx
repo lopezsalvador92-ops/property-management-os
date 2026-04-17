@@ -157,6 +157,16 @@ export default function AdminDashboard() {
   const [newPropCurrency, setNewPropCurrency] = useState("MXN");
   const [addingProp, setAddingProp] = useState(false);
   const [propSaved, setPropSaved] = useState(false);
+  // Set Up for Success (mid-month onboarding)
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [setupDate, setSetupDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [setupCreateReport, setSetupCreateReport] = useState(true);
+  const [setupExchangeRate, setSetupExchangeRate] = useState("");
+  const [setupFeeModes, setSetupFeeModes] = useState<Record<string, "prorate" | "full" | "skip">>({});
+  const [setupRunning, setSetupRunning] = useState(false);
+  const [setupResult, setSetupResult] = useState<{ ok: boolean; lines: string[] } | null>(null);
+  const [setupExistingReport, setSetupExistingReport] = useState<boolean>(false);
+  const [setupCheckingExisting, setSetupCheckingExisting] = useState(false);
   const [hskLogs, setHskLogs] = useState<HskLog[]>([]);
   const [hskSummary, setHskSummary] = useState<HskSummary[]>([]);
   const [hskMonth, setHskMonth] = useState("");
@@ -594,6 +604,153 @@ export default function AdminDashboard() {
       }
     } catch (e) { console.error(e); }
     setPropSaving(false);
+  }
+
+  function setupMonthStr(dateStr: string) {
+    const d = new Date(dateStr + "T12:00:00");
+    return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
+  function setupProrateInfo(dateStr: string) {
+    const d = new Date(dateStr + "T12:00:00");
+    const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const daysRemaining = daysInMonth - d.getDate() + 1;
+    return { daysInMonth, daysRemaining, pct: daysRemaining / daysInMonth };
+  }
+
+  function openSetupForSuccess(property: PropertyDetail) {
+    const today = new Date().toISOString().split("T")[0];
+    setSetupDate(today);
+    setSetupCreateReport(true);
+    setSetupExchangeRate("");
+    setSetupResult(null);
+    const isUSD = property.currency === "USD";
+    const fees: Record<string, "prorate" | "full" | "skip"> = {
+      pm: (isUSD ? property.pmFeeUSD : property.pmFeeMXN) > 0 ? "prorate" : "skip",
+      landscaping: "skip",
+      pool: "skip",
+      hsk: "skip",
+      houseman: "skip",
+    };
+    setSetupFeeModes(fees);
+    setSetupOpen(true);
+    // Check whether a report already exists for this month
+    setSetupCheckingExisting(true);
+    setSetupExistingReport(false);
+    const month = setupMonthStr(today);
+    fetch(`/api/reports?month=${encodeURIComponent(month)}`)
+      .then(r => r.json())
+      .then(d => {
+        const exists = (d.reports || []).some((r: any) => r.houseId === property.id);
+        setSetupExistingReport(exists);
+      })
+      .catch(() => {})
+      .finally(() => setSetupCheckingExisting(false));
+  }
+
+  async function runSetupForSuccess(property: PropertyDetail) {
+    setSetupRunning(true);
+    setSetupResult(null);
+    const lines: string[] = [];
+    let ok = true;
+    try {
+      const { daysInMonth, daysRemaining, pct } = setupProrateInfo(setupDate);
+      const month = setupMonthStr(setupDate);
+      const isUSD = property.currency === "USD";
+
+      // 1. Create monthly report
+      if (setupCreateReport && !setupExistingReport) {
+        const res = await fetch("/api/reports", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            propertyId: property.id,
+            month,
+            startingBalance: 0,
+            exchangeRate: isUSD && setupExchangeRate ? setupExchangeRate : undefined,
+          }),
+        });
+        if (res.ok) {
+          lines.push(`Created ${month} report with starting balance 0`);
+        } else if (res.status === 409) {
+          lines.push(`${month} report already existed — skipped`);
+        } else {
+          ok = false;
+          const err = await res.json().catch(() => ({}));
+          lines.push(`Report creation failed: ${err.error || res.status}`);
+        }
+      } else if (setupExistingReport) {
+        lines.push(`${month} report already exists — no new report created`);
+      }
+
+      // 2. Create expense rows for each selected fee
+      const feeDefs: { key: string; label: string; amount: number; category: string }[] = [
+        { key: "pm", label: "PM Fee", amount: isUSD ? property.pmFeeUSD : property.pmFeeMXN, category: "Miscellaneous" },
+        { key: "landscaping", label: "Landscaping", amount: isUSD ? property.landscapingFeeUSD : property.landscapingFeeMXN, category: "Maintenance" },
+        { key: "pool", label: "Pool", amount: isUSD ? property.poolFeeUSD : property.poolFeeMXN, category: "Maintenance" },
+        { key: "hsk", label: "Housekeeping", amount: isUSD ? property.hskFeeUSD : property.hskFeeMXN, category: "Villa Staff" },
+        { key: "houseman", label: "Houseman", amount: isUSD ? property.housemanFeeUSD : property.housemanFeeMXN, category: "Villa Staff" },
+      ];
+
+      for (const f of feeDefs) {
+        const mode = setupFeeModes[f.key] || "skip";
+        if (mode === "skip") continue;
+        if (!f.amount || f.amount <= 0) {
+          lines.push(`${f.label} skipped — no fee configured`);
+          continue;
+        }
+        const amount = mode === "prorate" ? Math.round(f.amount * pct * 100) / 100 : f.amount;
+        const desc = mode === "prorate"
+          ? `${f.label} — Prorated ${daysRemaining}/${daysInMonth} days (Setup for Success)`
+          : `${f.label} — Full month (Setup for Success)`;
+        const res = await fetch("/api/expenses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            propertyId: property.id,
+            date: setupDate,
+            category: f.category,
+            amount: amount.toFixed(2),
+            currency: property.currency,
+            description: desc,
+            supplier: "Cape PM",
+          }),
+        });
+        if (res.ok) {
+          lines.push(`${f.label}: ${property.currency} $${amount.toFixed(2)} (${mode === "prorate" ? `prorated ${daysRemaining}/${daysInMonth}` : "full month"})`);
+        } else {
+          ok = false;
+          lines.push(`${f.label} expense failed`);
+        }
+      }
+
+      // 3. Append a setup note on the property (best-effort — requires "Setup Notes" field in Airtable)
+      try {
+        const stamp = new Date().toISOString().split("T")[0];
+        const note = [
+          `Set Up for Success — run ${stamp} by ${userName}`,
+          `Activation date: ${setupDate}`,
+          ...lines.map(l => `• ${l}`),
+          "",
+        ].join("\n");
+        await fetch("/api/properties-detail", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recordId: property.id, fields: { setupNotes: note } }),
+        });
+      } catch {
+        // Non-fatal: Setup Notes field may not exist yet in Airtable
+      }
+
+      setSetupResult({ ok, lines });
+      // Refresh data
+      fetch("/api/properties-detail").then(r => r.json()).then(d => setPropDetails(d.properties || []));
+      fetch("/api/expenses").then(r => r.json()).then(d => setExpenses(d.expenses || []));
+      fetch("/api/balances").then(r => r.json()).then(d => setBalances(d.balances || []));
+    } catch (e: any) {
+      setSetupResult({ ok: false, lines: [`Error: ${e?.message || "unknown"}`] });
+    }
+    setSetupRunning(false);
   }
 
   useEffect(() => {
@@ -2335,6 +2492,16 @@ export default function AdminDashboard() {
             const isNeg = bal && bal.finalBalance < 0;
             const tabStyle = (active: boolean): React.CSSProperties => ({ padding: "9px 18px", borderRadius: 100, border: "none", background: active ? "var(--accent-s)" : "transparent", color: active ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" });
 
+            const setupProrate = setupProrateInfo(setupDate);
+            const setupMonth = setupMonthStr(setupDate);
+            const isUSD_setup = sel_prop.currency === "USD";
+            const setupFeeCatalog: { key: string; label: string; amount: number }[] = [
+              { key: "pm", label: "PM Fee", amount: isUSD_setup ? sel_prop.pmFeeUSD : sel_prop.pmFeeMXN },
+              { key: "landscaping", label: "Landscaping", amount: isUSD_setup ? sel_prop.landscapingFeeUSD : sel_prop.landscapingFeeMXN },
+              { key: "pool", label: "Pool", amount: isUSD_setup ? sel_prop.poolFeeUSD : sel_prop.poolFeeMXN },
+              { key: "hsk", label: "Housekeeping", amount: isUSD_setup ? sel_prop.hskFeeUSD : sel_prop.hskFeeMXN },
+              { key: "houseman", label: "Houseman", amount: isUSD_setup ? sel_prop.housemanFeeUSD : sel_prop.housemanFeeMXN },
+            ];
             return (
               <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1080, margin: "0 auto" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
@@ -2379,11 +2546,13 @@ export default function AdminDashboard() {
                       <div><label style={lbl}>Secondary email</label><input defaultValue={sel_prop.secondaryEmail} onBlur={e => saveProperty(sel_prop.id, { secondaryEmail: e.target.value })} style={inp} /></div>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 12, paddingTop: 16, borderTop: "1px solid var(--border)" }}>Quick actions</div>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button onClick={() => openSetupForSuccess(sel_prop)} style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: "var(--shadow-sm)" }}>✦ Set Up for Success</button>
                       <button onClick={() => { setExpFilter(sel_prop.name); setActivePage("expenses"); }} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--teal-l)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View expenses</button>
                       <button onClick={() => setActivePage("reports")} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--accent)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View reports</button>
                       <button onClick={() => setActivePage("deposits")} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--green)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View deposits</button>
                     </div>
+                    <p style={{ fontSize: 12, color: "var(--text3)", marginTop: 10 }}>Use Set Up for Success when onboarding a property mid-month — it creates the monthly report with a zero starting balance and generates prorated (or skipped) initial charges.</p>
                   </div>
                 )}
 
@@ -2589,6 +2758,126 @@ export default function AdminDashboard() {
                     </div>
                   );
                 })()}
+
+                {setupOpen && (
+                  <div onClick={() => !setupRunning && setSetupOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 14, boxShadow: "var(--shadow-lg, 0 20px 60px rgba(0,0,0,0.35))", width: "100%", maxWidth: 640, maxHeight: "88vh", overflowY: "auto" }}>
+                      <div style={{ padding: "22px 26px 16px", borderBottom: "1px solid var(--border)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+                          <div>
+                            <span style={eyebrow}>Mid-month onboarding</span>
+                            <h2 style={{ ...h2s, marginBottom: 4 }}>Set Up for Success</h2>
+                            <p style={{ fontSize: 12, color: "var(--text3)" }}>{sel_prop.name} · {sel_prop.currency}</p>
+                          </div>
+                          <button onClick={() => !setupRunning && setSetupOpen(false)} style={{ background: "transparent", border: "none", color: "var(--text3)", fontSize: 20, cursor: setupRunning ? "default" : "pointer", fontFamily: "inherit" }}>×</button>
+                        </div>
+                      </div>
+
+                      <div style={{ padding: "20px 26px" }}>
+                        {!setupResult && (
+                          <>
+                            <div style={{ marginBottom: 18 }}>
+                              <label style={lbl}>Activation date</label>
+                              <input type="date" value={setupDate} onChange={e => setSetupDate(e.target.value)} style={inp} />
+                              <p style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>Proration window: {setupProrate.daysRemaining} of {setupProrate.daysInMonth} days in {setupMonth} ({Math.round(setupProrate.pct * 100)}%)</p>
+                            </div>
+
+                            <div style={{ padding: 14, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 16 }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+                                <input type="checkbox" checked={setupCreateReport} disabled={setupExistingReport} onChange={e => setSetupCreateReport(e.target.checked)} />
+                                Create {setupMonth} monthly report with starting balance 0
+                              </label>
+                              {setupCheckingExisting && <p style={{ fontSize: 11, color: "var(--text3)", marginTop: 8 }}>Checking existing reports…</p>}
+                              {setupExistingReport && <p style={{ fontSize: 11, color: "var(--orange, #d08a3c)", marginTop: 8 }}>⚠ A {setupMonth} report already exists for this property — it will not be re-created.</p>}
+                              {isUSD_setup && setupCreateReport && !setupExistingReport && (
+                                <div style={{ marginTop: 12 }}>
+                                  <label style={lbl}>Monthly exchange rate (optional)</label>
+                                  <input type="number" step="0.01" value={setupExchangeRate} onChange={e => setSetupExchangeRate(e.target.value)} placeholder="e.g. 17.25" style={inp} />
+                                </div>
+                              )}
+                            </div>
+
+                            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10 }}>Fixed charges for {setupMonth}</div>
+                            <p style={{ fontSize: 11, color: "var(--text3)", marginBottom: 12 }}>Pick how each recurring fee is handled this month. Fees set to Skip will start normally next month via the standard charge run.</p>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                              {setupFeeCatalog.map(f => {
+                                const mode = setupFeeModes[f.key] || "skip";
+                                const disabled = !f.amount || f.amount <= 0;
+                                const proratedAmt = Math.round((f.amount || 0) * setupProrate.pct * 100) / 100;
+                                return (
+                                  <div key={f.key} style={{ padding: 12, border: "1px solid var(--border)", borderRadius: 10, background: disabled ? "var(--bg2)" : "transparent", opacity: disabled ? 0.55 : 1 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: disabled ? 0 : 8 }}>
+                                      <div>
+                                        <div style={{ fontSize: 13, fontWeight: 500 }}>{f.label}</div>
+                                        <div style={{ fontSize: 11, color: "var(--text3)" }}>
+                                          {disabled ? "No fee configured" : `Monthly: ${sel_prop.currency} $${f.amount.toFixed(2)}`}
+                                          {!disabled && mode === "prorate" && ` · Prorated: ${sel_prop.currency} $${proratedAmt.toFixed(2)}`}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {!disabled && (
+                                      <div style={{ display: "flex", gap: 6 }}>
+                                        {(["prorate", "full", "skip"] as const).map(m => (
+                                          <button key={m} onClick={() => setSetupFeeModes({ ...setupFeeModes, [f.key]: m })}
+                                            style={{
+                                              padding: "6px 14px", borderRadius: 100, border: "1px solid var(--border2)", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+                                              background: mode === m ? "var(--accent-s)" : "transparent",
+                                              color: mode === m ? "var(--accent)" : "var(--text3)",
+                                              textTransform: "capitalize" as const,
+                                            }}>
+                                            {m === "prorate" ? "Prorate" : m === "full" ? "Full month" : "Skip — next month"}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            <div style={{ padding: 12, background: "var(--accent-s)", borderRadius: 10, marginBottom: 4 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "var(--accent)", marginBottom: 8 }}>Summary</div>
+                              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
+                                {setupCreateReport && !setupExistingReport && <li>Create {setupMonth} report · Starting Balance 0{isUSD_setup && setupExchangeRate ? ` · FX ${setupExchangeRate}` : ""}</li>}
+                                {setupExistingReport && <li>{setupMonth} report already exists — no report change</li>}
+                                {setupFeeCatalog.filter(f => (f.amount || 0) > 0 && (setupFeeModes[f.key] || "skip") !== "skip").map(f => {
+                                  const mode = setupFeeModes[f.key];
+                                  const amt = mode === "prorate" ? Math.round((f.amount || 0) * setupProrate.pct * 100) / 100 : f.amount;
+                                  return <li key={f.key}>{f.label}: {sel_prop.currency} ${amt.toFixed(2)} ({mode === "prorate" ? `prorated ${setupProrate.daysRemaining}/${setupProrate.daysInMonth}` : "full month"})</li>;
+                                })}
+                                {setupFeeCatalog.filter(f => (f.amount || 0) > 0 && (setupFeeModes[f.key] || "skip") === "skip").map(f => (
+                                  <li key={f.key} style={{ color: "var(--text3)" }}>{f.label}: skipped — starts next month</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </>
+                        )}
+
+                        {setupResult && (
+                          <div style={{ padding: 14, background: setupResult.ok ? "var(--green-s)" : "rgba(224,133,133,0.12)", border: `1px solid ${setupResult.ok ? "rgba(110,207,151,0.3)" : "rgba(224,133,133,0.3)"}`, borderRadius: 10 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: setupResult.ok ? "var(--green)" : "var(--red)", marginBottom: 10 }}>{setupResult.ok ? "✓ Setup complete" : "⚠ Setup completed with errors"}</div>
+                            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
+                              {setupResult.lines.map((l, i) => <li key={i}>{l}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ padding: "14px 26px 22px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                        {!setupResult && (
+                          <>
+                            <button onClick={() => !setupRunning && setSetupOpen(false)} style={{ padding: "9px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: setupRunning ? "default" : "pointer", fontFamily: "inherit" }}>Cancel</button>
+                            <button onClick={() => runSetupForSuccess(sel_prop)} disabled={setupRunning} style={{ padding: "9px 22px", borderRadius: 100, border: "none", background: setupRunning ? "var(--bg2)" : "linear-gradient(135deg, var(--teal), #2A6B7C)", color: setupRunning ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: setupRunning ? "default" : "pointer", fontFamily: "inherit" }}>{setupRunning ? "Running…" : "Run setup"}</button>
+                          </>
+                        )}
+                        {setupResult && (
+                          <button onClick={() => { setSetupOpen(false); setSetupResult(null); }} style={{ padding: "9px 22px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Close</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {propTab === "history" && (
                   <div style={{ ...card, padding: 0 }}>

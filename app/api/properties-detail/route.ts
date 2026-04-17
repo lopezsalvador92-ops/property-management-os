@@ -97,6 +97,7 @@ export async function PATCH(request: Request) {
       hskFeeMXN: "Housekeeping Fee MXN",
       housemanFeeUSD: "Houseman Fee USD",
       housemanFeeMXN: "Houseman Fee MXN",
+      setupNotes: "Setup Notes",
     };
 
     const airtableFields: Record<string, any> = {};
