@@ -128,6 +128,76 @@ export async function GET(request: Request) {
   }
 }
 
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { propertyId, month, startingBalance, exchangeRate, status } = body;
+
+    if (!propertyId || !month) {
+      return NextResponse.json({ error: "Missing propertyId or month" }, { status: 400 });
+    }
+
+    // Guard against duplicate: check if a report already exists for this property + month
+    const checkParams = new URLSearchParams();
+    checkParams.append("fields[]", "House Name");
+    checkParams.set("filterByFormula", `{Month and Year}="${month}"`);
+    checkParams.set("pageSize", "100");
+    const existing = await airtableGet(REPORTS_TABLE, checkParams);
+    const duplicate = existing.records.find((r: any) => {
+      const h = r.fields["House Name"];
+      const linkedId = Array.isArray(h) ? (typeof h[0] === "string" ? h[0] : h[0]?.id || "") : "";
+      return linkedId === propertyId;
+    });
+    if (duplicate) {
+      return NextResponse.json(
+        { error: "Report already exists for this property and month", existingId: duplicate.id },
+        { status: 409 }
+      );
+    }
+
+    // Fetch property to build Report Name
+    const propParams = new URLSearchParams();
+    propParams.append("fields[]", "House Name");
+    propParams.set("pageSize", "1");
+    propParams.set("filterByFormula", `RECORD_ID()="${propertyId}"`);
+    const propData = await airtableGet(PROPERTIES_TABLE, propParams);
+    if (!propData.records || propData.records.length === 0) {
+      return NextResponse.json({ error: "Property not found" }, { status: 404 });
+    }
+    const houseName = propData.records[0].fields["House Name"] || "";
+
+    const fields: Record<string, any> = {
+      "Report Name": `${houseName} - ${month}`,
+      "House Name": [propertyId],
+      "Month and Year": month,
+      "Starting Balance": typeof startingBalance === "number" ? startingBalance : parseFloat(startingBalance ?? "0") || 0,
+      "Status": status || "Pending",
+    };
+    if (exchangeRate !== undefined && exchangeRate !== null && exchangeRate !== "") {
+      const rate = parseFloat(exchangeRate);
+      if (isFinite(rate) && rate > 0) fields["Monthly Exchange Rate"] = rate;
+    }
+
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${REPORTS_TABLE}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ records: [{ fields }], typecast: true }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      console.error("Airtable create report error:", errData);
+      return NextResponse.json({ error: "Failed to create report", detail: errData }, { status: 500 });
+    }
+
+    const data = await res.json();
+    return NextResponse.json({ success: true, record: data.records[0] });
+  } catch (error) {
+    console.error("Create report error:", error);
+    return NextResponse.json({ error: "Failed to create report" }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
