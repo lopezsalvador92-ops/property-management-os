@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const PROPERTIES_TABLE = "tblCTRtMtVNv0F63W";
+const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
 async function airtableGet(tableId: string, params: URLSearchParams) {
   const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
@@ -23,6 +23,7 @@ export async function GET() {
       "HSK Fixed Fee", "Included Cleans",
       "Housekeeping Fee USD", "Housekeeping Fee MXN",
       "Houseman Fee USD", "Houseman Fee MXN",
+      "Setup Notes",
     ];
     fields.forEach(f => params.append("fields[]", f));
     params.set("pageSize", "50");
@@ -57,6 +58,7 @@ export async function GET() {
         hskFeeMXN: f["Housekeeping Fee MXN"] || 0,
         housemanFeeUSD: f["Houseman Fee USD"] || 0,
         housemanFeeMXN: f["Houseman Fee MXN"] || 0,
+        setupNotes: f["Setup Notes"] || "",
       };
     });
 

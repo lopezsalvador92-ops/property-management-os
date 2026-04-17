@@ -10,7 +10,7 @@ type Expense = { id: string; receiptNo: string; date: string; category: string; 
 type Deposit = { id: string; date: string; house: string; houseId: string; owner: string; currency: string; amount: number; notes: string; month: string };
 type AppUser = { id: string; firstName: string; lastName: string; email: string; role: string; linkedProperty: string; createdAt: number; lastSignInAt: number | null; imageUrl: string; mustChangePassword?: boolean };
 type ActivityLog = { id: string; summary: string; timestamp: string; actorEmail: string; actorRole: string; action: string; targetEmail: string; targetRole: string; details: string };
-type PropertyDetail = { id: string; name: string; owner: string; email: string; secondaryEmail: string; currency: string; status: string; pmFeeUSD: number; pmFeeMXN: number; landscapingFeeUSD: number; landscapingFeeMXN: number; poolFeeUSD: number; poolFeeMXN: number; hskCadence: string; includedCleans: number; hskFeeUSD: number; hskFeeMXN: number; housemanFeeUSD: number; housemanFeeMXN: number };
+type PropertyDetail = { id: string; name: string; owner: string; email: string; secondaryEmail: string; currency: string; status: string; pmFeeUSD: number; pmFeeMXN: number; landscapingFeeUSD: number; landscapingFeeMXN: number; poolFeeUSD: number; poolFeeMXN: number; hskCadence: string; includedCleans: number; hskFeeUSD: number; hskFeeMXN: number; housemanFeeUSD: number; housemanFeeMXN: number; setupNotes?: string };
 type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 type HskLog = { id: string; housekeeper: string; housekeeperId: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; dayIds: { mon: string[]; tue: string[]; wed: string[]; thu: string[]; fri: string[]; sat: string[]; sun: string[] }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
 type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number; weeklyBreakdown: { weekStart: string; cleans: number; included: number; extra: number }[] };
@@ -2553,6 +2553,13 @@ export default function AdminDashboard() {
                       <button onClick={() => setActivePage("deposits")} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--green)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>View deposits</button>
                     </div>
                     <p style={{ fontSize: 12, color: "var(--text3)", marginTop: 10 }}>Use Set Up for Success when onboarding a property mid-month — it creates the monthly report with a zero starting balance and generates prorated (or skipped) initial charges.</p>
+                    {sel_prop.setupNotes && sel_prop.setupNotes.trim() && (
+                      <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Setup history</div>
+                        <div style={{ fontSize: 12, color: "var(--text2)", whiteSpace: "pre-wrap" as const, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", maxHeight: 280, overflowY: "auto" as const }}>{sel_prop.setupNotes}</div>
+                        <p style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>Audit trail of Set Up for Success runs. Most recent on top.</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
