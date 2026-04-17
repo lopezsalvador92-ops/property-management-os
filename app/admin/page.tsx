@@ -5458,7 +5458,13 @@ export default function AdminDashboard() {
                       <>
                         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 8 }}>{selected.category}</div>
                         <h2 style={{ ...h2s, margin: "0 0 16px", fontFamily: "'Georgia', serif" }}>{selected.title}</h2>
-                        <div style={{ fontSize: 14, lineHeight: 1.7, color: "var(--text2)", whiteSpace: "pre-wrap" as const }}>{selected.body}</div>
+                        <div style={{ fontSize: 14, lineHeight: 1.7, color: "var(--text2)" }}>
+                          {selected.body.split(/(!\[[^\]]*\]\([^)]+\))/g).map((part, i) => {
+                            const m = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+                            if (m) return <img key={i} src={m[2]} alt={m[1]} style={{ display: "block", maxWidth: "100%", borderRadius: 8, border: "1px solid var(--border)", margin: "14px 0", boxShadow: "var(--shadow-sm)" }} />;
+                            return <span key={i} style={{ whiteSpace: "pre-wrap" as const }}>{part}</span>;
+                          })}
+                        </div>
                       </>
                     ) : (
                       <div style={{ fontSize: 13, color: "var(--text3)" }}>Select an article from the left.</div>
