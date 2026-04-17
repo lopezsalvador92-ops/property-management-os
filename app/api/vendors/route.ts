@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const VENDORS_TABLE = process.env.AIRTABLE_TABLE_VENDORS!;
 
-async function airtableFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${path}`, {
+async function airtableFetch(baseId: string, path: string, options?: RequestInit) {
+  const res = await fetch(`https://api.airtable.com/v0/${baseId}/${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${AIRTABLE_TOKEN}`,
@@ -23,6 +22,7 @@ async function airtableFetch(path: string, options?: RequestInit) {
 
 export async function GET() {
   try {
+    const tenant = await getTenant();
     const params = new URLSearchParams();
     params.append("fields[]", "Name");
     params.append("fields[]", "Category");
@@ -33,7 +33,7 @@ export async function GET() {
     params.set("sort[0][field]", "Name");
     params.set("sort[0][direction]", "asc");
 
-    const data = await airtableFetch(`${VENDORS_TABLE}?${params}`);
+    const data = await airtableFetch(tenant.baseId, `${tenant.tables.vendors}?${params}`);
 
     const vendors = data.records.map((r: any) => ({
       id: r.id,
@@ -54,12 +54,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { name, category, contact, location, tags, notes } = body;
 
     if (!name) return NextResponse.json({ error: "Missing name" }, { status: 400 });
 
-    const data = await airtableFetch(VENDORS_TABLE, {
+    const data = await airtableFetch(tenant.baseId, tenant.tables.vendors, {
       method: "POST",
       body: JSON.stringify({
         fields: {
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { id, name, category, contact, location, tags, notes } = body;
 
@@ -95,7 +97,7 @@ export async function PATCH(request: Request) {
     if (tags !== undefined) fields["Tags"] = tags;
     if (notes !== undefined) fields["Notes"] = notes;
 
-    await airtableFetch(VENDORS_TABLE, {
+    await airtableFetch(tenant.baseId, tenant.tables.vendors, {
       method: "PATCH",
       body: JSON.stringify({ records: [{ id, fields }] }),
     });
@@ -109,11 +111,12 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    await airtableFetch(`${VENDORS_TABLE}/${id}`, { method: "DELETE" });
+    await airtableFetch(tenant.baseId, `${tenant.tables.vendors}/${id}`, { method: "DELETE" });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Vendors DELETE error:", error);

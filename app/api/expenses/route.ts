@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const EXPENSES_TABLE = process.env.AIRTABLE_TABLE_EXPENSES!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
-async function airtableGet(tableId: string, params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+async function airtableGet(baseId: string, tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
@@ -14,6 +12,7 @@ async function airtableGet(tableId: string, params: URLSearchParams) {
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const house = searchParams.get("house") || "";
     const month = searchParams.get("month") || "";
@@ -40,7 +39,7 @@ export async function GET(request: Request) {
       params.set("filterByFormula", `FIND("${house}", ARRAYJOIN({House Name}, ","))`);
     }
 
-    const data = await airtableGet(EXPENSES_TABLE, params);
+    const data = await airtableGet(tenant.baseId, tenant.tables.expenses, params);
 
     const expenses = data.records.map((r: any) => {
       const f = r.fields;
@@ -72,6 +71,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { propertyId, date, category, amount, currency, description, supplier, receiptUrl, rentalId } = body;
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     if (receiptUrl) fields["Receipt URL"] = receiptUrl;
     if (rentalId) fields["Guest Rentals"] = [rentalId];
 
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${EXPENSES_TABLE}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.expenses}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ records: [{ fields }], typecast: true }),
@@ -113,6 +113,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { id, date, category, amount, currency, description, supplier, propertyId } = body;
     if (!id) return NextResponse.json({ error: "Missing record id" }, { status: 400 });
@@ -126,7 +127,7 @@ export async function PATCH(request: Request) {
     if (supplier !== undefined) fields["Supplier"] = supplier;
     if (propertyId) fields["House"] = [propertyId];
 
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${EXPENSES_TABLE}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.expenses}`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ records: [{ id, fields }], typecast: true }),

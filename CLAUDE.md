@@ -10,6 +10,9 @@ Salvador Lopez runs Axvia Solutions from Los Cabos, Mexico. This is a Property M
 - **Hosting:** Vercel (auto-deploys from main branch)
 - **GitHub:** lopezsalvador92-ops/cape-pm-os
 
+## Multi-Tenancy
+This repo is the multi-tenant onboarding platform for new customers. Cape PM is on its own repo/domain and is frozen. New customers get their own Airtable base; the tenant is resolved from the logged-in Clerk user's `publicMetadata.tenant`. Registry lives in `lib/tenants.ts`, resolved via `lib/getTenant.ts`. Full onboarding playbook and automation roadmap: see [docs/TENANTS.md](docs/TENANTS.md). **Every new API route must call `getTenant()` — never read `AIRTABLE_BASE_ID` directly.**
+
 ## Project Structure
 ```
 cape-pm-os/

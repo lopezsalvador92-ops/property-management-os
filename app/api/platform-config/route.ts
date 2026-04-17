@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const ROLES_TABLE = process.env.AIRTABLE_TABLE_ROLES!;
 
-async function airtableGet(params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${ROLES_TABLE}?${params}`;
+async function airtableGet(baseId: string, rolesTable: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${rolesTable}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
@@ -13,13 +12,14 @@ async function airtableGet(params: URLSearchParams) {
 
 export async function GET() {
   try {
+    const tenant = await getTenant();
     const params = new URLSearchParams();
     params.append("fields[]", "Role ID");
     params.append("fields[]", "Display Name");
     params.append("fields[]", "Modules");
     params.append("fields[]", "Active");
     params.set("pageSize", "20");
-    const data = await airtableGet(params);
+    const data = await airtableGet(tenant.baseId, tenant.tables.roles, params);
 
     const roles = data.records.map((r: any) => {
       let modules: string[] = [];
@@ -44,6 +44,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { recordId, modules } = body;
 
@@ -51,7 +52,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Missing recordId or modules" }, { status: 400 });
     }
 
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${ROLES_TABLE}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.roles}`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const TASKS_TABLE = process.env.AIRTABLE_TABLE_MAINTENANCE!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
-const VENDORS_TABLE = process.env.AIRTABLE_TABLE_VENDORS!;
 
-async function airtableFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${path}`, {
+async function airtableFetch(baseId: string, path: string, options?: RequestInit) {
+  const res = await fetch(`https://api.airtable.com/v0/${baseId}/${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${AIRTABLE_TOKEN}`,
@@ -25,6 +22,7 @@ async function airtableFetch(path: string, options?: RequestInit) {
 
 export async function GET() {
   try {
+    const tenant = await getTenant();
     const params = new URLSearchParams();
     ["Title","Type","Status","Priority","Property","Vendor","Scheduled Date","Completed Date","Cost","Notes","Expense Created","Attachments","Photos","Approval Status","Approved By","Approval Date"].forEach(f => params.append("fields[]", f));
     params.set("sort[0][field]", "Scheduled Date");
@@ -32,9 +30,9 @@ export async function GET() {
     params.set("pageSize", "100");
 
     const [data, propData, vendorData] = await Promise.all([
-      airtableFetch(`${TASKS_TABLE}?${params}`),
-      airtableFetch(`${PROPERTIES_TABLE}?fields[]=House+Name&pageSize=100`),
-      airtableFetch(`${VENDORS_TABLE}?fields[]=Name&pageSize=100`),
+      airtableFetch(tenant.baseId, `${tenant.tables.maintenance}?${params}`),
+      airtableFetch(tenant.baseId, `${tenant.tables.properties}?fields[]=House+Name&pageSize=100`),
+      airtableFetch(tenant.baseId, `${tenant.tables.vendors}?fields[]=Name&pageSize=100`),
     ]);
 
     const propMap: Record<string, string> = {};
@@ -77,6 +75,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { title, type, status, priority, propertyId, vendorId, scheduledDate, notes, cost } = body;
     if (!title) return NextResponse.json({ error: "Missing title" }, { status: 400 });
@@ -93,7 +92,7 @@ export async function POST(request: Request) {
     if (vendorId) fields["Vendor"] = [vendorId];
     if (scheduledDate) fields["Scheduled Date"] = scheduledDate;
 
-    const data = await airtableFetch(TASKS_TABLE, {
+    const data = await airtableFetch(tenant.baseId, tenant.tables.maintenance, {
       method: "POST",
       body: JSON.stringify({ fields }),
     });
@@ -107,6 +106,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { id, ...rest } = body;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -129,7 +129,7 @@ export async function PATCH(request: Request) {
     if (rest.attachments !== undefined) fields["Attachments"] = rest.attachments.map((a: any) => ({ url: a.url }));
     if (rest.photos !== undefined) fields["Photos"] = rest.photos.map((a: any) => ({ url: a.url }));
 
-    await airtableFetch(TASKS_TABLE, {
+    await airtableFetch(tenant.baseId, tenant.tables.maintenance, {
       method: "PATCH",
       body: JSON.stringify({ records: [{ id, fields }] }),
     });

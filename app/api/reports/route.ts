@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const REPORTS_TABLE = process.env.AIRTABLE_TABLE_REPORTS!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
-async function airtableGet(tableId: string, params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+async function airtableGet(baseId: string, tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
@@ -19,6 +17,7 @@ function safeNum(val: any): number {
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month") || new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
@@ -28,7 +27,7 @@ export async function GET(request: Request) {
     propParams.append("fields[]", "Owner");
     propParams.append("fields[]", "Preferred Currency");
     propParams.set("pageSize", "50");
-    const propData = await airtableGet(PROPERTIES_TABLE, propParams);
+    const propData = await airtableGet(tenant.baseId, tenant.tables.properties, propParams);
     const propMap = new Map<string, { name: string; owner: string; currency: string }>();
     for (const rec of propData.records) {
       propMap.set(rec.id, {
@@ -56,7 +55,7 @@ export async function GET(request: Request) {
     fields.forEach(f => repParams.append("fields[]", f));
     repParams.set("pageSize", "100");
     repParams.set("filterByFormula", `{Month and Year}="${month}"`);
-    const repData = await airtableGet(REPORTS_TABLE, repParams);
+    const repData = await airtableGet(tenant.baseId, tenant.tables.monthlyReports, repParams);
 
     const reports = repData.records.map((record: any) => {
       const houseField = record.fields["House Name"];
@@ -130,6 +129,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { propertyId, month, startingBalance, exchangeRate, status } = body;
 
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
     checkParams.append("fields[]", "House Name");
     checkParams.set("filterByFormula", `{Month and Year}="${month}"`);
     checkParams.set("pageSize", "100");
-    const existing = await airtableGet(REPORTS_TABLE, checkParams);
+    const existing = await airtableGet(tenant.baseId, tenant.tables.monthlyReports, checkParams);
     const duplicate = existing.records.find((r: any) => {
       const h = r.fields["House Name"];
       const linkedId = Array.isArray(h) ? (typeof h[0] === "string" ? h[0] : h[0]?.id || "") : "";
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       if (isFinite(rate) && rate > 0) fields["Monthly Exchange Rate"] = rate;
     }
 
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${REPORTS_TABLE}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.monthlyReports}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ records: [{ fields }], typecast: true }),
@@ -188,6 +188,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { action, recordIds, exchangeRate, recordId } = body;
 
@@ -206,7 +207,7 @@ export async function PATCH(request: Request) {
       curParams.append("fields[]", "House Name");
       curParams.set("pageSize", "1");
       curParams.set("filterByFormula", `RECORD_ID()="${recordId}"`);
-      const curData = await airtableGet(REPORTS_TABLE, curParams);
+      const curData = await airtableGet(tenant.baseId, tenant.tables.monthlyReports, curParams);
       if (!curData.records || curData.records.length === 0) return NextResponse.json({ error: "Report not found" }, { status: 404 });
       const houseField = curData.records[0].fields["House Name"];
       const houseId = Array.isArray(houseField) ? (typeof houseField[0] === "string" ? houseField[0] : houseField[0]?.id || "") : "";
@@ -220,7 +221,7 @@ export async function PATCH(request: Request) {
       prevParams.append("fields[]", "Preferred Currency");
       prevParams.set("pageSize", "100");
       prevParams.set("filterByFormula", `{Month and Year}="${prevMonthStr}"`);
-      const prevData = await airtableGet(REPORTS_TABLE, prevParams);
+      const prevData = await airtableGet(tenant.baseId, tenant.tables.monthlyReports, prevParams);
       const prevReport = prevData.records.find((r: any) => {
         const h = r.fields["House Name"];
         const linkedId = Array.isArray(h) ? (typeof h[0] === "string" ? h[0] : h[0]?.id || "") : "";
@@ -242,7 +243,7 @@ export async function PATCH(request: Request) {
       propParams2.append("fields[]", "Preferred Currency");
       propParams2.set("pageSize", "1");
       propParams2.set("filterByFormula", `RECORD_ID()="${houseId}"`);
-      const propData2 = await airtableGet(PROPERTIES_TABLE, propParams2);
+      const propData2 = await airtableGet(tenant.baseId, tenant.tables.properties, propParams2);
       if (propData2.records && propData2.records.length > 0) {
         const pc = propData2.records[0].fields["Preferred Currency"];
         if (pc) prevCurrency = typeof pc === "string" ? pc : pc?.name || prevCurrency;
@@ -251,7 +252,7 @@ export async function PATCH(request: Request) {
       const prevFinalBalance = safeNum(prevCurrency === "USD" ? prevReport.fields["Final Balance USD"] : prevReport.fields["Final Balance MXN"]);
 
       // Update current report's Starting Balance
-      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${REPORTS_TABLE}`, {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.monthlyReports}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({ records: [{ id: recordId, fields: { "Starting Balance": prevFinalBalance } }] }),
@@ -262,7 +263,7 @@ export async function PATCH(request: Request) {
 
     // Handle exchange rate update (single record)
     if (action === "updateExchangeRate" && recordId && exchangeRate !== undefined) {
-      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${REPORTS_TABLE}`, {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.monthlyReports}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({ records: [{ id: recordId, fields: { "Monthly Exchange Rate": parseFloat(exchangeRate) } }] }),
@@ -289,7 +290,7 @@ export async function PATCH(request: Request) {
     for (let i = 0; i < recordIds.length; i += 10) batches.push(recordIds.slice(i, i + 10));
 
     for (const batch of batches) {
-      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${REPORTS_TABLE}`, {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.monthlyReports}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({ records: batch.map((id: string) => ({ id, fields: fieldUpdate })) }),

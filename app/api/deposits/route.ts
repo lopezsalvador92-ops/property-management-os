@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const DEPOSITS_TABLE = process.env.AIRTABLE_TABLE_DEPOSITS!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
-async function airtableGet(tableId: string, params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+async function airtableGet(baseId: string, tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
     cache: "no-store",
@@ -17,6 +15,7 @@ async function airtableGet(tableId: string, params: URLSearchParams) {
 
 export async function GET() {
   try {
+    const tenant = await getTenant();
     // Step 1: Fetch all properties to build ID → name map
     const propParams = new URLSearchParams();
     propParams.append("fields[]", "House Name");
@@ -24,7 +23,7 @@ export async function GET() {
     propParams.append("fields[]", "Preferred Currency");
     propParams.set("pageSize", "50");
 
-    const propData = await airtableGet(PROPERTIES_TABLE, propParams);
+    const propData = await airtableGet(tenant.baseId, tenant.tables.properties, propParams);
     const propMap = new Map<string, { name: string; owner: string; currency: string }>();
     for (const rec of propData.records) {
       propMap.set(rec.id, {
@@ -47,7 +46,7 @@ export async function GET() {
     depParams.set("sort[0][field]", "Date");
     depParams.set("sort[0][direction]", "desc");
 
-    const depData = await airtableGet(DEPOSITS_TABLE, depParams);
+    const depData = await airtableGet(tenant.baseId, tenant.tables.deposits, depParams);
 
     const deposits = depData.records.map((record: any) => {
       // House Name is a multipleRecordLinks field
@@ -134,6 +133,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { id, houseId, amount, date, notes } = body;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -145,7 +145,7 @@ export async function PATCH(request: Request) {
     if (notes !== undefined) fields["Notes"] = notes;
 
     const res = await fetch(
-      `https://api.airtable.com/v0/${BASE_ID}/${DEPOSITS_TABLE}`,
+      `https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.deposits}`,
       {
         method: "PATCH",
         headers: {
@@ -169,12 +169,13 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     const res = await fetch(
-      `https://api.airtable.com/v0/${BASE_ID}/${DEPOSITS_TABLE}/${id}`,
+      `https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.deposits}/${id}`,
       {
         method: "DELETE",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
@@ -194,6 +195,7 @@ export async function DELETE(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { houseId, amount, date, notes } = body;
 
@@ -202,7 +204,7 @@ export async function POST(request: Request) {
     }
 
     const res = await fetch(
-      `https://api.airtable.com/v0/${BASE_ID}/${DEPOSITS_TABLE}`,
+      `https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.deposits}`,
       {
         method: "POST",
         headers: {

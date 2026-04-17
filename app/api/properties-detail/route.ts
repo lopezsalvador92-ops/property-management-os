@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
-async function airtableGet(tableId: string, params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+async function airtableGet(baseId: string, tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
@@ -13,6 +12,7 @@ async function airtableGet(tableId: string, params: URLSearchParams) {
 
 export async function GET() {
   try {
+    const tenant = await getTenant();
     const params = new URLSearchParams();
     const fields = [
       "House Name", "Owner", "Email", "Secondary Email",
@@ -27,7 +27,7 @@ export async function GET() {
     ];
     fields.forEach(f => params.append("fields[]", f));
     params.set("pageSize", "50");
-    const data = await airtableGet(PROPERTIES_TABLE, params);
+    const data = await airtableGet(tenant.baseId, tenant.tables.properties, params);
 
     const properties = data.records.map((rec: any) => {
       const f = rec.fields;
@@ -75,6 +75,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { recordId, fields } = body;
 
@@ -112,7 +113,7 @@ export async function PATCH(request: Request) {
       }
     }
 
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${PROPERTIES_TABLE}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.properties}`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ records: [{ id: recordId, fields: airtableFields }] }),
@@ -134,6 +135,7 @@ export async function PATCH(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { name, owner, email, currency } = body;
 
@@ -149,7 +151,7 @@ export async function POST(request: Request) {
     if (email) fields["Email"] = email;
     if (currency) fields["Preferred Currency"] = currency;
 
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${PROPERTIES_TABLE}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.properties}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ records: [{ fields }], typecast: true }),

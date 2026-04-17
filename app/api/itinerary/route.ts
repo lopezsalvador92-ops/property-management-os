@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const ITINERARY_TABLE = process.env.AIRTABLE_TABLE_ITINERARY!;
-const VENDORS_TABLE = process.env.AIRTABLE_TABLE_VENDORS!;
 
-async function airtableFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${path}`, {
+async function airtableFetch(baseId: string, path: string, options?: RequestInit) {
+  const res = await fetch(`https://api.airtable.com/v0/${baseId}/${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${AIRTABLE_TOKEN}`,
@@ -24,6 +22,7 @@ async function airtableFetch(path: string, options?: RequestInit) {
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const visitId = searchParams.get("visitId");
 
@@ -52,8 +51,8 @@ export async function GET(request: Request) {
     // We fetch all events and filter client-side by visitId instead.
 
     const [data, vendorData] = await Promise.all([
-      airtableFetch(`${ITINERARY_TABLE}?${params}`),
-      airtableFetch(`${VENDORS_TABLE}?fields[]=Name&pageSize=100`),
+      airtableFetch(tenant.baseId, `${tenant.tables.itinerary}?${params}`),
+      airtableFetch(tenant.baseId, `${tenant.tables.vendors}?fields[]=Name&pageSize=100`),
     ]);
 
     const vendorMap: Record<string, string> = {};
@@ -93,6 +92,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { eventName, visitId, vendorId, date, time, details, status, eventType, extraDetails, showVendor, chargeable, estimatedCost, expenseCreated, total, currency } = body;
 
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     if (total !== undefined) fields["Total"] = total;
     if (currency !== undefined) fields["Currency"] = currency;
 
-    const data = await airtableFetch(ITINERARY_TABLE, {
+    const data = await airtableFetch(tenant.baseId, tenant.tables.itinerary, {
       method: "POST",
       body: JSON.stringify({ fields }),
     });
@@ -132,6 +132,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { id, eventName, vendorId, date, time, details, status, eventType, extraDetails, showVendor, chargeable, estimatedCost, expenseCreated, total, currency } = body;
 
@@ -153,7 +154,7 @@ export async function PATCH(request: Request) {
     if (total !== undefined) fields["Total"] = total;
     if (currency !== undefined) fields["Currency"] = currency;
 
-    await airtableFetch(ITINERARY_TABLE, {
+    await airtableFetch(tenant.baseId, tenant.tables.itinerary, {
       method: "PATCH",
       body: JSON.stringify({ records: [{ id, fields }] }),
     });
@@ -167,11 +168,12 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    await airtableFetch(`${ITINERARY_TABLE}/${id}`, { method: "DELETE" });
+    await airtableFetch(tenant.baseId, `${tenant.tables.itinerary}/${id}`, { method: "DELETE" });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Itinerary DELETE error:", error);

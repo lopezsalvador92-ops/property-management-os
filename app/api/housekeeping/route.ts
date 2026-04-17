@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
+import type { TenantConfig } from "@/lib/tenants";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const HSK_TABLE = process.env.AIRTABLE_TABLE_HOUSEKEEPING!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
-const HOUSEKEEPERS_TABLE = process.env.AIRTABLE_TABLE_HOUSEKEEPERS!;
-const EXPENSES_TABLE = process.env.AIRTABLE_TABLE_EXPENSES!;
 
-async function airtableGet(tableId: string, params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+async function airtableGet(baseId: string, tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
@@ -16,6 +13,7 @@ async function airtableGet(tableId: string, params: URLSearchParams) {
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const monthParam = searchParams.get("month"); // optional YYYY-MM
     // Step 1: Fetch properties (with clean configs) + housekeepers in parallel
@@ -32,8 +30,8 @@ export async function GET(request: Request) {
     hkParams.set("pageSize", "100");
 
     const [propData, hkData] = await Promise.all([
-      airtableGet(PROPERTIES_TABLE, propParams),
-      airtableGet(HOUSEKEEPERS_TABLE, hkParams),
+      airtableGet(tenant.baseId, tenant.tables.properties, propParams),
+      airtableGet(tenant.baseId, tenant.tables.housekeepers, hkParams),
     ]);
 
     const hkById: Record<string, { id: string; name: string; active: boolean }> = {};
@@ -72,7 +70,7 @@ export async function GET(request: Request) {
     hskParams.set("pageSize", "100");
     hskParams.set("sort[0][field]", "Start of the Week");
     hskParams.set("sort[0][direction]", "desc");
-    const hskData = await airtableGet(HSK_TABLE, hskParams);
+    const hskData = await airtableGet(tenant.baseId, tenant.tables.housekeeping, hskParams);
 
     const extractIds = (raw: any): string[] => {
       if (!Array.isArray(raw)) return [];
@@ -206,7 +204,7 @@ export async function GET(request: Request) {
 // extra-clean expenses. Runs across ALL approved logs for the affected weeks
 // so that cleans by multiple housekeepers are counted together.
 // ---------------------------------------------------------------------------
-async function computeAndUpsertExtras(approvedRecordIds: string[]) {
+async function computeAndUpsertExtras(tenant: TenantConfig, approvedRecordIds: string[]) {
   const dayFields = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   // 1. Fetch the just-approved records to determine affected weeks + day data
@@ -216,7 +214,7 @@ async function computeAndUpsertExtras(approvedRecordIds: string[]) {
   dayFields.forEach(d => logParams.append("fields[]", d));
   logParams.set("filterByFormula", `OR(${idFormula})`);
   logParams.set("pageSize", "100");
-  const logData = await airtableGet(HSK_TABLE, logParams);
+  const logData = await airtableGet(tenant.baseId, tenant.tables.housekeeping, logParams);
 
   // Collect affected week-start dates
   const weekStarts = new Set<string>();
@@ -236,7 +234,7 @@ async function computeAndUpsertExtras(approvedRecordIds: string[]) {
     `AND({Approval Status}='Approved', OR(${weekFormulas.join(",")}))`
   );
   allLogsParams.set("pageSize", "100");
-  const allLogsData = await airtableGet(HSK_TABLE, allLogsParams);
+  const allLogsData = await airtableGet(tenant.baseId, tenant.tables.housekeeping, allLogsParams);
 
   // 3. Fetch property configs
   const propParams = new URLSearchParams();
@@ -244,7 +242,7 @@ async function computeAndUpsertExtras(approvedRecordIds: string[]) {
    "Preferred Currency", "Housekeeping Fee USD", "Housekeeping Fee MXN",
   ].forEach(f => propParams.append("fields[]", f));
   propParams.set("pageSize", "50");
-  const propData = await airtableGet(PROPERTIES_TABLE, propParams);
+  const propData = await airtableGet(tenant.baseId, tenant.tables.properties, propParams);
 
   // Build property lookup: id → config
   const propById: Record<string, {
@@ -332,7 +330,7 @@ async function computeAndUpsertExtras(approvedRecordIds: string[]) {
   existParams.append("fields[]", "Total");
   existParams.set("filterByFormula", `OR(${receiptFormula})`);
   existParams.set("pageSize", "100");
-  const existData = await airtableGet(EXPENSES_TABLE, existParams);
+  const existData = await airtableGet(tenant.baseId, tenant.tables.expenses, existParams);
 
   const existingByReceipt: Record<string, { id: string; total: number }> = {};
   for (const rec of existData.records) {
@@ -353,7 +351,7 @@ async function computeAndUpsertExtras(approvedRecordIds: string[]) {
         unchanged.push(entry.receipt);
         continue;
       }
-      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${EXPENSES_TABLE}`, {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.expenses}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -373,7 +371,7 @@ async function computeAndUpsertExtras(approvedRecordIds: string[]) {
       }
     } else {
       // Create new
-      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${EXPENSES_TABLE}`, {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.expenses}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -416,12 +414,13 @@ async function computeAndUpsertExtras(approvedRecordIds: string[]) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { action, recordIds, recordId, comments } = body;
 
     // Single record comment update
     if (action === "editComment" && recordId) {
-      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${HSK_TABLE}`, {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.housekeeping}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({ records: [{ id: recordId, fields: { "Comments": comments || "" } }] }),
@@ -450,7 +449,7 @@ export async function PATCH(request: Request) {
       if (Object.keys(fields).length === 0) {
         return NextResponse.json({ error: "No valid day fields to update" }, { status: 400 });
       }
-      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${HSK_TABLE}`, {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.housekeeping}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({ records: [{ id: recordId, fields }] }),
@@ -475,7 +474,7 @@ export async function PATCH(request: Request) {
     const batches = [];
     for (let i = 0; i < recordIds.length; i += 10) batches.push(recordIds.slice(i, i + 10));
     for (const batch of batches) {
-      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${HSK_TABLE}`, {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.housekeeping}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({ records: batch.map((id: string) => ({ id, fields: fieldUpdate })) }),
@@ -487,7 +486,7 @@ export async function PATCH(request: Request) {
     let extrasResult: any = null;
     if (action === "approve") {
       try {
-        extrasResult = await computeAndUpsertExtras(recordIds);
+        extrasResult = await computeAndUpsertExtras(tenant, recordIds);
       } catch (err) {
         console.error("Extras-on-approval error (non-fatal):", err);
         extrasResult = { error: String(err) };
@@ -504,6 +503,7 @@ export async function PATCH(request: Request) {
 // Create blank HSK log records (backfill for housekeepers missing a log for a given week)
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { weekStart, housekeeperIds } = body;
     if (!weekStart || !Array.isArray(housekeeperIds) || housekeeperIds.length === 0) {
@@ -525,7 +525,7 @@ export async function POST(request: Request) {
     let created = 0;
     for (let i = 0; i < records.length; i += 10) {
       const batch = records.slice(i, i + 10);
-      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${HSK_TABLE}`, {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.housekeeping}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({ records: batch, typecast: true }),

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { airtableFetch, TABLES } from "@/lib/airtable";
+import { airtableFetch } from "@/lib/airtable";
+import { getTenant } from "@/lib/getTenant";
 
 export async function GET() {
   try {
-    const data = await airtableFetch(TABLES.properties, {
+    const tenant = await getTenant();
+    const data = await airtableFetch(tenant.baseId, tenant.tables.properties, {
       fields: [
         "House Name",
         "Owner",

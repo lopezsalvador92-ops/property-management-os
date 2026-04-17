@@ -1,15 +1,7 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
-const REPORTS_TABLE = process.env.AIRTABLE_TABLE_REPORTS!;
-const EXPENSES_TABLE = process.env.AIRTABLE_TABLE_EXPENSES!;
-const DEPOSITS_TABLE = process.env.AIRTABLE_TABLE_DEPOSITS!;
-const MAINTENANCE_TABLE = process.env.AIRTABLE_TABLE_MAINTENANCE!;
-const VISITS_TABLE = process.env.AIRTABLE_TABLE_VISITS!;
-const ITINERARY_TABLE = process.env.AIRTABLE_TABLE_ITINERARY!;
-const VENDORS_TABLE = process.env.AIRTABLE_TABLE_VENDORS!;
 
 function safeNum(val: any): number {
   if (typeof val === "number" && isFinite(val)) return val;
@@ -25,8 +17,8 @@ function monthToSortKey(monthStr: string): number {
   return year * 100 + month;
 }
 
-async function airtableGet(tableId: string, params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+async function airtableGet(baseId: string, tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) {
     const err = await res.text();
@@ -36,13 +28,13 @@ async function airtableGet(tableId: string, params: URLSearchParams) {
   return res.json();
 }
 
-async function fetchAllRecords(tableId: string, params: URLSearchParams) {
+async function fetchAllRecords(baseId: string, tableId: string, params: URLSearchParams) {
   const allRecords: any[] = [];
   let offset: string | undefined;
   do {
     const p = new URLSearchParams(params);
     if (offset) p.set("offset", offset);
-    const data = await airtableGet(tableId, p);
+    const data = await airtableGet(baseId, tableId, p);
     allRecords.push(...data.records);
     offset = data.offset;
   } while (offset);
@@ -51,6 +43,7 @@ async function fetchAllRecords(tableId: string, params: URLSearchParams) {
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const propertyName = searchParams.get("property");
 
@@ -66,7 +59,7 @@ export async function GET(request: Request) {
     propParams.append("fields[]", "Status");
     propParams.set("filterByFormula", `{House Name}="${propertyName}"`);
     propParams.set("pageSize", "1");
-    const propData = await airtableGet(PROPERTIES_TABLE, propParams);
+    const propData = await airtableGet(tenant.baseId, tenant.tables.properties, propParams);
 
     if (!propData.records || propData.records.length === 0) {
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
@@ -95,7 +88,7 @@ export async function GET(request: Request) {
     repFields.forEach(f => repParams.append("fields[]", f));
     repParams.set("filterByFormula", `FIND("${propertyName}", {Report Name})`);
     repParams.set("pageSize", "100");
-    const repData = await airtableGet(REPORTS_TABLE, repParams);
+    const repData = await airtableGet(tenant.baseId, tenant.tables.monthlyReports, repParams);
 
     const allReports = repData.records.map((r: any) => {
       const f = r.fields;
@@ -138,7 +131,7 @@ export async function GET(request: Request) {
     expParams.set("sort[0][field]", "Date");
     expParams.set("sort[0][direction]", "asc");
     expParams.set("pageSize", "100");
-    const allExpenseRecords = await fetchAllRecords(EXPENSES_TABLE, expParams);
+    const allExpenseRecords = await fetchAllRecords(tenant.baseId, tenant.tables.expenses, expParams);
 
     const expenses = allExpenseRecords.map((r: any) => {
       const f = r.fields;
@@ -165,7 +158,7 @@ export async function GET(request: Request) {
     depParams.set("sort[0][field]", "Date");
     depParams.set("sort[0][direction]", "desc");
     depParams.set("pageSize", "100");
-    const depData = await airtableGet(DEPOSITS_TABLE, depParams);
+    const depData = await airtableGet(tenant.baseId, tenant.tables.deposits, depParams);
 
     const propId = propRec.id;
     const deposits = depData.records
@@ -201,7 +194,7 @@ export async function GET(request: Request) {
     maintParams.set("sort[0][field]", "Scheduled Date");
     maintParams.set("sort[0][direction]", "desc");
     maintParams.set("pageSize", "100");
-    const maintData = await airtableGet(MAINTENANCE_TABLE, maintParams);
+    const maintData = await airtableGet(tenant.baseId, tenant.tables.maintenance, maintParams);
     const maintTasks = maintData.records
       .filter((r: any) => (r.fields["Property"] || []).includes(propId))
       .map((r: any) => {
@@ -229,7 +222,7 @@ export async function GET(request: Request) {
     visitParams.set("sort[0][field]", "Check-in Date");
     visitParams.set("sort[0][direction]", "desc");
     visitParams.set("pageSize", "100");
-    const visitData = await airtableGet(VISITS_TABLE, visitParams);
+    const visitData = await airtableGet(tenant.baseId, tenant.tables.visits, visitParams);
     const visits = visitData.records
       .filter((r: any) => (r.fields["Property"] || []).includes(propId))
       .map((r: any) => {
@@ -254,8 +247,8 @@ export async function GET(request: Request) {
     itiParams.set("sort[0][direction]", "asc");
     itiParams.set("pageSize", "100");
     const [itiData, vendorData] = await Promise.all([
-      airtableGet(ITINERARY_TABLE, itiParams),
-      airtableGet(VENDORS_TABLE, new URLSearchParams([["fields[]", "Name"], ["pageSize", "100"]])),
+      airtableGet(tenant.baseId, tenant.tables.itinerary, itiParams),
+      airtableGet(tenant.baseId, tenant.tables.vendors, new URLSearchParams([["fields[]", "Name"], ["pageSize", "100"]])),
     ]);
     const vendorMap: Record<string, string> = {};
     for (const vr of vendorData.records) vendorMap[vr.id] = vr.fields["Name"] || "";

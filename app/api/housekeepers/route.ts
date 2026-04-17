@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const HOUSEKEEPERS_TABLE = process.env.AIRTABLE_TABLE_HOUSEKEEPERS!;
 
-async function airtableGet(tableId: string, params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+async function airtableGet(baseId: string, tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
     cache: "no-store",
@@ -16,6 +15,7 @@ async function airtableGet(tableId: string, params: URLSearchParams) {
 
 export async function GET() {
   try {
+    const tenant = await getTenant();
     const params = new URLSearchParams();
     params.append("fields[]", "Name");
     params.append("fields[]", "Active");
@@ -25,7 +25,7 @@ export async function GET() {
     params.set("sort[0][field]", "Name");
     params.set("sort[0][direction]", "asc");
 
-    const data = await airtableGet(HOUSEKEEPERS_TABLE, params);
+    const data = await airtableGet(tenant.baseId, tenant.tables.housekeepers, params);
 
     const housekeepers = data.records.map((rec: any) => {
       const logsRaw = rec.fields["Housekeeping Log"];
@@ -48,6 +48,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { name, active, notes } = body;
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     if (notes !== undefined) fields["Notes"] = notes;
 
     const res = await fetch(
-      `https://api.airtable.com/v0/${BASE_ID}/${HOUSEKEEPERS_TABLE}`,
+      `https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.housekeepers}`,
       {
         method: "POST",
         headers: {
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { id, name, active, notes } = body;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -99,7 +101,7 @@ export async function PATCH(request: Request) {
     }
 
     const res = await fetch(
-      `https://api.airtable.com/v0/${BASE_ID}/${HOUSEKEEPERS_TABLE}`,
+      `https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.housekeepers}`,
       {
         method: "PATCH",
         headers: {

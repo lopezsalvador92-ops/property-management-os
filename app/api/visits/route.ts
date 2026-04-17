@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const VISITS_TABLE = process.env.AIRTABLE_TABLE_VISITS!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
-async function airtableFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${path}`, {
+async function airtableFetch(baseId: string, path: string, options?: RequestInit) {
+  const res = await fetch(`https://api.airtable.com/v0/${baseId}/${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${AIRTABLE_TOKEN}`,
@@ -24,6 +22,7 @@ async function airtableFetch(path: string, options?: RequestInit) {
 
 export async function GET() {
   try {
+    const tenant = await getTenant();
     const params = new URLSearchParams();
     params.append("fields[]", "Visit Name");
     params.append("fields[]", "Guest Name");
@@ -41,11 +40,12 @@ export async function GET() {
     params.set("sort[0][field]", "Check-in Date");
     params.set("sort[0][direction]", "asc");
 
-    const data = await airtableFetch(`${VISITS_TABLE}?${params}`);
+    const data = await airtableFetch(tenant.baseId, `${tenant.tables.visits}?${params}`);
 
     // Get property names
     const propData = await airtableFetch(
-      `${PROPERTIES_TABLE}?fields[]=House+Name&pageSize=100`
+      tenant.baseId,
+      `${tenant.tables.properties}?fields[]=House+Name&pageSize=100`
     );
     const propMap: Record<string, string> = {};
     for (const r of propData.records) {
@@ -84,6 +84,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { visitName, guestName, visitType, checkIn, checkOut, status, propertyId, notes, checklist, adults, children, questionnaire } = body;
 
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
     };
     if (propertyId) fields["Property"] = [propertyId];
 
-    const data = await airtableFetch(VISITS_TABLE, {
+    const data = await airtableFetch(tenant.baseId, tenant.tables.visits, {
       method: "POST",
       body: JSON.stringify({ fields }),
     });
@@ -120,6 +121,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { id, ...fields } = body;
 
@@ -140,7 +142,7 @@ export async function PATCH(request: Request) {
     if (fields.questionnaire !== undefined) airtableFields["Questionnaire"] = JSON.stringify(fields.questionnaire);
     if (fields.published !== undefined) airtableFields["Published"] = fields.published;
 
-    await airtableFetch(VISITS_TABLE, {
+    await airtableFetch(tenant.baseId, tenant.tables.visits, {
       method: "PATCH",
       body: JSON.stringify({ records: [{ id, fields: airtableFields }] }),
     });

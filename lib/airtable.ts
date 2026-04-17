@@ -1,16 +1,13 @@
-const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
+// Generic Airtable GET helper. Tenant-agnostic — caller passes baseId + tableId,
+// typically sourced from getTenant().
+//
+// For routes that need POST/PATCH/DELETE, just call fetch directly —
+// this helper only covers the read-with-query-params case.
 
-const TABLES = {
-  properties: process.env.AIRTABLE_TABLE_PROPERTIES!,
-  expenses: process.env.AIRTABLE_TABLE_EXPENSES!,
-  deposits: process.env.AIRTABLE_TABLE_DEPOSITS!,
-  monthlyReports: process.env.AIRTABLE_TABLE_REPORTS!,
-  housekeepingLog: process.env.AIRTABLE_TABLE_HOUSEKEEPING!,
-  guestRentals: process.env.AIRTABLE_TABLE_RENTALS!,
-};
+const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
 
 export async function airtableFetch(
+  baseId: string,
   tableId: string,
   options?: {
     fields?: string[];
@@ -37,7 +34,7 @@ export async function airtableFetch(
     params.set("filterByFormula", options.filterFormula);
   }
 
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
 
   const res = await fetch(url, {
     headers: {
@@ -52,5 +49,3 @@ export async function airtableFetch(
 
   return res.json();
 }
-
-export { TABLES };

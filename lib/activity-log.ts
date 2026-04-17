@@ -1,6 +1,6 @@
+import { getTenant } from "./getTenant";
+
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const ACTIVITY_LOGS_TABLE = "tblr0LqK8DMptTnDN";
 
 export type ActivityLogEntry = {
   action:
@@ -21,6 +21,7 @@ export type ActivityLogEntry = {
 
 export async function writeActivityLog(entry: ActivityLogEntry): Promise<void> {
   try {
+    const tenant = await getTenant();
     const fields: Record<string, any> = {
       Summary: entry.summary,
       Timestamp: new Date().toISOString(),
@@ -32,7 +33,7 @@ export async function writeActivityLog(entry: ActivityLogEntry): Promise<void> {
     if (entry.targetRole) fields["Target Role"] = entry.targetRole;
     if (entry.details) fields["Details"] = entry.details;
 
-    await fetch(`https://api.airtable.com/v0/${BASE_ID}/${ACTIVITY_LOGS_TABLE}`, {
+    await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.activityLogs}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${AIRTABLE_TOKEN}`,

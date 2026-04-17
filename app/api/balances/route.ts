@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const REPORTS_TABLE = process.env.AIRTABLE_TABLE_REPORTS!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -15,21 +13,21 @@ function monthToSortKey(monthYear: string): number {
   return year * 12 + monthIdx;
 }
 
-async function airtableGet(tableId: string, params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+async function airtableGet(baseId: string, tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
 }
 
-async function fetchAllRecords(tableId: string, params: URLSearchParams) {
+async function fetchAllRecords(baseId: string, tableId: string, params: URLSearchParams) {
   const allRecords: any[] = [];
   let offset: string | undefined;
 
   do {
     const p = new URLSearchParams(params);
     if (offset) p.set("offset", offset);
-    const data = await airtableGet(tableId, p);
+    const data = await airtableGet(baseId, tableId, p);
     allRecords.push(...data.records);
     offset = data.offset;
   } while (offset);
@@ -39,6 +37,7 @@ async function fetchAllRecords(tableId: string, params: URLSearchParams) {
 
 export async function GET() {
   try {
+    const tenant = await getTenant();
     // Fetch properties
     const propParams = new URLSearchParams();
     propParams.append("fields[]", "House Name");
@@ -46,7 +45,7 @@ export async function GET() {
     propParams.append("fields[]", "Preferred Currency");
     propParams.append("fields[]", "Status");
     propParams.set("pageSize", "100");
-    const propData = await airtableGet(PROPERTIES_TABLE, propParams);
+    const propData = await airtableGet(tenant.baseId, tenant.tables.properties, propParams);
 
     const propMap = new Map<string, { name: string; owner: string; currency: string; status: string }>();
     for (const rec of propData.records) {
@@ -73,7 +72,7 @@ export async function GET() {
     repParams.append("fields[]", "Final Balance USD");
     repParams.set("pageSize", "100");
 
-    const allReports = await fetchAllRecords(REPORTS_TABLE, repParams);
+    const allReports = await fetchAllRecords(tenant.baseId, tenant.tables.monthlyReports, repParams);
 
     // Count current month report statuses
     const now = new Date();

@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const RENTALS_TABLE = process.env.AIRTABLE_TABLE_RENTALS!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
-const EXPENSES_TABLE = process.env.AIRTABLE_TABLE_EXPENSES!;
 
-async function airtableFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${path}`, {
+async function airtableFetch(baseId: string, path: string, options?: RequestInit) {
+  const res = await fetch(`https://api.airtable.com/v0/${baseId}/${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${AIRTABLE_TOKEN}`,
@@ -23,14 +20,14 @@ async function airtableFetch(path: string, options?: RequestInit) {
   return res.json();
 }
 
-async function fetchAllRecords(table: string, extraParams?: URLSearchParams) {
+async function fetchAllRecords(baseId: string, table: string, extraParams?: URLSearchParams) {
   const all: any[] = [];
   let offset: string | undefined;
   do {
     const params = new URLSearchParams(extraParams);
     params.set("pageSize", "100");
     if (offset) params.set("offset", offset);
-    const data = await airtableFetch(`${table}?${params}`);
+    const data = await airtableFetch(baseId, `${table}?${params}`);
     all.push(...(data.records || []));
     offset = data.offset;
   } while (offset);
@@ -39,12 +36,13 @@ async function fetchAllRecords(table: string, extraParams?: URLSearchParams) {
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const rentalId = searchParams.get("rentalId");
 
     // ---- SINGLE RENTAL (folio detail) ----
     if (rentalId) {
-      const rentalRes = await airtableFetch(`${RENTALS_TABLE}/${rentalId}`);
+      const rentalRes = await airtableFetch(tenant.baseId, `${tenant.tables.rentals}/${rentalId}`);
       const f = rentalRes.fields;
 
       const propertyIds: string[] = f["Rented Home"] || [];
@@ -56,7 +54,8 @@ export async function GET(request: Request) {
       if (propertyIds[0]) {
         try {
           const p = await airtableFetch(
-            `${PROPERTIES_TABLE}/${propertyIds[0]}?fields%5B%5D=House+Name&fields%5B%5D=Owner`
+            tenant.baseId,
+            `${tenant.tables.properties}/${propertyIds[0]}?fields%5B%5D=House+Name&fields%5B%5D=Owner`
           );
           propertyName = p.fields["House Name"] || "";
           propertyOwner = p.fields["Owner"] || "";
@@ -71,7 +70,7 @@ export async function GET(request: Request) {
         ["Receipt No", "Date", "Expense Category", "Supplier", "Total", "Currency",
          "Description", "Receipt URL", "Total Amount (USD)", "House Name", "Guest Rentals",
         ].forEach(name => expParams.append("fields[]", name));
-        const allExp = await fetchAllRecords(EXPENSES_TABLE, expParams);
+        const allExp = await fetchAllRecords(tenant.baseId, tenant.tables.expenses, expParams);
         const idSet = new Set(expenseIds);
         for (const r of allExp) {
           if (idSet.has(r.id)) {
@@ -119,11 +118,12 @@ export async function GET(request: Request) {
     params.set("sort[0][field]", "Arrival Date");
     params.set("sort[0][direction]", "desc");
 
-    const records = await fetchAllRecords(RENTALS_TABLE, params);
+    const records = await fetchAllRecords(tenant.baseId, tenant.tables.rentals, params);
 
     // Fetch all property names
     const propData = await airtableFetch(
-      `${PROPERTIES_TABLE}?fields%5B%5D=House+Name&pageSize=100`
+      tenant.baseId,
+      `${tenant.tables.properties}?fields%5B%5D=House+Name&pageSize=100`
     );
     const propMap: Record<string, string> = {};
     for (const r of propData.records) {
@@ -159,6 +159,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { guestName, propertyId, arrivalDate, departureDate, status, exchangeRate } = body;
 
@@ -177,7 +178,7 @@ export async function POST(request: Request) {
       fields["Exchange Rate"] = Number(exchangeRate);
     }
 
-    const data = await airtableFetch(RENTALS_TABLE, {
+    const data = await airtableFetch(tenant.baseId, tenant.tables.rentals, {
       method: "POST",
       body: JSON.stringify({ fields }),
     });
@@ -191,6 +192,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const tenant = await getTenant();
     const body = await request.json();
     const { id, ...fields } = body;
 
@@ -204,7 +206,7 @@ export async function PATCH(request: Request) {
     if (fields.exchangeRate !== undefined) airtableFields["Exchange Rate"] = Number(fields.exchangeRate);
     if (fields.propertyId !== undefined) airtableFields["Rented Home"] = fields.propertyId ? [fields.propertyId] : [];
 
-    await airtableFetch(RENTALS_TABLE, {
+    await airtableFetch(tenant.baseId, tenant.tables.rentals, {
       method: "PATCH",
       body: JSON.stringify({ records: [{ id, fields: airtableFields }] }),
     });

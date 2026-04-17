@@ -3,25 +3,21 @@ import { NextResponse } from "next/server";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PdfHeader, PdfFooter, s, C, fmtDate, fmtCurrency } from "../branding";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const ITINERARY_TABLE = process.env.AIRTABLE_TABLE_ITINERARY!;
-const VISITS_TABLE = process.env.AIRTABLE_TABLE_VISITS!;
-const VENDORS_TABLE = process.env.AIRTABLE_TABLE_VENDORS!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
-async function airtableGet(tableId: string, params: URLSearchParams) {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params}`;
+async function airtableGet(baseId: string, tableId: string, params: URLSearchParams) {
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
 }
 
-async function airtableGetRecord(tableId: string, recordId: string, fields?: string[]) {
+async function airtableGetRecord(baseId: string, tableId: string, recordId: string, fields?: string[]) {
   const params = new URLSearchParams();
   if (fields) fields.forEach(f => params.append("fields[]", f));
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}?${params}`;
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}/${recordId}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
@@ -125,12 +121,13 @@ function ItineraryDoc({
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const visitId = searchParams.get("visitId");
     if (!visitId) return NextResponse.json({ error: "Missing visitId" }, { status: 400 });
 
     // Fetch visit
-    const visitRec = await airtableGetRecord(VISITS_TABLE, visitId, [
+    const visitRec = await airtableGetRecord(tenant.baseId, tenant.tables.visits, visitId, [
       "Guest Name", "Check-in Date", "Check-out Date", "Property", "Visit Type", "Visit Name",
     ]);
     const visit = {
@@ -153,8 +150,8 @@ export async function GET(request: Request) {
     evtParams.set("pageSize", "100");
 
     const [evtData, vendorData] = await Promise.all([
-      airtableGet(ITINERARY_TABLE, evtParams),
-      airtableGet(VENDORS_TABLE, new URLSearchParams([["fields[]", "Name"], ["pageSize", "100"]])),
+      airtableGet(tenant.baseId, tenant.tables.itinerary, evtParams),
+      airtableGet(tenant.baseId, tenant.tables.vendors, new URLSearchParams([["fields[]", "Name"], ["pageSize", "100"]])),
     ]);
 
     const vendorMap: Record<string, string> = {};
@@ -195,7 +192,7 @@ export async function GET(request: Request) {
     let propertyName = "";
     if (visit.propertyId) {
       try {
-        const propRec = await airtableGetRecord(PROPERTIES_TABLE, visit.propertyId, ["House Name"]);
+        const propRec = await airtableGetRecord(tenant.baseId, tenant.tables.properties, visit.propertyId, ["House Name"]);
         propertyName = propRec.fields["House Name"] || "";
       } catch { /* non-critical */ }
     }

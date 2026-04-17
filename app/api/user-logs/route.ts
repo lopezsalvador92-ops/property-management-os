@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const ACTIVITY_LOGS_TABLE = process.env.AIRTABLE_TABLE_ACTIVITY_LOGS!;
 
 export async function GET() {
   try {
+    const tenant = await getTenant();
     const params = new URLSearchParams();
     [
       "Summary",
@@ -22,7 +22,7 @@ export async function GET() {
     params.set("pageSize", "100");
 
     const res = await fetch(
-      `https://api.airtable.com/v0/${BASE_ID}/${ACTIVITY_LOGS_TABLE}?${params}`,
+      `https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.activityLogs}?${params}`,
       {
         headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
         cache: "no-store",

@@ -3,18 +3,14 @@ import { NextResponse } from "next/server";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PdfHeader, PdfFooter, DetailRow, s, C, fmtDate, fmtCurrency } from "../branding";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const ITINERARY_TABLE = process.env.AIRTABLE_TABLE_ITINERARY!;
-const VISITS_TABLE = process.env.AIRTABLE_TABLE_VISITS!;
-const VENDORS_TABLE = process.env.AIRTABLE_TABLE_VENDORS!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
 
-async function airtableGetRecord(tableId: string, recordId: string, fields?: string[]) {
+async function airtableGetRecord(baseId: string, tableId: string, recordId: string, fields?: string[]) {
   const params = new URLSearchParams();
   if (fields) fields.forEach(f => params.append("fields[]", f));
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}?${params}`;
+  const url = `https://api.airtable.com/v0/${baseId}/${tableId}/${recordId}?${params}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }, cache: "no-store" });
   if (!res.ok) throw new Error(`Airtable ${res.status}`);
   return res.json();
@@ -135,12 +131,13 @@ function EventConfirmationDoc({
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get("eventId");
     if (!eventId) return NextResponse.json({ error: "Missing eventId" }, { status: 400 });
 
     // Fetch event
-    const eventRec = await airtableGetRecord(ITINERARY_TABLE, eventId, [
+    const eventRec = await airtableGetRecord(tenant.baseId, tenant.tables.itinerary, eventId, [
       "Event Name", "Visit", "Vendor", "Date", "Time", "Details", "Status",
       "Event Type", "Extra Details", "Show Vendor", "Chargeable",
       "Estimated Cost", "Total", "Currency",
@@ -165,10 +162,10 @@ export async function GET(request: Request) {
     // Fetch visit + vendor in parallel
     const [visitRec, vendorRec] = await Promise.all([
       event.visitId
-        ? airtableGetRecord(VISITS_TABLE, event.visitId, ["Guest Name", "Check-in Date", "Check-out Date", "Property", "Visit Type"])
+        ? airtableGetRecord(tenant.baseId, tenant.tables.visits, event.visitId, ["Guest Name", "Check-in Date", "Check-out Date", "Property", "Visit Type"])
         : Promise.resolve({ fields: {} }),
       event.vendorId
-        ? airtableGetRecord(VENDORS_TABLE, event.vendorId, ["Name"])
+        ? airtableGetRecord(tenant.baseId, tenant.tables.vendors, event.vendorId, ["Name"])
         : Promise.resolve({ fields: {} }),
     ]);
 
@@ -184,7 +181,7 @@ export async function GET(request: Request) {
     let propertyName = "";
     if (visit.propertyId) {
       try {
-        const propRec = await airtableGetRecord(PROPERTIES_TABLE, visit.propertyId, ["House Name"]);
+        const propRec = await airtableGetRecord(tenant.baseId, tenant.tables.properties, visit.propertyId, ["House Name"]);
         propertyName = propRec.fields["House Name"] || "";
       } catch { /* non-critical */ }
     }

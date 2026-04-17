@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const HELP_TABLE = process.env.AIRTABLE_TABLE_HELP!;
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const url = new URL(request.url);
     const audience = url.searchParams.get("audience") || "both";
 
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     params.set("sort[0][direction]", "asc");
     params.set("pageSize", "100");
 
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${HELP_TABLE}?${params}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.help}?${params}`, {
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
       cache: "no-store",
     });

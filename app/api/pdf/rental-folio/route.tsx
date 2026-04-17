@@ -3,15 +3,12 @@ import { NextResponse } from "next/server";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PdfHeader, PdfFooter, s, C, fmtDate } from "../branding";
+import { getTenant } from "@/lib/getTenant";
 
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN!;
-const BASE_ID = process.env.AIRTABLE_BASE_ID!;
-const RENTALS_TABLE = process.env.AIRTABLE_TABLE_RENTALS!;
-const PROPERTIES_TABLE = process.env.AIRTABLE_TABLE_PROPERTIES!;
-const EXPENSES_TABLE = process.env.AIRTABLE_TABLE_EXPENSES!;
 
-async function airtableFetch(path: string) {
-  const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${path}`, {
+async function airtableFetch(baseId: string, path: string) {
+  const res = await fetch(`https://api.airtable.com/v0/${baseId}/${path}`, {
     headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
     cache: "no-store",
   });
@@ -19,7 +16,7 @@ async function airtableFetch(path: string) {
   return res.json();
 }
 
-async function fetchAllExpenses() {
+async function fetchAllExpenses(baseId: string, expensesTable: string) {
   const all: any[] = [];
   let offset: string | undefined;
   do {
@@ -29,7 +26,7 @@ async function fetchAllExpenses() {
      "Description", "Total Amount (USD)",
     ].forEach(f => params.append("fields[]", f));
     if (offset) params.set("offset", offset);
-    const data = await airtableFetch(`${EXPENSES_TABLE}?${params}`);
+    const data = await airtableFetch(baseId, `${expensesTable}?${params}`);
     all.push(...(data.records || []));
     offset = data.offset;
   } while (offset);
@@ -240,12 +237,13 @@ function RentalFolioDoc({
 
 export async function GET(request: Request) {
   try {
+    const tenant = await getTenant();
     const { searchParams } = new URL(request.url);
     const rentalId = searchParams.get("rentalId");
     if (!rentalId) return NextResponse.json({ error: "Missing rentalId" }, { status: 400 });
 
     // Fetch rental
-    const rentalRec = await airtableFetch(`${RENTALS_TABLE}/${rentalId}`);
+    const rentalRec = await airtableFetch(tenant.baseId, `${tenant.tables.rentals}/${rentalId}`);
     const f = rentalRec.fields;
     const rental = {
       guestName: f["Guest Name"] || "",
@@ -264,7 +262,7 @@ export async function GET(request: Request) {
     let propertyOwner = "";
     if (propertyIds[0]) {
       try {
-        const p = await airtableFetch(`${PROPERTIES_TABLE}/${propertyIds[0]}?fields%5B%5D=House+Name&fields%5B%5D=Owner`);
+        const p = await airtableFetch(tenant.baseId, `${tenant.tables.properties}/${propertyIds[0]}?fields%5B%5D=House+Name&fields%5B%5D=Owner`);
         propertyName = p.fields["House Name"] || "";
         propertyOwner = p.fields["Owner"] || "";
       } catch { /* non-critical */ }
@@ -280,7 +278,7 @@ export async function GET(request: Request) {
 
     const lines: ExpenseLine[] = [];
     if (expenseIds.length) {
-      const allExp = await fetchAllExpenses();
+      const allExp = await fetchAllExpenses(tenant.baseId, tenant.tables.expenses);
       const idSet = new Set(expenseIds);
       for (const r of allExp) {
         if (!idSet.has(r.id)) continue;
