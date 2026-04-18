@@ -25,6 +25,9 @@ type ItineraryEvent = { id: string; eventName: string; visitId: string; vendorId
 type RentalExpenseRow = { id: string; receiptNo: string; date: string; category: string; supplier: string; description: string; total: number; currency: string; totalUSD: number; receiptUrl: string };
 type Rental = { id: string; guestName: string; folioId: string; arrivalDate: string; departureDate: string; status: string; exchangeRate: number; finalBalance: number; propertyId: string; propertyName: string; expenseCount: number; autoId: number };
 type RentalDetail = Rental & { propertyOwner: string; expenses: RentalExpenseRow[] };
+type Section = { id: string; name: string; propertyIds: string[]; notes: string };
+type Asset = { id: string; name: string; propertyIds: string[]; sectionIds: string[]; category: string; status: string; brand: string; model: string; serialNumber: string; purchaseDate: string; purchaseCost: number; warrantyUntil: string; photos: { url: string; filename: string }[]; notes: string };
+type InventoryItem = { id: string; item: string; propertyIds: string[]; sectionIds: string[]; category: string; currentStock: number; parLevel: number; unit: string; lastRestocked: string; photos: { url: string; filename: string }[]; notes: string };
 
 const catColors: Record<string, { bg: string; text: string }> = {
   Utilities: { bg: "rgba(207,196,110,0.1)", text: "#CFC46E" },
@@ -46,6 +49,7 @@ const navItems = [
   { id: "concierge", icon: "✦", label: "Concierge" },
   { id: "rentals", icon: "◉", label: "Rentals" },
   { id: "maintenance", icon: "⟡", label: "Maintenance" },
+  { id: "catalog", icon: "▣", label: "Property Catalog" },
   { id: "calendar", icon: "▦", label: "Calendar" },
   { id: "properties", icon: "◫", label: "Properties" },
   { id: "users", icon: "◌", label: "Users" },
@@ -295,6 +299,23 @@ export default function AdminDashboard() {
   const [newCfgNotes, setNewCfgNotes] = useState("");
   const [addingConfig, setAddingConfig] = useState(false);
   const [editingCfgId, setEditingCfgId] = useState<string | null>(null);
+  // Property Catalog state
+  const [catTab, setCatTab] = useState<"sections" | "assets" | "inventory">("sections");
+  const [catPropertyId, setCatPropertyId] = useState<string>("");
+  const [sections, setSections] = useState<Section[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [catLoading, setCatLoading] = useState(false);
+  const [editSectionId, setEditSectionId] = useState<string | null>(null);
+  const [editSectionForm, setEditSectionForm] = useState<{ name: string; notes: string }>({ name: "", notes: "" });
+  const [newSectionName, setNewSectionName] = useState("");
+  const [newSectionNotes, setNewSectionNotes] = useState("");
+  const [editAssetId, setEditAssetId] = useState<string | null>(null);
+  const [assetForm, setAssetForm] = useState<Record<string, any>>({});
+  const [addingAsset, setAddingAsset] = useState(false);
+  const [editInvId, setEditInvId] = useState<string | null>(null);
+  const [invForm, setInvForm] = useState<Record<string, any>>({});
+  const [addingInv, setAddingInv] = useState(false);
   const [helpArticles, setHelpArticles] = useState<HelpArticle[]>([]);
   const [helpLoading, setHelpLoading] = useState(false);
   const [helpSelectedId, setHelpSelectedId] = useState<string | null>(null);
@@ -513,6 +534,29 @@ export default function AdminDashboard() {
       fetch("/api/visits").then(r => r.json()).then(d => setVisits(d.visits || [])).catch(() => {});
     }
   }, [activePage]);
+
+  useEffect(() => {
+    if (activePage === "catalog" && !catPropertyId && properties.length > 0) {
+      const firstActive = properties.find(p => p.status === "Active") || properties[0];
+      if (firstActive) setCatPropertyId(firstActive.id);
+    }
+  }, [activePage, properties, catPropertyId]);
+
+  useEffect(() => {
+    if (activePage === "catalog" && catPropertyId) {
+      setCatLoading(true);
+      Promise.all([
+        fetch(`/api/sections?propertyId=${catPropertyId}`).then(r => r.json()),
+        fetch(`/api/assets?propertyId=${catPropertyId}`).then(r => r.json()),
+        fetch(`/api/inventory?propertyId=${catPropertyId}`).then(r => r.json()),
+      ]).then(([sData, aData, iData]) => {
+        setSections(sData.sections || []);
+        setAssets(aData.assets || []);
+        setInventory(iData.items || []);
+        setCatLoading(false);
+      }).catch(() => setCatLoading(false));
+    }
+  }, [activePage, catPropertyId]);
 
   useEffect(() => {
     if (activePage === "help" && helpArticles.length === 0) {
@@ -5457,6 +5501,267 @@ export default function AdminDashboard() {
           );
         })()}
 
+        {/* PROPERTY CATALOG */}
+        {activePage === "catalog" && (() => {
+          const activeProps = properties.filter(p => p.status === "Active");
+          const selectedProp = properties.find(p => p.id === catPropertyId);
+          const propSections = sections;
+          const sectionMap: Record<string, string> = {};
+          for (const s of sections) sectionMap[s.id] = s.name;
+          const lowStock = inventory.filter(i => i.parLevel > 0 && i.currentStock < i.parLevel);
+          const needsRepair = assets.filter(a => a.status === "Needs Repair");
+
+          async function reloadCatalog() {
+            if (!catPropertyId) return;
+            const [s, a, i] = await Promise.all([
+              fetch(`/api/sections?propertyId=${catPropertyId}`).then(r => r.json()),
+              fetch(`/api/assets?propertyId=${catPropertyId}`).then(r => r.json()),
+              fetch(`/api/inventory?propertyId=${catPropertyId}`).then(r => r.json()),
+            ]);
+            setSections(s.sections || []);
+            setAssets(a.assets || []);
+            setInventory(i.items || []);
+          }
+
+          async function addSection() {
+            if (!newSectionName || !catPropertyId) return;
+            await fetch("/api/sections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newSectionName, propertyId: catPropertyId, notes: newSectionNotes }) });
+            setNewSectionName(""); setNewSectionNotes("");
+            reloadCatalog();
+          }
+          async function saveSection(id: string) {
+            await fetch("/api/sections", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, name: editSectionForm.name, notes: editSectionForm.notes }) });
+            setEditSectionId(null);
+            reloadCatalog();
+          }
+          async function deleteSection(id: string) {
+            if (!confirm("Delete this section? Assets and inventory linked to it will lose the link (not deleted).")) return;
+            await fetch(`/api/sections?id=${id}`, { method: "DELETE" });
+            reloadCatalog();
+          }
+          async function saveAsset() {
+            if (!assetForm.name || !catPropertyId) return;
+            setAddingAsset(true);
+            const payload: any = { ...assetForm, propertyId: catPropertyId };
+            if (editAssetId) {
+              await fetch("/api/assets", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editAssetId, ...payload }) });
+            } else {
+              await fetch("/api/assets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            }
+            setAssetForm({}); setEditAssetId(null); setAddingAsset(false);
+            reloadCatalog();
+          }
+          async function deleteAsset(id: string) {
+            if (!confirm("Delete this asset?")) return;
+            await fetch(`/api/assets?id=${id}`, { method: "DELETE" });
+            reloadCatalog();
+          }
+          async function saveInvItem() {
+            if (!invForm.item || !catPropertyId) return;
+            setAddingInv(true);
+            const payload: any = { ...invForm, propertyId: catPropertyId };
+            if (editInvId) {
+              await fetch("/api/inventory", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editInvId, ...payload }) });
+            } else {
+              await fetch("/api/inventory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            }
+            setInvForm({}); setEditInvId(null); setAddingInv(false);
+            reloadCatalog();
+          }
+          async function deleteInvItem(id: string) {
+            if (!confirm("Delete this inventory item?")) return;
+            await fetch(`/api/inventory?id=${id}`, { method: "DELETE" });
+            reloadCatalog();
+          }
+
+          const tdS: React.CSSProperties = { padding: "11px 14px", fontSize: 13, borderBottom: "1px solid var(--border)" };
+          const thS: React.CSSProperties = { textAlign: "left", padding: "12px 14px", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text3)", fontWeight: 600, borderBottom: "2px solid var(--border2)", background: "var(--bg3)", whiteSpace: "nowrap" };
+          const assetCats = ["Appliance", "Electronics", "HVAC", "Pool & Spa", "Furniture", "Plumbing", "Outdoor", "Other"];
+          const assetStatuses = ["Active", "Needs Repair", "Retired", "Replaced"];
+          const invCats = ["Linens", "Towels", "Bath Amenities", "Kitchen", "Cleaning Supplies", "Pool", "Office", "Other"];
+
+          return (
+            <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1400, margin: "0 auto" }}>
+              <div style={{ marginBottom: 24 }}>
+                <div style={eyebrow}>Property Catalog</div>
+                <h1 style={h1s}>What's at each property</h1>
+                <p style={{ fontSize: 14, color: "var(--text3)", marginTop: 8 }}>Sections, assets and inventory — the backbone for maintenance history, restocking, and insurance/HOA reports.</p>
+              </div>
+
+              {/* Property + tab controls */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22, flexWrap: "wrap" as const }}>
+                <select value={catPropertyId} onChange={e => setCatPropertyId(e.target.value)} style={{ ...sel, minWidth: 220 }}>
+                  <option value="">Select property…</option>
+                  {activeProps.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                {catPropertyId && (
+                  <div style={{ display: "flex", gap: 6, padding: 4, background: "var(--bg3)", borderRadius: 100, border: "1px solid var(--border)" }}>
+                    {(["sections", "assets", "inventory"] as const).map(t => (
+                      <button key={t} onClick={() => setCatTab(t)} style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: catTab === t ? "var(--accent-s)" : "transparent", color: catTab === t ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>
+                        {t === "sections" ? `Sections (${propSections.length})` : t === "assets" ? `Assets (${assets.length})` : `Inventory (${inventory.length})`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {(lowStock.length > 0 || needsRepair.length > 0) && (
+                  <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+                    {needsRepair.length > 0 && <span style={{ fontSize: 11, color: "var(--red)", padding: "5px 11px", borderRadius: 100, background: "var(--red-s)", fontWeight: 600 }}>⚠ {needsRepair.length} asset{needsRepair.length === 1 ? "" : "s"} need repair</span>}
+                    {lowStock.length > 0 && <span style={{ fontSize: 11, color: "var(--orange)", padding: "5px 11px", borderRadius: 100, background: "var(--orange-s)", fontWeight: 600 }}>⚠ {lowStock.length} item{lowStock.length === 1 ? "" : "s"} below par</span>}
+                  </div>
+                )}
+              </div>
+
+              {!catPropertyId && <div style={{ ...card, textAlign: "center" as const, color: "var(--text3)", fontSize: 14, padding: 40 }}>Select a property to view its catalog.</div>}
+              {catPropertyId && catLoading && <div style={{ ...card, textAlign: "center" as const, color: "var(--text3)", fontSize: 14, padding: 40 }}>Loading…</div>}
+
+              {catPropertyId && !catLoading && catTab === "sections" && (
+                <>
+                  {/* Add section */}
+                  <div style={{ ...card, marginBottom: 20 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Add a section</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12, alignItems: "end" }}>
+                      <div><label style={lbl}>Name</label><input value={newSectionName} onChange={e => setNewSectionName(e.target.value)} placeholder="e.g. Laundry, Pool Deck, Primary Bedroom" style={inp} /></div>
+                      <div><label style={lbl}>Notes</label><input value={newSectionNotes} onChange={e => setNewSectionNotes(e.target.value)} placeholder="Optional" style={inp} /></div>
+                      <button onClick={addSection} disabled={!newSectionName} style={{ padding: "11px 22px", borderRadius: 100, border: "none", background: newSectionName ? "linear-gradient(135deg, var(--teal), #2A6B7C)" : "var(--bg2)", color: newSectionName ? "#fff" : "var(--text3)", fontSize: 12, fontWeight: 600, cursor: newSectionName ? "pointer" : "default", fontFamily: "inherit" }}>Add Section</button>
+                    </div>
+                  </div>
+                  <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" as const }}>
+                      <thead><tr><th style={thS}>Section</th><th style={thS}>Notes</th><th style={thS}>Assets</th><th style={thS}>Inventory</th><th style={thS}></th></tr></thead>
+                      <tbody>
+                        {propSections.length === 0 && <tr><td colSpan={5} style={{ padding: "40px 14px", textAlign: "center" as const, color: "var(--text3)", fontSize: 14 }}>No sections yet for {selectedProp?.name}.</td></tr>}
+                        {propSections.map(s => {
+                          const isEditing = editSectionId === s.id;
+                          const aCount = assets.filter(a => a.sectionIds.includes(s.id)).length;
+                          const iCount = inventory.filter(i => i.sectionIds.includes(s.id)).length;
+                          return (
+                            <tr key={s.id}>
+                              {isEditing ? (<>
+                                <td style={tdS}><input value={editSectionForm.name} onChange={e => setEditSectionForm(f => ({ ...f, name: e.target.value }))} style={{ ...inp, padding: "5px 8px", fontSize: 13 }} /></td>
+                                <td style={tdS}><input value={editSectionForm.notes} onChange={e => setEditSectionForm(f => ({ ...f, notes: e.target.value }))} style={{ ...inp, padding: "5px 8px", fontSize: 13 }} /></td>
+                                <td style={tdS}>{aCount}</td>
+                                <td style={tdS}>{iCount}</td>
+                                <td style={tdS}>
+                                  <button onClick={() => saveSection(s.id)} style={{ padding: "3px 10px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginRight: 4 }}>Save</button>
+                                  <button onClick={() => setEditSectionId(null)} style={{ padding: "3px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>✕</button>
+                                </td>
+                              </>) : (<>
+                                <td style={{ ...tdS, fontWeight: 600 }}>{s.name}</td>
+                                <td style={{ ...tdS, color: "var(--text3)" }}>{s.notes || "—"}</td>
+                                <td style={tdS}>{aCount}</td>
+                                <td style={tdS}>{iCount}</td>
+                                <td style={{ ...tdS, whiteSpace: "nowrap" as const }}>
+                                  <button onClick={() => { setEditSectionId(s.id); setEditSectionForm({ name: s.name, notes: s.notes }); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginRight: 6 }}>✎ Edit</button>
+                                  <button onClick={() => deleteSection(s.id)} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--red)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
+                                </td>
+                              </>)}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {catPropertyId && !catLoading && catTab === "assets" && (
+                <>
+                  <div style={{ ...card, marginBottom: 20 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>{editAssetId ? "Edit asset" : "Add an asset"}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
+                      <div><label style={lbl}>Name</label><input value={assetForm.name || ""} onChange={e => setAssetForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Living Room A/C" style={inp} /></div>
+                      <div><label style={lbl}>Section</label><select value={assetForm.sectionId || ""} onChange={e => setAssetForm(f => ({ ...f, sectionId: e.target.value }))} style={inp}><option value="">—</option>{propSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                      <div><label style={lbl}>Category</label><select value={assetForm.category || ""} onChange={e => setAssetForm(f => ({ ...f, category: e.target.value }))} style={inp}><option value="">—</option>{assetCats.map(c => <option key={c}>{c}</option>)}</select></div>
+                      <div><label style={lbl}>Status</label><select value={assetForm.status || "Active"} onChange={e => setAssetForm(f => ({ ...f, status: e.target.value }))} style={inp}>{assetStatuses.map(c => <option key={c}>{c}</option>)}</select></div>
+                      <div><label style={lbl}>Brand</label><input value={assetForm.brand || ""} onChange={e => setAssetForm(f => ({ ...f, brand: e.target.value }))} style={inp} /></div>
+                      <div><label style={lbl}>Model</label><input value={assetForm.model || ""} onChange={e => setAssetForm(f => ({ ...f, model: e.target.value }))} style={inp} /></div>
+                      <div><label style={lbl}>Serial #</label><input value={assetForm.serialNumber || ""} onChange={e => setAssetForm(f => ({ ...f, serialNumber: e.target.value }))} style={inp} /></div>
+                      <div><label style={lbl}>Purchase Date</label><input type="date" value={assetForm.purchaseDate || ""} onChange={e => setAssetForm(f => ({ ...f, purchaseDate: e.target.value }))} style={inp} /></div>
+                      <div><label style={lbl}>Purchase Cost (USD)</label><input type="number" step="0.01" value={assetForm.purchaseCost || ""} onChange={e => setAssetForm(f => ({ ...f, purchaseCost: e.target.value }))} style={inp} /></div>
+                      <div><label style={lbl}>Warranty Until</label><input type="date" value={assetForm.warrantyUntil || ""} onChange={e => setAssetForm(f => ({ ...f, warrantyUntil: e.target.value }))} style={inp} /></div>
+                    </div>
+                    <div style={{ marginBottom: 14 }}><label style={lbl}>Notes</label><input value={assetForm.notes || ""} onChange={e => setAssetForm(f => ({ ...f, notes: e.target.value }))} placeholder="Installation notes, quirks, spare parts, etc." style={inp} /></div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      {editAssetId && <button onClick={() => { setEditAssetId(null); setAssetForm({}); }} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>}
+                      <button onClick={saveAsset} disabled={addingAsset || !assetForm.name} style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: !assetForm.name ? "var(--bg2)" : "linear-gradient(135deg, var(--teal), #2A6B7C)", color: !assetForm.name ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: !assetForm.name ? "default" : "pointer", fontFamily: "inherit" }}>{addingAsset ? "Saving…" : editAssetId ? "Save changes" : "Add Asset"}</button>
+                    </div>
+                  </div>
+                  <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" as const }}>
+                      <thead><tr><th style={thS}>Name</th><th style={thS}>Section</th><th style={thS}>Category</th><th style={thS}>Brand / Model</th><th style={thS}>Status</th><th style={thS}>Warranty</th><th style={thS}></th></tr></thead>
+                      <tbody>
+                        {assets.length === 0 && <tr><td colSpan={7} style={{ padding: "40px 14px", textAlign: "center" as const, color: "var(--text3)", fontSize: 14 }}>No assets recorded yet.</td></tr>}
+                        {assets.map(a => (
+                          <tr key={a.id}>
+                            <td style={{ ...tdS, fontWeight: 600 }}>{a.name}</td>
+                            <td style={{ ...tdS, color: "var(--text3)" }}>{sectionMap[a.sectionIds[0]] || "—"}</td>
+                            <td style={{ ...tdS, color: "var(--text2)" }}>{a.category || "—"}</td>
+                            <td style={{ ...tdS, color: "var(--text2)" }}>{[a.brand, a.model].filter(Boolean).join(" ") || "—"}</td>
+                            <td style={tdS}><span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.04em", background: a.status === "Active" ? "var(--teal-s)" : a.status === "Needs Repair" ? "var(--red-s)" : "var(--bg2)", color: a.status === "Active" ? "var(--teal)" : a.status === "Needs Repair" ? "var(--red)" : "var(--text3)" }}>{a.status}</span></td>
+                            <td style={{ ...tdS, color: "var(--text3)", fontSize: 12 }}>{a.warrantyUntil ? fmtDate(a.warrantyUntil) : "—"}</td>
+                            <td style={{ ...tdS, whiteSpace: "nowrap" as const }}>
+                              <button onClick={() => { setEditAssetId(a.id); setAssetForm({ name: a.name, sectionId: a.sectionIds[0] || "", category: a.category, status: a.status, brand: a.brand, model: a.model, serialNumber: a.serialNumber, purchaseDate: a.purchaseDate, purchaseCost: a.purchaseCost, warrantyUntil: a.warrantyUntil, notes: a.notes }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginRight: 6 }}>✎ Edit</button>
+                              <button onClick={() => deleteAsset(a.id)} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--red)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {catPropertyId && !catLoading && catTab === "inventory" && (
+                <>
+                  <div style={{ ...card, marginBottom: 20 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>{editInvId ? "Edit inventory item" : "Add inventory item"}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
+                      <div><label style={lbl}>Item</label><input value={invForm.item || ""} onChange={e => setInvForm(f => ({ ...f, item: e.target.value }))} placeholder="e.g. Pool towels" style={inp} /></div>
+                      <div><label style={lbl}>Section</label><select value={invForm.sectionId || ""} onChange={e => setInvForm(f => ({ ...f, sectionId: e.target.value }))} style={inp}><option value="">—</option>{propSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                      <div><label style={lbl}>Category</label><select value={invForm.category || ""} onChange={e => setInvForm(f => ({ ...f, category: e.target.value }))} style={inp}><option value="">—</option>{invCats.map(c => <option key={c}>{c}</option>)}</select></div>
+                      <div><label style={lbl}>Current Stock</label><input type="number" value={invForm.currentStock ?? ""} onChange={e => setInvForm(f => ({ ...f, currentStock: e.target.value }))} style={inp} /></div>
+                      <div><label style={lbl}>Par Level</label><input type="number" value={invForm.parLevel ?? ""} onChange={e => setInvForm(f => ({ ...f, parLevel: e.target.value }))} placeholder="Restock when below this" style={inp} /></div>
+                      <div><label style={lbl}>Unit</label><input value={invForm.unit || ""} onChange={e => setInvForm(f => ({ ...f, unit: e.target.value }))} placeholder="each, pair, bottle…" style={inp} /></div>
+                      <div><label style={lbl}>Last Restocked</label><input type="date" value={invForm.lastRestocked || ""} onChange={e => setInvForm(f => ({ ...f, lastRestocked: e.target.value }))} style={inp} /></div>
+                    </div>
+                    <div style={{ marginBottom: 14 }}><label style={lbl}>Notes</label><input value={invForm.notes || ""} onChange={e => setInvForm(f => ({ ...f, notes: e.target.value }))} style={inp} /></div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      {editInvId && <button onClick={() => { setEditInvId(null); setInvForm({}); }} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>}
+                      <button onClick={saveInvItem} disabled={addingInv || !invForm.item} style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: !invForm.item ? "var(--bg2)" : "linear-gradient(135deg, var(--teal), #2A6B7C)", color: !invForm.item ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: !invForm.item ? "default" : "pointer", fontFamily: "inherit" }}>{addingInv ? "Saving…" : editInvId ? "Save changes" : "Add Item"}</button>
+                    </div>
+                  </div>
+                  <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" as const }}>
+                      <thead><tr><th style={thS}>Item</th><th style={thS}>Section</th><th style={thS}>Category</th><th style={thS}>Stock</th><th style={thS}>Par</th><th style={thS}>Unit</th><th style={thS}>Last Restock</th><th style={thS}></th></tr></thead>
+                      <tbody>
+                        {inventory.length === 0 && <tr><td colSpan={8} style={{ padding: "40px 14px", textAlign: "center" as const, color: "var(--text3)", fontSize: 14 }}>No inventory tracked yet.</td></tr>}
+                        {inventory.map(it => {
+                          const below = it.parLevel > 0 && it.currentStock < it.parLevel;
+                          return (
+                            <tr key={it.id}>
+                              <td style={{ ...tdS, fontWeight: 600 }}>{it.item}</td>
+                              <td style={{ ...tdS, color: "var(--text3)" }}>{sectionMap[it.sectionIds[0]] || "—"}</td>
+                              <td style={{ ...tdS, color: "var(--text2)" }}>{it.category || "—"}</td>
+                              <td style={{ ...tdS, color: below ? "var(--red)" : "var(--text)", fontWeight: below ? 700 : 500 }}>{it.currentStock}{below ? " ⚠" : ""}</td>
+                              <td style={{ ...tdS, color: "var(--text3)" }}>{it.parLevel || "—"}</td>
+                              <td style={{ ...tdS, color: "var(--text3)" }}>{it.unit || "—"}</td>
+                              <td style={{ ...tdS, color: "var(--text3)", fontSize: 12 }}>{it.lastRestocked ? fmtDate(it.lastRestocked) : "—"}</td>
+                              <td style={{ ...tdS, whiteSpace: "nowrap" as const }}>
+                                <button onClick={() => { setEditInvId(it.id); setInvForm({ item: it.item, sectionId: it.sectionIds[0] || "", category: it.category, currentStock: it.currentStock, parLevel: it.parLevel, unit: it.unit, lastRestocked: it.lastRestocked, notes: it.notes }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginRight: 6 }}>✎ Edit</button>
+                                <button onClick={() => deleteInvItem(it.id)} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--red)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
+
         {/* HELP */}
         {activePage === "help" && (() => {
           const q = helpSearch.trim().toLowerCase();
@@ -5515,7 +5820,7 @@ export default function AdminDashboard() {
         })()}
 
         {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && activePage !== "rentals" && activePage !== "calendar" && activePage !== "maintenance" && activePage !== "help" && (
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && activePage !== "rentals" && activePage !== "calendar" && activePage !== "maintenance" && activePage !== "catalog" && activePage !== "help" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>

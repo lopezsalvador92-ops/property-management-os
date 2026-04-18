@@ -21,6 +21,7 @@ const ALL_ADMIN_MODULES = [
   { id: "concierge", label: "Concierge", description: "Visits, itinerary builder, vendor directory" },
   { id: "rentals", label: "Rentals", description: "Guest rentals with hotel-style folios and PDF export" },
   { id: "maintenance", label: "Maintenance", description: "Reactive/preventive tasks, vendor management" },
+  { id: "catalog", label: "Property Catalog", description: "Sections, fixed assets, and inventory per property" },
   { id: "calendar", label: "Availability Calendar", description: "Portfolio-wide occupancy grid, weekly/monthly views" },
   { id: "properties", label: "Properties", description: "Property details, fees, HSK config, availability" },
   { id: "users", label: "Users", description: "Clerk user management, roles, passwords" },
