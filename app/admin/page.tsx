@@ -78,6 +78,75 @@ function fmtDate(dateStr: string) {
   try { const d = new Date(dateStr + "T12:00:00"); return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); } catch { return dateStr; }
 }
 
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { cur += ch; }
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ",") { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
+function parseInventoryCsv(text: string, sections: { id: string; name: string }[], validCats: string[]) {
+  const errors: string[] = [];
+  const rows: any[] = [];
+  const lines = text.replace(/\r\n/g, "\n").split("\n").filter(l => l.trim() !== "");
+  if (lines.length < 2) { errors.push("CSV must have a header row and at least one data row."); return { rows, errors }; }
+
+  const header = parseCsvLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, ""));
+  const idx = (names: string[]) => {
+    for (const n of names) { const i = header.indexOf(n); if (i !== -1) return i; }
+    return -1;
+  };
+  const iItem = idx(["item", "name"]);
+  const iCat = idx(["category"]);
+  const iSec = idx(["section"]);
+  const iStock = idx(["currentstock", "stock"]);
+  const iPar = idx(["parlevel", "par"]);
+  const iUnit = idx(["unit"]);
+  const iLast = idx(["lastrestocked"]);
+  const iNotes = idx(["notes"]);
+
+  if (iItem === -1) { errors.push("Missing required column: Item"); return { rows, errors }; }
+
+  const secByName: Record<string, string> = {};
+  for (const s of sections) secByName[s.name.toLowerCase()] = s.id;
+
+  for (let r = 1; r < lines.length; r++) {
+    const cells = parseCsvLine(lines[r]);
+    const item = (cells[iItem] || "").trim();
+    if (!item) { errors.push(`Row ${r + 1}: missing Item`); continue; }
+    const cat = iCat >= 0 ? (cells[iCat] || "").trim() : "";
+    if (cat && !validCats.includes(cat)) errors.push(`Row ${r + 1}: unknown category "${cat}" — will import without category`);
+    const secRaw = iSec >= 0 ? (cells[iSec] || "").trim() : "";
+    const sectionId = secRaw ? secByName[secRaw.toLowerCase()] || "" : "";
+    if (secRaw && !sectionId) errors.push(`Row ${r + 1}: section "${secRaw}" not found — will import without section`);
+    rows.push({
+      item,
+      category: validCats.includes(cat) ? cat : "",
+      sectionId,
+      sectionName: secRaw,
+      currentStock: iStock >= 0 && cells[iStock] ? cells[iStock].trim() : "",
+      parLevel: iPar >= 0 && cells[iPar] ? cells[iPar].trim() : "",
+      unit: iUnit >= 0 ? (cells[iUnit] || "").trim() : "",
+      lastRestocked: iLast >= 0 ? (cells[iLast] || "").trim() : "",
+      notes: iNotes >= 0 ? (cells[iNotes] || "").trim() : "",
+    });
+  }
+  return { rows, errors };
+}
+
 const card: React.CSSProperties = { padding: 22, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-sm)" };
 const lbl: React.CSSProperties = { fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em", color: "var(--text3)", marginBottom: 10, fontWeight: 700, display: "block" };
 const h1s: React.CSSProperties = { fontFamily: "var(--fd)", fontSize: 36, fontWeight: 400, marginBottom: 8, lineHeight: 1.08, letterSpacing: "-0.005em", color: "var(--text)" };
@@ -333,6 +402,15 @@ export default function AdminDashboard() {
   const [invForm, setInvForm] = useState<Record<string, any>>({});
   const [addingInv, setAddingInv] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [invImportMode, setInvImportMode] = useState<"none" | "csv" | "ai">("none");
+  const [invCsvRows, setInvCsvRows] = useState<any[]>([]);
+  const [invCsvErrors, setInvCsvErrors] = useState<string[]>([]);
+  const [invCsvBusy, setInvCsvBusy] = useState(false);
+  const [invCsvResult, setInvCsvResult] = useState<{ created: number; errors: number } | null>(null);
+  const [invAiBusy, setInvAiBusy] = useState(false);
+  const [invAiItems, setInvAiItems] = useState<any[]>([]);
+  const [invAiError, setInvAiError] = useState<string | null>(null);
+  const [invAiPhotos, setInvAiPhotos] = useState<string[]>([]);
   const [helpArticles, setHelpArticles] = useState<HelpArticle[]>([]);
   const [helpLoading, setHelpLoading] = useState(false);
   const [helpSelectedId, setHelpSelectedId] = useState<string | null>(null);
@@ -6045,6 +6123,193 @@ export default function AdminDashboard() {
 
               {catPropertyId && !catLoading && catTab === "inventory" && (
                 <>
+                  {/* Import toolbar */}
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginBottom: 12, flexWrap: "wrap" as const }}>
+                    <button onClick={() => { setInvImportMode(m => m === "csv" ? "none" : "csv"); setInvAiItems([]); setInvAiError(null); setInvCsvResult(null); }} style={{ padding: "8px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: invImportMode === "csv" ? "var(--accent-s)" : "var(--bg2)", color: invImportMode === "csv" ? "var(--accent)" : "var(--text)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "0.04em" }}>⇪ Bulk CSV Import</button>
+                    <button onClick={() => { setInvImportMode(m => m === "ai" ? "none" : "ai"); setInvCsvRows([]); setInvCsvErrors([]); setInvCsvResult(null); }} style={{ padding: "8px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: invImportMode === "ai" ? "var(--accent-s)" : "var(--bg2)", color: invImportMode === "ai" ? "var(--accent)" : "var(--text)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "0.04em" }}>✨ AI Photo Scan</button>
+                  </div>
+
+                  {invImportMode === "csv" && (
+                    <div style={{ ...card, marginBottom: 20 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 12, flexWrap: "wrap" as const }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 500 }}>Bulk CSV Import</div>
+                          <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4 }}>Upload a CSV to add many items at once. Only <b>Item</b> is required.</div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const header = "Item,Category,Section,Current Stock,Par Level,Unit,Last Restocked,Notes";
+                            const sample = [
+                              `Pool towels,Towels,,24,20,each,,Cream cotton`,
+                              `Hand soap,Bath Amenities,,6,4,bottle,,`,
+                              `Toilet paper rolls,Bath Amenities,,36,24,roll,,`,
+                            ].join("\n");
+                            const blob = new Blob([header + "\n" + sample + "\n"], { type: "text/csv" });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a"); a.href = url; a.download = "inventory-template.csv"; a.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          style={{ padding: "6px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                        >⤓ Download template</button>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".csv,text/csv"
+                        onChange={async e => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setInvCsvResult(null);
+                          const text = await file.text();
+                          const { rows, errors } = parseInventoryCsv(text, propSections, invCats);
+                          setInvCsvRows(rows);
+                          setInvCsvErrors(errors);
+                          e.target.value = "";
+                        }}
+                        style={{ fontSize: 12, color: "var(--text2)" }}
+                      />
+
+                      {invCsvErrors.length > 0 && (
+                        <div style={{ marginTop: 12, padding: 12, background: "var(--red-s)", border: "1px solid var(--red)", borderRadius: 8, fontSize: 12, color: "var(--red)" }}>
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>{invCsvErrors.length} issue{invCsvErrors.length === 1 ? "" : "s"}:</div>
+                          <ul style={{ margin: 0, paddingLeft: 18 }}>{invCsvErrors.slice(0, 10).map((err, i) => <li key={i}>{err}</li>)}</ul>
+                        </div>
+                      )}
+
+                      {invCsvRows.length > 0 && (
+                        <>
+                          <div style={{ marginTop: 16, fontSize: 12, color: "var(--text3)" }}>Preview — {invCsvRows.length} row{invCsvRows.length === 1 ? "" : "s"} ready to import:</div>
+                          <div style={{ marginTop: 8, maxHeight: 300, overflow: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse" as const, fontSize: 12 }}>
+                              <thead><tr style={{ background: "var(--bg3)" }}><th style={{ ...thS, fontSize: 9 }}>Item</th><th style={{ ...thS, fontSize: 9 }}>Category</th><th style={{ ...thS, fontSize: 9 }}>Section</th><th style={{ ...thS, fontSize: 9 }}>Stock</th><th style={{ ...thS, fontSize: 9 }}>Par</th><th style={{ ...thS, fontSize: 9 }}>Unit</th></tr></thead>
+                              <tbody>
+                                {invCsvRows.slice(0, 50).map((r, i) => (
+                                  <tr key={i}><td style={{ ...tdS, padding: "6px 10px", fontWeight: 600 }}>{r.item}</td><td style={{ ...tdS, padding: "6px 10px", color: "var(--text2)" }}>{r.category || "—"}</td><td style={{ ...tdS, padding: "6px 10px", color: "var(--text3)" }}>{r.sectionName || "—"}</td><td style={{ ...tdS, padding: "6px 10px" }}>{r.currentStock ?? "—"}</td><td style={{ ...tdS, padding: "6px 10px", color: "var(--text3)" }}>{r.parLevel ?? "—"}</td><td style={{ ...tdS, padding: "6px 10px", color: "var(--text3)" }}>{r.unit || "—"}</td></tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+                            <button onClick={() => { setInvCsvRows([]); setInvCsvErrors([]); setInvCsvResult(null); }} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
+                            <button
+                              disabled={invCsvBusy}
+                              onClick={async () => {
+                                setInvCsvBusy(true); setInvCsvResult(null);
+                                try {
+                                  const r = await fetch("/api/inventory/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId: catPropertyId, rows: invCsvRows }) });
+                                  const j = await r.json();
+                                  setInvCsvResult({ created: j.created || 0, errors: (j.errors || []).length });
+                                  if (j.created > 0) { setInvCsvRows([]); reloadCatalog(); }
+                                } catch (e: any) {
+                                  setInvCsvErrors([e?.message || "Import failed"]);
+                                } finally {
+                                  setInvCsvBusy(false);
+                                }
+                              }}
+                              style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: invCsvBusy ? "default" : "pointer", fontFamily: "inherit" }}
+                            >{invCsvBusy ? "Importing…" : `Import ${invCsvRows.length} item${invCsvRows.length === 1 ? "" : "s"}`}</button>
+                          </div>
+                        </>
+                      )}
+
+                      {invCsvResult && (
+                        <div style={{ marginTop: 12, padding: 12, background: "var(--teal-s)", border: "1px solid var(--teal)", borderRadius: 8, fontSize: 12, color: "var(--teal)" }}>
+                          ✓ Imported {invCsvResult.created} item{invCsvResult.created === 1 ? "" : "s"}{invCsvResult.errors > 0 ? ` — ${invCsvResult.errors} batch error${invCsvResult.errors === 1 ? "" : "s"}` : ""}.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {invImportMode === "ai" && (
+                    <div style={{ ...card, marginBottom: 20 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>AI Photo Scan</div>
+                      <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 14 }}>Upload photos of supply closets, linen shelves, or pantries. Claude will detect and count items for you to review.</div>
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={async e => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length === 0) return;
+                          setInvAiBusy(true); setInvAiError(null); setInvAiItems([]);
+                          try {
+                            const uploaded: string[] = [];
+                            for (const f of files) {
+                              const fd = new FormData(); fd.append("file", f);
+                              const up = await fetch("/api/upload", { method: "POST", body: fd });
+                              const uj = await up.json();
+                              if (uj.url) uploaded.push(uj.url);
+                            }
+                            if (uploaded.length === 0) throw new Error("Upload failed");
+                            setInvAiPhotos(uploaded);
+                            const scan = await fetch("/api/inventory/ai-scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrls: uploaded }) });
+                            const sj = await scan.json();
+                            if (!scan.ok) throw new Error(sj.error || "Scan failed");
+                            setInvAiItems((sj.items || []).map((it: any) => ({ ...it, sectionId: "", keep: true })));
+                          } catch (e: any) {
+                            setInvAiError(e?.message || "Failed");
+                          } finally {
+                            setInvAiBusy(false);
+                            e.target.value = "";
+                          }
+                        }}
+                        style={{ fontSize: 12, color: "var(--text2)" }}
+                      />
+                      {invAiBusy && <div style={{ marginTop: 12, fontSize: 12, color: "var(--text3)" }}>Analyzing photo{invAiPhotos.length > 1 ? "s" : ""}…</div>}
+                      {invAiError && <div style={{ marginTop: 12, padding: 12, background: "var(--red-s)", border: "1px solid var(--red)", borderRadius: 8, fontSize: 12, color: "var(--red)" }}>{invAiError}</div>}
+
+                      {invAiPhotos.length > 0 && (
+                        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" as const }}>
+                          {invAiPhotos.map((u, i) => <img key={i} src={u} alt="" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />)}
+                        </div>
+                      )}
+
+                      {invAiItems.length > 0 && (
+                        <>
+                          <div style={{ marginTop: 16, fontSize: 12, color: "var(--text3)" }}>Detected {invAiItems.length} item{invAiItems.length === 1 ? "" : "s"}. Review, adjust, then import.</div>
+                          <div style={{ marginTop: 8, border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse" as const, fontSize: 12 }}>
+                              <thead><tr style={{ background: "var(--bg3)" }}><th style={{ ...thS, fontSize: 9 }}>Keep</th><th style={{ ...thS, fontSize: 9 }}>Item</th><th style={{ ...thS, fontSize: 9 }}>Category</th><th style={{ ...thS, fontSize: 9 }}>Section</th><th style={{ ...thS, fontSize: 9 }}>Stock</th><th style={{ ...thS, fontSize: 9 }}>Unit</th></tr></thead>
+                              <tbody>
+                                {invAiItems.map((it, i) => (
+                                  <tr key={i}>
+                                    <td style={{ ...tdS, padding: "6px 10px" }}><input type="checkbox" checked={it.keep} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, keep: e.target.checked } : x))} /></td>
+                                    <td style={{ ...tdS, padding: "6px 10px" }}><input value={it.item} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, item: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }} /></td>
+                                    <td style={{ ...tdS, padding: "6px 10px" }}><select value={it.category} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }}>{invCats.map(c => <option key={c}>{c}</option>)}</select></td>
+                                    <td style={{ ...tdS, padding: "6px 10px" }}><select value={it.sectionId} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, sectionId: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }}><option value="">—</option>{propSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></td>
+                                    <td style={{ ...tdS, padding: "6px 10px", width: 80 }}><input type="number" value={it.currentStock} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, currentStock: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }} /></td>
+                                    <td style={{ ...tdS, padding: "6px 10px", width: 90 }}><input value={it.unit} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }} /></td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+                            <button onClick={() => { setInvAiItems([]); setInvAiPhotos([]); setInvAiError(null); }} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
+                            <button
+                              disabled={invAiBusy}
+                              onClick={async () => {
+                                const rows = invAiItems.filter(x => x.keep && x.item);
+                                if (rows.length === 0) return;
+                                setInvAiBusy(true);
+                                try {
+                                  const r = await fetch("/api/inventory/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId: catPropertyId, rows }) });
+                                  const j = await r.json();
+                                  if (j.created > 0) { setInvAiItems([]); setInvAiPhotos([]); reloadCatalog(); }
+                                } catch (e: any) {
+                                  setInvAiError(e?.message || "Import failed");
+                                } finally {
+                                  setInvAiBusy(false);
+                                }
+                              }}
+                              style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: invAiBusy ? "default" : "pointer", fontFamily: "inherit" }}
+                            >{invAiBusy ? "Importing…" : `Import ${invAiItems.filter(x => x.keep).length} item${invAiItems.filter(x => x.keep).length === 1 ? "" : "s"}`}</button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
                   <div style={{ ...card, marginBottom: 20 }}>
                     <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>{editInvId ? "Edit inventory item" : "Add inventory item"}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
