@@ -46,6 +46,7 @@ const catColors: Record<string, { bg: string; text: string }> = {
 const navItems = [
   { id: "dashboard", icon: "◈", label: "Dashboard" },
   { id: "expenses", icon: "⎙", label: "Expenses" },
+  { id: "receipts", icon: "📷", label: "Receipts" },
   { id: "housekeeping", icon: "⌂", label: "Housekeeping" },
   { id: "deposits", icon: "↓", label: "Deposits" },
   { id: "reports", icon: "↗", label: "Reports" },
@@ -157,6 +158,7 @@ export default function AdminDashboard() {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState("");
   const [scanConfidence, setScanConfidence] = useState<"" | "high" | "medium" | "low">("");
+  const [receiptSubmitted, setReceiptSubmitted] = useState<null | { vendor: string; amount: string; currency: string; property: string }>(null);
   const [fxMode, setFxMode] = useState<"monthly" | "per-expense">("monthly");
   const [addingExp, setAddingExp] = useState(false);
   const [expSuccess, setExpSuccess] = useState(false);
@@ -707,7 +709,15 @@ export default function AdminDashboard() {
       // Clear the form inputs and send the user to the approval queue (or list, if auto-approve).
       setNewExpReceiptUrl(""); setNewExpAmt(""); setNewExpDesc(""); setNewExpSupplier("");
       setScanConfidence("");
-      if (submitStatus === "Pending") {
+      if (activePage === "receipts") {
+        const propName = active.find(p => p.id === scanHouseId)?.name || "";
+        setReceiptSubmitted({
+          vendor: data.vendor || "",
+          amount: typeof data.total === "number" && data.total > 0 ? String(data.total) : "",
+          currency: data.currency === "USD" ? "USD" : "MXN",
+          property: propName,
+        });
+      } else if (submitStatus === "Pending") {
         await loadPendingExpenses();
         setExpTab("approve");
       } else {
@@ -1204,10 +1214,17 @@ export default function AdminDashboard() {
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {enabledModules.includes("expenses") && (
+            {(enabledModules.includes("receipts") || enabledModules.includes("expenses")) && (
               <button
                 aria-label="Add receipt"
-                onClick={() => { setActivePage("expenses"); setExpTab("add"); }}
+                onClick={() => {
+                  if (enabledModules.includes("receipts")) {
+                    setActivePage("receipts");
+                  } else {
+                    setActivePage("expenses");
+                    setExpTab("add");
+                  }
+                }}
                 style={{ width: 34, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid var(--accent-line)", background: "var(--accent-s)", color: "var(--accent)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -1509,6 +1526,62 @@ export default function AdminDashboard() {
         })()}
 
                 {/* ====== EXPENSES ====== */}
+        {activePage === "receipts" && (
+          <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 640, margin: "0 auto" }}>
+            <div style={{ marginBottom: 28 }}>
+              <span style={eyebrow}>Upload</span>
+              <h1 style={h1s}>Receipts</h1>
+              <p style={{ fontSize: 13, color: "var(--text2)" }}>Snap or upload a receipt. It goes straight to the approval queue — no manual entry needed.</p>
+              <span className="a-gold-rule" />
+            </div>
+
+            {receiptSubmitted ? (
+              <div style={{ ...card, padding: "28px 28px 24px", textAlign: "center" }}>
+                <div style={{ width: 52, height: 52, margin: "0 auto 14px", borderRadius: "50%", background: "var(--green-s)", color: "var(--green)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 600 }}>✓</div>
+                <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>Receipt submitted</div>
+                <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 16 }}>
+                  {receiptSubmitted.vendor || "Receipt"}
+                  {receiptSubmitted.amount ? ` · ${receiptSubmitted.currency} ${Number(receiptSubmitted.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
+                  {receiptSubmitted.property ? ` · ${receiptSubmitted.property}` : ""}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 20 }}>It&apos;s now in the approval queue. An admin will review and post it to the ledger.</div>
+                <button
+                  onClick={() => setReceiptSubmitted(null)}
+                  style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Upload another
+                </button>
+              </div>
+            ) : (
+              <div style={{ ...card, padding: 24 }}>
+                <div style={{ display: "grid", gridTemplateColumns: active.length > 1 ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 16 }}>
+                  {active.length > 1 && (
+                    <div>
+                      <label style={lbl}>Property</label>
+                      <select value={scanHouseId} onChange={e => setScanHouseId(e.target.value)} style={inp}>
+                        <option value="">Select property...</option>
+                        {active.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label style={lbl}>Category {active.length === 1 && <span style={{ color: "var(--text3)", fontWeight: 400 }}> — {active[0]?.name}</span>}</label>
+                    <select value={scanCategory} onChange={e => setScanCategory(e.target.value)} style={inp}>
+                      {["Utilities", "Villa Staff", "Maintenance", "Cleaning Supplies", "Groceries", "Miscellaneous", "Others", "Rental Expenses"].map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px 20px", borderRadius: 12, background: scanning || !scanHouseId ? "var(--bg2)" : "var(--accent)", color: scanning || !scanHouseId ? "var(--text3)" : "#fff", fontSize: 13, fontWeight: 600, cursor: scanning ? "wait" : !scanHouseId ? "not-allowed" : "pointer", fontFamily: "inherit", border: scanning || !scanHouseId ? "1px dashed var(--border2)" : "none" }}>
+                  {scanning ? "Scanning…" : "📷 Take Photo or Upload Receipt"}
+                  <input type="file" accept="image/*,application/pdf" disabled={scanning || !scanHouseId} onChange={e => { const f = e.target.files?.[0]; if (f) scanReceipt(f); e.currentTarget.value = ""; }} style={{ display: "none" }} />
+                </label>
+                {!scanHouseId && active.length > 1 && <div style={{ marginTop: 10, fontSize: 11, color: "var(--text3)", textAlign: "center" }}>Select a property first.</div>}
+                {scanError && <div style={{ marginTop: 12, fontSize: 12, color: "var(--red)", padding: 10, background: "var(--red-s)", borderRadius: 8 }}>{scanError}</div>}
+              </div>
+            )}
+          </div>
+        )}
+
         {activePage === "expenses" && (
           <div className="admin-main" style={{ padding: "40px 48px 48px", maxWidth: 1480, margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
@@ -6077,7 +6150,7 @@ export default function AdminDashboard() {
         })()}
 
         {/* PLACEHOLDER */}
-        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && activePage !== "rentals" && activePage !== "calendar" && activePage !== "maintenance" && activePage !== "catalog" && activePage !== "help" && (
+        {activePage !== "dashboard" && activePage !== "expenses" && activePage !== "receipts" && activePage !== "deposits" && activePage !== "reports" && activePage !== "housekeeping" && activePage !== "properties" && activePage !== "users" && activePage !== "concierge" && activePage !== "rentals" && activePage !== "calendar" && activePage !== "maintenance" && activePage !== "catalog" && activePage !== "help" && (
           <div style={{ padding: "32px 40px" }}><h1 style={h1s}>{navItems.find(n => n.id === activePage)?.label || ""}</h1><p style={{ fontSize: 14, color: "var(--text3)", marginTop: 20 }}>Coming soon — this module will be built next.</p></div>
         )}
       </main>

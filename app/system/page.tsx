@@ -15,6 +15,7 @@ type Role = {
 const ALL_ADMIN_MODULES = [
   { id: "dashboard", label: "Dashboard", description: "Overview with financial pulse, pending reports, alerts" },
   { id: "expenses", label: "Expenses", description: "View and add expenses with category tracking" },
+  { id: "receipts", label: "Receipts (scan only)", description: "Simplified camera-only view — user snaps receipts; they land in the approval queue. No list, no manual entry." },
   { id: "deposits", label: "Deposits", description: "Record owner deposits and track balances" },
   { id: "reports", label: "Reports", description: "Monthly report management with status tracking" },
   { id: "housekeeping", label: "Housekeeping", description: "HSK logs, weekly overview, monthly summary" },
