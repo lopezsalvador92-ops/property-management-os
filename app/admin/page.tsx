@@ -6298,6 +6298,12 @@ export default function AdminDashboard() {
                       {invAiItems.length > 0 && (
                         <>
                           <div style={{ marginTop: 18, fontSize: 12, color: "var(--text3)" }}>Detected {invAiItems.length} item{invAiItems.length === 1 ? "" : "s"}. Review, adjust, then import.</div>
+                          <datalist id="inv-cat-suggest">
+                            {["Linens", "Towels", "Bath Amenities", "Kitchen", "Cleaning Supplies", "Pool", "Office", "Appliance", "Electronics", "Tools", "Outdoor", "Pantry", "HVAC", "Plumbing", "Safety", "Decor", "Other"].map(c => <option key={c} value={c} />)}
+                          </datalist>
+                          <datalist id="inv-unit-suggest">
+                            {["unit", "pair", "set", "pack", "bottle", "roll", "bar", "box", "bag", "tube", "can"].map(u => <option key={u} value={u} />)}
+                          </datalist>
                           <div style={{ marginTop: 10, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--bg2)" }}>
                             {invAiItems.map((it, i) => (
                               <div key={i} className="ai-item-card" style={{ opacity: it.keep ? 1 : 0.5 }}>
@@ -6309,11 +6315,65 @@ export default function AdminDashboard() {
                                 <div className="ai-item-field ai-item-row2">
                                   <div>
                                     <div className="ai-item-field-label">Category</div>
-                                    <select value={it.category} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }}>{invCats.map(c => <option key={c}>{c}</option>)}</select>
+                                    <input list="inv-cat-suggest" value={it.category} placeholder="Type or pick…" onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
                                   </div>
                                   <div>
                                     <div className="ai-item-field-label">Section</div>
-                                    <select value={it.sectionId} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, sectionId: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }}><option value="">—</option>{propSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+                                    {it._newSection ? (
+                                      <div style={{ display: "flex", gap: 4 }}>
+                                        <input
+                                          autoFocus
+                                          value={it._newSectionName || ""}
+                                          placeholder="New section name"
+                                          onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, _newSectionName: e.target.value } : x))}
+                                          onKeyDown={async e => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              const name = (it._newSectionName || "").trim();
+                                              if (!name || !catPropertyId) return;
+                                              const r = await fetch("/api/sections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, propertyId: catPropertyId }) });
+                                              const j = await r.json();
+                                              const newId = j?.section?.id || j?.record?.id || j?.id;
+                                              await reloadCatalog();
+                                              if (newId) setInvAiItems(arr => arr.map((x, idx) => idx === i ? { ...x, sectionId: newId, _newSection: false, _newSectionName: "" } : x));
+                                              else setInvAiItems(arr => arr.map((x, idx) => idx === i ? { ...x, _newSection: false, _newSectionName: "" } : x));
+                                            } else if (e.key === "Escape") {
+                                              setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, _newSection: false, _newSectionName: "" } : x));
+                                            }
+                                          }}
+                                          style={{ ...inp, padding: "7px 10px", fontSize: 13, flex: 1 }}
+                                        />
+                                        <button
+                                          onClick={async () => {
+                                            const name = (it._newSectionName || "").trim();
+                                            if (!name || !catPropertyId) return;
+                                            const r = await fetch("/api/sections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, propertyId: catPropertyId }) });
+                                            const j = await r.json();
+                                            const newId = j?.section?.id || j?.record?.id || j?.id;
+                                            await reloadCatalog();
+                                            if (newId) setInvAiItems(arr => arr.map((x, idx) => idx === i ? { ...x, sectionId: newId, _newSection: false, _newSectionName: "" } : x));
+                                            else setInvAiItems(arr => arr.map((x, idx) => idx === i ? { ...x, _newSection: false, _newSectionName: "" } : x));
+                                          }}
+                                          style={{ padding: "7px 10px", borderRadius: 6, border: "none", background: "var(--teal)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+                                        >✓</button>
+                                      </div>
+                                    ) : (
+                                      <select
+                                        value={it.sectionId}
+                                        onChange={e => {
+                                          if (e.target.value === "__new__") {
+                                            setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, _newSection: true, _newSectionName: "" } : x));
+                                          } else {
+                                            setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, sectionId: e.target.value } : x));
+                                          }
+                                        }}
+                                        style={{ ...inp, padding: "7px 10px", fontSize: 13 }}
+                                      >
+                                        <option value="">—</option>
+                                        {propSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        <option value="__new__">+ New section…</option>
+                                      </select>
+                                    )}
                                   </div>
                                 </div>
                                 <div className="ai-item-field ai-item-row3">
@@ -6323,7 +6383,7 @@ export default function AdminDashboard() {
                                   </div>
                                   <div>
                                     <div className="ai-item-field-label">Unit</div>
-                                    <input value={it.unit} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                    <input list="inv-unit-suggest" value={it.unit} placeholder="unit, roll, bottle…" onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
                                   </div>
                                 </div>
                               </div>

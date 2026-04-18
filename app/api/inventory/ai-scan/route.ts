@@ -4,39 +4,43 @@ import Anthropic from "@anthropic-ai/sdk";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const CATEGORIES = ["Linens", "Towels", "Bath Amenities", "Kitchen", "Cleaning Supplies", "Pool", "Office", "Other"];
+const SUGGESTED_CATEGORIES = ["Linens", "Towels", "Bath Amenities", "Kitchen", "Cleaning Supplies", "Pool", "Office", "Appliance", "Electronics", "Tools", "Outdoor", "Pantry"];
 
-const SYSTEM_PROMPT = `You identify inventory items in photos from a luxury villa property-management company in Los Cabos, Mexico. You are looking at supply closets, linen shelves, pool cabinets, pantries, etc.
+const SYSTEM_PROMPT = `You identify inventory items in photos from a luxury villa property-management company in Los Cabos, Mexico. You are looking at supply closets, linen shelves, pool cabinets, pantries, utility rooms, etc.
 
 Return ONLY a JSON object (no prose, no markdown fences) with this exact shape:
 {
   "items": [
     {
-      "item": string,           // short noun phrase, e.g. "Pool towels", "Hand soap", "Toilet paper rolls"
-      "category": string,       // MUST be one of: ${CATEGORIES.join(", ")}
-      "currentStock": number,   // your best visible count. If unclear, estimate conservatively.
-      "unit": string,           // "each", "pair", "bottle", "roll", "pack", "box", etc.
-      "notes": string           // optional short descriptor (color, brand visible, size) — empty string if nothing to add
+      "item": string,           // short noun phrase, e.g. "Pool towels", "Hand soap", "Gas water heater"
+      "category": string,       // Be specific. Prefer these when they fit: ${SUGGESTED_CATEGORIES.join(", ")}. If none fits, propose your own 1-2 word category (e.g. "HVAC", "Plumbing", "Safety").
+      "currentStock": number,   // your best visible count. If unclear, estimate conservatively. For single large items (a heater, a TV), use 1.
+      "unit": string,           // Use descriptive words: "roll", "bottle", "pack", "bar", "pair", "box", "bag", "tube", "set". Use "unit" for generic countable items. NEVER return "each".
+      "notes": string           // optional short descriptor (color, brand/model visible, size) — empty string if nothing to add
     }
   ],
   "confidence": "high" | "medium" | "low"
 }
 
-Category rules:
+Category guidance:
 - Linens: sheets, pillowcases, duvet covers, blankets
 - Towels: bath, hand, pool, beach, kitchen towels
 - Bath Amenities: shampoo, conditioner, soap, lotion, toilet paper, tissues
-- Kitchen: dish soap, sponges, paper towels, foil, pantry items
+- Kitchen: dish soap, sponges, paper towels, foil, cookware
 - Cleaning Supplies: detergents, chemicals, mops, brooms, gloves
 - Pool: chlorine, test kits, floats, pool-specific chemicals
 - Office: pens, paper, batteries, light bulbs, stationery
-- Other: anything that doesn't fit above
+- Appliance: water heaters, washers, dryers, microwaves, A/C units, fridges
+- Electronics: TVs, speakers, routers, remotes
+- Pantry: dry goods, canned goods, oils, spices
+- If you see something that clearly fits a different bucket (HVAC, Safety, Plumbing, Furniture, Decor), use that word.
 
 Rules:
 - Group similar items (don't return 12 rows for 12 identical towels — return one row with currentStock: 12).
 - Only include items you can actually see in the photo. Do not hallucinate items.
 - If the photo is blurry, dark, or ambiguous, lower confidence and return fewer items you're certain about.
-- Keep item names short and generic (not brand-specific unless the brand is critical).`;
+- Keep item names short and generic, unless a visible brand/model is useful (e.g. "Gas water heater — FluxTL").
+- Never use "each" as a unit — pick something more specific or use "unit".`;
 
 export async function POST(request: Request) {
   try {
@@ -87,13 +91,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to parse AI response", raw }, { status: 502 });
     }
 
-    parsed.items = parsed.items.map((it: any) => ({
-      item: String(it.item || "").trim(),
-      category: CATEGORIES.includes(it.category) ? it.category : "Other",
-      currentStock: Number.isFinite(Number(it.currentStock)) ? Number(it.currentStock) : 1,
-      unit: String(it.unit || "each").trim(),
-      notes: String(it.notes || "").trim(),
-    })).filter((it: any) => it.item);
+    parsed.items = parsed.items.map((it: any) => {
+      let unit = String(it.unit || "").trim();
+      if (!unit || unit.toLowerCase() === "each") unit = "unit";
+      return {
+        item: String(it.item || "").trim(),
+        category: String(it.category || "").trim(),
+        currentStock: Number.isFinite(Number(it.currentStock)) ? Number(it.currentStock) : 1,
+        unit,
+        notes: String(it.notes || "").trim(),
+      };
+    }).filter((it: any) => it.item);
 
     return NextResponse.json(parsed);
   } catch (error: any) {
