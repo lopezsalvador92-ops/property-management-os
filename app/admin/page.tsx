@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import FirstLoginGate from "@/components/FirstLoginGate";
+import QRScanModal from "@/components/QRScanModal";
 
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number; pmFeeUSD: number; pmFeeMXN: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; houseId: string; total: number; currency: string; description: string; receiptUrl: string; owner: string; fxRate?: number; hideReceipt?: boolean };
@@ -316,6 +317,7 @@ export default function AdminDashboard() {
   const [editInvId, setEditInvId] = useState<string | null>(null);
   const [invForm, setInvForm] = useState<Record<string, any>>({});
   const [addingInv, setAddingInv] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [helpArticles, setHelpArticles] = useState<HelpArticle[]>([]);
   const [helpLoading, setHelpLoading] = useState(false);
   const [helpSelectedId, setHelpSelectedId] = useState<string | null>(null);
@@ -996,6 +998,7 @@ export default function AdminDashboard() {
   return (
     <>
     <FirstLoginGate />
+    <QRScanModal open={scanOpen} onClose={() => setScanOpen(false)} />
     <style>{`
       .admin-mobile-bar{display:none}
       @media(max-width:900px){
@@ -5603,12 +5606,11 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 )}
-                {(lowStock.length > 0 || needsRepair.length > 0) && (
-                  <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-                    {needsRepair.length > 0 && <span style={{ fontSize: 11, color: "var(--red)", padding: "5px 11px", borderRadius: 100, background: "var(--red-s)", fontWeight: 600 }}>⚠ {needsRepair.length} asset{needsRepair.length === 1 ? "" : "s"} need repair</span>}
-                    {lowStock.length > 0 && <span style={{ fontSize: 11, color: "var(--orange)", padding: "5px 11px", borderRadius: 100, background: "var(--orange-s)", fontWeight: 600 }}>⚠ {lowStock.length} item{lowStock.length === 1 ? "" : "s"} below par</span>}
-                  </div>
-                )}
+                <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center", flexWrap: "wrap" as const }}>
+                  {needsRepair.length > 0 && <span style={{ fontSize: 11, color: "var(--red)", padding: "5px 11px", borderRadius: 100, background: "var(--red-s)", fontWeight: 600 }}>⚠ {needsRepair.length} asset{needsRepair.length === 1 ? "" : "s"} need repair</span>}
+                  {lowStock.length > 0 && <span style={{ fontSize: 11, color: "var(--orange)", padding: "5px 11px", borderRadius: 100, background: "var(--orange-s)", fontWeight: 600 }}>⚠ {lowStock.length} item{lowStock.length === 1 ? "" : "s"} below par</span>}
+                  <button onClick={() => setScanOpen(true)} style={{ padding: "8px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "0.04em" }}>⌗ Scan QR</button>
+                </div>
               </div>
 
               {!catPropertyId && <div style={{ ...card, textAlign: "center" as const, color: "var(--text3)", fontSize: 14, padding: 40 }}>Select a property to view its catalog.</div>}
@@ -5666,6 +5668,11 @@ export default function AdminDashboard() {
 
               {catPropertyId && !catLoading && catTab === "assets" && (
                 <>
+                  {assets.length > 0 && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+                      <a href={`/admin/catalog/print?propertyId=${catPropertyId}`} target="_blank" rel="noreferrer" style={{ padding: "8px 14px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text)", fontSize: 11, fontWeight: 600, textDecoration: "none", letterSpacing: "0.04em" }}>⎙ Print QR Labels ({assets.length})</a>
+                    </div>
+                  )}
                   <div style={{ ...card, marginBottom: 20 }}>
                     <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>{editAssetId ? "Edit asset" : "Add an asset"}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
@@ -5700,6 +5707,7 @@ export default function AdminDashboard() {
                             <td style={tdS}><span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.04em", background: a.status === "Active" ? "var(--teal-s)" : a.status === "Needs Repair" ? "var(--red-s)" : "var(--bg2)", color: a.status === "Active" ? "var(--teal)" : a.status === "Needs Repair" ? "var(--red)" : "var(--text3)" }}>{a.status}</span></td>
                             <td style={{ ...tdS, color: "var(--text3)", fontSize: 12 }}>{a.warrantyUntil ? fmtDate(a.warrantyUntil) : "—"}</td>
                             <td style={{ ...tdS, whiteSpace: "nowrap" as const }}>
+                              <a href={`/asset/${a.id}`} target="_blank" rel="noreferrer" style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginRight: 6, textDecoration: "none" }}>Open</a>
                               <button onClick={() => { setEditAssetId(a.id); setAssetForm({ name: a.name, sectionId: a.sectionIds[0] || "", category: a.category, status: a.status, brand: a.brand, model: a.model, serialNumber: a.serialNumber, purchaseDate: a.purchaseDate, purchaseCost: a.purchaseCost, warrantyUntil: a.warrantyUntil, notes: a.notes }); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", marginRight: 6 }}>✎ Edit</button>
                               <button onClick={() => deleteAsset(a.id)} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--red)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
                             </td>

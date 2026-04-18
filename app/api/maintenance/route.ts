@@ -20,11 +20,13 @@ async function airtableFetch(baseId: string, path: string, options?: RequestInit
   return res.json();
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const tenant = await getTenant();
+    const { searchParams } = new URL(request.url);
+    const assetId = searchParams.get("assetId");
     const params = new URLSearchParams();
-    ["Title","Type","Status","Priority","Property","Vendor","Scheduled Date","Completed Date","Cost","Notes","Expense Created","Attachments","Photos","Approval Status","Approved By","Approval Date"].forEach(f => params.append("fields[]", f));
+    ["Title","Type","Status","Priority","Property","Vendor","Scheduled Date","Completed Date","Cost","Notes","Expense Created","Attachments","Photos","Approval Status","Approved By","Approval Date","Asset"].forEach(f => params.append("fields[]", f));
     params.set("sort[0][field]", "Scheduled Date");
     params.set("sort[0][direction]", "asc");
     params.set("pageSize", "100");
@@ -63,10 +65,12 @@ export async function GET() {
         approvalStatus: r.fields["Approval Status"] || "",
         approvedBy: r.fields["Approved By"] || "",
         approvalDate: r.fields["Approval Date"] || "",
+        assetIds: (r.fields["Asset"] || []) as string[],
       };
     });
 
-    return NextResponse.json({ tasks });
+    const filtered = assetId ? tasks.filter((t: any) => t.assetIds.includes(assetId)) : tasks;
+    return NextResponse.json({ tasks: filtered });
   } catch (error: any) {
     console.error("Maintenance GET error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -77,7 +81,7 @@ export async function POST(request: Request) {
   try {
     const tenant = await getTenant();
     const body = await request.json();
-    const { title, type, status, priority, propertyId, vendorId, scheduledDate, notes, cost } = body;
+    const { title, type, status, priority, propertyId, vendorId, scheduledDate, notes, cost, assetId } = body;
     if (!title) return NextResponse.json({ error: "Missing title" }, { status: 400 });
 
     const fields: Record<string, any> = {
@@ -91,6 +95,7 @@ export async function POST(request: Request) {
     if (propertyId) fields["Property"] = [propertyId];
     if (vendorId) fields["Vendor"] = [vendorId];
     if (scheduledDate) fields["Scheduled Date"] = scheduledDate;
+    if (assetId) fields["Asset"] = [assetId];
 
     const data = await airtableFetch(tenant.baseId, tenant.tables.maintenance, {
       method: "POST",
@@ -128,6 +133,7 @@ export async function PATCH(request: Request) {
     if (rest.approvalDate !== undefined) fields["Approval Date"] = rest.approvalDate;
     if (rest.attachments !== undefined) fields["Attachments"] = rest.attachments.map((a: any) => ({ url: a.url }));
     if (rest.photos !== undefined) fields["Photos"] = rest.photos.map((a: any) => ({ url: a.url }));
+    if (rest.assetId !== undefined) fields["Asset"] = rest.assetId ? [rest.assetId] : [];
 
     await airtableFetch(tenant.baseId, tenant.tables.maintenance, {
       method: "PATCH",
