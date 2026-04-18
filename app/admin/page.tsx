@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import FirstLoginGate from "@/components/FirstLoginGate";
@@ -104,7 +104,7 @@ export default function AdminDashboard() {
   const [monthFilter, setMonthFilter] = useState("all");
   const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activePage, setActivePage] = useState("dashboard");
-  const mobileRailRef = useRef<HTMLDivElement | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [depProperty, setDepProperty] = useState("");
   const [depAmount, setDepAmount] = useState("");
@@ -446,14 +446,7 @@ export default function AdminDashboard() {
     }).catch(() => {});
   }, [userRole]);
 
-  useEffect(() => {
-    const rail = mobileRailRef.current;
-    if (!rail) return;
-    const btn = rail.querySelector<HTMLButtonElement>(`button[data-nav-id="${activePage}"]`);
-    if (!btn) return;
-    const left = btn.offsetLeft - (rail.clientWidth - btn.offsetWidth) / 2;
-    rail.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
-  }, [activePage]);
+  useEffect(() => { setMobileNavOpen(false); }, [activePage]);
 
   useEffect(() => {
     if (activePage === "expenses") {
@@ -1140,17 +1133,26 @@ export default function AdminDashboard() {
     <QRScanModal open={scanOpen} onClose={() => setScanOpen(false)} />
     <style>{`
       .admin-mobile-bar{display:none}
+      .admin-mobile-drawer{display:none}
+      .admin-mobile-scrim{display:none}
       @media(max-width:900px){
         .admin-shell{grid-template-columns:1fr !important;}
         .admin-sidebar-wrap{display:none !important;}
-        .admin-mobile-bar{display:flex !important;padding:12px 0 10px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:10;}
-        .admin-main{padding:24px 18px !important;}
-        .admin-stats-4{grid-template-columns:repeat(2,1fr) !important;gap:12px !important;}
-        .admin-2col{grid-template-columns:1fr !important;gap:14px !important;}
+        .admin-mobile-bar{display:flex !important;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;gap:10px;position:sticky;top:0;z-index:40;height:52px;box-sizing:border-box;}
+        .admin-mobile-drawer{display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;width:min(82vw,300px);background:var(--bg2);border-right:1px solid var(--border);z-index:60;transform:translateX(-100%);transition:transform 0.22s ease;box-shadow:var(--shadow-md);}
+        .admin-mobile-drawer.open{transform:translateX(0);}
+        .admin-mobile-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:50;opacity:0;pointer-events:none;transition:opacity 0.22s ease;}
+        .admin-mobile-scrim.open{opacity:1;pointer-events:auto;}
+        .admin-main{padding:18px 14px 28px !important;}
+        .admin-stats-4{grid-template-columns:repeat(2,1fr) !important;gap:10px !important;margin-bottom:18px !important;}
+        .admin-2col{grid-template-columns:1fr !important;gap:14px !important;margin-bottom:18px !important;}
+        .admin-main h1{font-size:22px !important;line-height:1.15 !important;margin-bottom:4px !important;}
+        .admin-main h2{font-size:15px !important;}
+        .admin-main .a-card{padding:14px 16px !important;}
+        .admin-main .a-card .a-num{font-size:24px !important;}
       }
-      .admin-mobile-rail{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;width:100%;padding:2px 18px 4px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);}
-      .admin-mobile-rail::-webkit-scrollbar{display:none;}
-      .admin-mobile-rail > button{flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;}
+      .admin-hamburger{background:transparent;border:1px solid var(--border);color:var(--text2);width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:inherit;}
+      .admin-hamburger:active{background:var(--bg3);}
       .a-card{transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease);}
       .a-card:hover{transform:translateY(-1px);border-color:var(--border2);box-shadow:var(--shadow-md);}
       .a-row{transition:background var(--dur) var(--ease);}
@@ -1192,19 +1194,54 @@ export default function AdminDashboard() {
       
         {/* Mobile top bar */}
         <div className="admin-mobile-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "0 18px" }}>
-            <img src="/axvia-icon.svg" alt="Property Management OS" style={{ height: 22 }} />
-            <span style={{ fontSize: 13, fontWeight: 500 }}>Property Management OS</span>
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-              <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text3)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "☀" : "🌙"}</button>
-              <UserButton appearance={{ elements: { avatarBox: { width: 24, height: 24 } } }} />
-            </div>
+          <button aria-label="Open menu" onClick={() => setMobileNavOpen(true)} className="admin-hamburger">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+            <img src="/axvia-icon.svg" alt="" style={{ height: 20, flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {(navItems.find(n => n.id === activePage)?.label) || "Property Management OS"}
+            </span>
           </div>
-          <div className="admin-mobile-rail" ref={mobileRailRef}>
-            {navItems.filter(item => enabledModules.includes(item.id)).map(item => (
-              <button key={item.id + "-mob"} data-nav-id={item.id} onClick={() => setActivePage(item.id)} style={{ padding: "6px 12px", borderRadius: 999, border: activePage === item.id ? "1px solid var(--accent)" : "1px solid var(--border)", background: activePage === item.id ? "var(--accent-s)" : "transparent", color: activePage === item.id ? "var(--accent)" : "var(--text2)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", lineHeight: 1.4 }}>{item.label}</button>
-            ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <button aria-label="Toggle theme" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "0 10px", height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "☀" : "🌙"}</button>
+            <UserButton appearance={{ elements: { avatarBox: { width: 28, height: 28 } } }} />
           </div>
+        </div>
+
+        {/* Mobile drawer */}
+        <div className={`admin-mobile-scrim${mobileNavOpen ? " open" : ""}`} onClick={() => setMobileNavOpen(false)} />
+        <div className={`admin-mobile-drawer${mobileNavOpen ? " open" : ""}`} role="dialog" aria-label="Navigation">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid var(--border)", minHeight: 60 }}>
+            <img src="/axvia-icon.svg" alt="" style={{ height: 22 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Property Management OS</span>
+            <button aria-label="Close menu" onClick={() => setMobileNavOpen(false)} className="admin-hamburger" style={{ width: 32, height: 32 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+            </button>
+          </div>
+          <nav style={{ flex: 1, overflowY: "auto", padding: "10px 10px 20px" }}>
+            {navItems.filter(item => enabledModules.includes(item.id)).map(item => {
+              const isActive = activePage === item.id;
+              return (
+                <button
+                  key={item.id + "-drawer"}
+                  onClick={() => setActivePage(item.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12, width: "100%",
+                    padding: "11px 14px", marginBottom: 2, borderRadius: 8,
+                    border: "none", cursor: "pointer", fontFamily: "inherit",
+                    background: isActive ? "var(--accent-s)" : "transparent",
+                    color: isActive ? "var(--accent)" : "var(--text2)",
+                    fontSize: 14, fontWeight: isActive ? 600 : 500, textAlign: "left",
+                    borderLeft: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+                  }}
+                >
+                  <span style={{ fontSize: 16, width: 20, display: "inline-flex", justifyContent: "center" }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
         {/* SIDEBAR */}

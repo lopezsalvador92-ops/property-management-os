@@ -32,6 +32,7 @@ export default function OwnerPortal() {
   const [ytdByCategory, setYtdByCategory] = useState<Record<string, number>>({});
   const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activePage, setActivePage] = useState("home");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(0);
   const [enabledModules, setEnabledModules] = useState<string[]>(["home", "financials", "maintenance", "calendar", "concierge", "help"]);
   const [helpArticles, setHelpArticles] = useState<any[]>([]);
@@ -57,6 +58,8 @@ export default function OwnerPortal() {
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [showBalanceHistory, setShowBalanceHistory] = useState(false);
+
+  useEffect(() => { setMobileNavOpen(false); }, [activePage]);
 
   useEffect(() => {
     fetch("/api/platform-config").then(r => r.json()).then(d => {
@@ -152,12 +155,21 @@ export default function OwnerPortal() {
     <div style={{ fontFamily: "var(--fb)" }}>
       <FirstLoginGate />
       <style>{`
+        .owner-mobile-drawer{display:none}
+        .owner-mobile-scrim{display:none}
+        .owner-hamburger{background:transparent;border:1px solid var(--border);color:var(--text2);width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:inherit;}
+        .owner-hamburger:active{background:var(--bg3);}
         @media(max-width:900px){
           .owner-shell{grid-template-columns:1fr !important;}
           .owner-sidebar{display:none !important;}
-          .owner-main{padding:24px 18px !important;max-width:100% !important;}
-          .owner-stats{grid-template-columns:1fr 1fr !important;gap:12px !important;}
-          .owner-hero h1{font-size:30px !important;}
+          .owner-main{padding:18px 14px 28px !important;max-width:100% !important;}
+          .owner-stats{grid-template-columns:1fr 1fr !important;gap:10px !important;}
+          .owner-hero{margin-bottom:22px !important;}
+          .owner-hero h1{font-size:24px !important;line-height:1.15 !important;}
+          .owner-mobile-drawer{display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;width:min(82vw,300px);background:var(--bg2);border-right:1px solid var(--border);z-index:60;transform:translateX(-100%);transition:transform 0.22s ease;box-shadow:var(--shadow-md);}
+          .owner-mobile-drawer.open{transform:translateX(0);}
+          .owner-mobile-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:50;opacity:0;pointer-events:none;transition:opacity 0.22s ease;}
+          .owner-mobile-scrim.open{opacity:1;pointer-events:auto;}
           .fin-header{flex-direction:column !important;gap:18px !important;align-items:flex-start !important;}
           .fin-stats{grid-template-columns:1fr 1fr !important;gap:12px !important;}
           .exp-table-grid{grid-template-columns:74px 1fr 88px !important;}
@@ -236,22 +248,57 @@ export default function OwnerPortal() {
         <div className="owner-mobile-bar" style={{ display: "none" }}>
           <style>{`
             @media(max-width:900px){
-              .owner-mobile-bar{display:flex !important;padding:14px 18px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:10;}
+              .owner-mobile-bar{display:flex !important;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;gap:10px;position:sticky;top:0;z-index:40;height:52px;box-sizing:border-box;}
             }
           `}</style>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", marginBottom: 4 }}>
-            <img src="/axvia-icon.svg" alt="Property Management OS" style={{ height: 24 }} />
-            <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.01em" }}>{property?.name}</span>
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-              <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "☀" : "🌙"}</button>
-              <UserButton appearance={{ elements: { avatarBox: { width: 26, height: 26 } } }} />
-            </div>
+          <button aria-label="Open menu" onClick={() => setMobileNavOpen(true)} className="owner-hamburger">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+            <img src="/axvia-icon.svg" alt="" style={{ height: 20, flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {property?.name || (navItems.find(n => n.id === activePage)?.label) || "Property Management OS"}
+            </span>
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
-            {navItems.filter(n => enabledModules.includes(n.id)).map(n => (
-              <button key={n.id} onClick={() => setActivePage(n.id)} style={{ padding: "6px 12px", borderRadius: 6, border: activePage === n.id ? "1px solid var(--accent-line)" : "1px solid var(--border)", background: activePage === n.id ? "var(--accent-s)" : "transparent", color: activePage === n.id ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>{n.label}</button>
-            ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <button aria-label="Toggle theme" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "0 10px", height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "☀" : "🌙"}</button>
+            <UserButton appearance={{ elements: { avatarBox: { width: 28, height: 28 } } }} />
           </div>
+        </div>
+
+        {/* Mobile drawer */}
+        <div className={`owner-mobile-scrim${mobileNavOpen ? " open" : ""}`} onClick={() => setMobileNavOpen(false)} />
+        <div className={`owner-mobile-drawer${mobileNavOpen ? " open" : ""}`} role="dialog" aria-label="Navigation">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", borderBottom: "1px solid var(--border)", minHeight: 60 }}>
+            <img src="/axvia-icon.svg" alt="" style={{ height: 22 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{property?.name || "Property Management OS"}</span>
+            <button aria-label="Close menu" onClick={() => setMobileNavOpen(false)} className="owner-hamburger" style={{ width: 32, height: 32 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+            </button>
+          </div>
+          <nav style={{ flex: 1, overflowY: "auto", padding: "10px 10px 20px" }}>
+            {navItems.filter(n => enabledModules.includes(n.id)).map(n => {
+              const isActive = activePage === n.id;
+              return (
+                <button
+                  key={n.id + "-drawer"}
+                  onClick={() => setActivePage(n.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12, width: "100%",
+                    padding: "11px 14px", marginBottom: 2, borderRadius: 8,
+                    border: "none", cursor: "pointer", fontFamily: "inherit",
+                    background: isActive ? "var(--accent-s)" : "transparent",
+                    color: isActive ? "var(--accent)" : "var(--text2)",
+                    fontSize: 14, fontWeight: isActive ? 600 : 500, textAlign: "left",
+                    borderLeft: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+                  }}
+                >
+                  <span style={{ fontSize: 16, width: 20, display: "inline-flex", justifyContent: "center" }}>{n.icon}</span>
+                  <span>{n.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
         {/* SIDEBAR */}
