@@ -6152,21 +6152,24 @@ export default function AdminDashboard() {
                           style={{ padding: "6px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
                         >⤓ Download template</button>
                       </div>
-                      <input
-                        type="file"
-                        accept=".csv,text/csv"
-                        onChange={async e => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          setInvCsvResult(null);
-                          const text = await file.text();
-                          const { rows, errors } = parseInventoryCsv(text, propSections, invCats);
-                          setInvCsvRows(rows);
-                          setInvCsvErrors(errors);
-                          e.target.value = "";
-                        }}
-                        style={{ fontSize: 12, color: "var(--text2)" }}
-                      />
+                      <label style={{ padding: "12px 20px", borderRadius: 100, background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 8, width: "fit-content" }}>
+                        ⇪ Choose CSV file
+                        <input
+                          type="file"
+                          accept=".csv,text/csv"
+                          style={{ display: "none" }}
+                          onChange={async e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setInvCsvResult(null);
+                            const text = await file.text();
+                            const { rows, errors } = parseInventoryCsv(text, propSections, invCats);
+                            setInvCsvRows(rows);
+                            setInvCsvErrors(errors);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
 
                       {invCsvErrors.length > 0 && (
                         <div style={{ marginTop: 12, padding: 12, background: "var(--red-s)", border: "1px solid var(--red)", borderRadius: 8, fontSize: 12, color: "var(--red)" }}>
@@ -6221,71 +6224,113 @@ export default function AdminDashboard() {
 
                   {invImportMode === "ai" && (
                     <div style={{ ...card, marginBottom: 20 }}>
+                      <style>{`
+                        .ai-upload-row { display: flex; gap: 10px; flex-wrap: wrap; }
+                        .ai-item-card { display: grid; grid-template-columns: 28px 1.2fr 1fr 1fr 80px 90px; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+                        .ai-item-card:last-child { border-bottom: none; }
+                        .ai-item-field-label { display: none; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); margin-bottom: 3px; }
+                        @media (max-width: 720px) {
+                          .ai-item-card { grid-template-columns: 28px 1fr; grid-template-rows: auto auto auto auto; gap: 10px 8px; padding: 14px; }
+                          .ai-item-field { grid-column: 2; }
+                          .ai-item-keep { grid-column: 1; grid-row: 1 / span 4; align-self: start; padding-top: 6px; }
+                          .ai-item-field-label { display: block; }
+                          .ai-item-row2 { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+                          .ai-item-row3 { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+                        }
+                      `}</style>
                       <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>AI Photo Scan</div>
                       <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 14 }}>Upload photos of supply closets, linen shelves, or pantries. Claude will detect and count items for you to review.</div>
 
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={async e => {
-                          const files = Array.from(e.target.files || []);
-                          if (files.length === 0) return;
-                          setInvAiBusy(true); setInvAiError(null); setInvAiItems([]);
-                          try {
-                            const uploaded: string[] = [];
-                            for (const f of files) {
-                              const fd = new FormData(); fd.append("file", f);
-                              const up = await fetch("/api/upload", { method: "POST", body: fd });
-                              const uj = await up.json();
-                              if (uj.url) uploaded.push(uj.url);
-                            }
-                            if (uploaded.length === 0) throw new Error("Upload failed");
-                            setInvAiPhotos(uploaded);
-                            const scan = await fetch("/api/inventory/ai-scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrls: uploaded }) });
-                            const sj = await scan.json();
-                            if (!scan.ok) throw new Error(sj.error || "Scan failed");
-                            setInvAiItems((sj.items || []).map((it: any) => ({ ...it, sectionId: "", keep: true })));
-                          } catch (e: any) {
-                            setInvAiError(e?.message || "Failed");
-                          } finally {
-                            setInvAiBusy(false);
-                            e.target.value = "";
-                          }
-                        }}
-                        style={{ fontSize: 12, color: "var(--text2)" }}
-                      />
+                      <div className="ai-upload-row">
+                        <label style={{ padding: "12px 20px", borderRadius: 100, background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          📷 {invAiPhotos.length > 0 ? "Add more photos" : "Choose photos"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            style={{ display: "none" }}
+                            onChange={async e => {
+                              const files = Array.from(e.target.files || []);
+                              if (files.length === 0) return;
+                              setInvAiBusy(true); setInvAiError(null);
+                              try {
+                                const uploaded: string[] = [];
+                                for (const f of files) {
+                                  const fd = new FormData(); fd.append("file", f);
+                                  const up = await fetch("/api/upload", { method: "POST", body: fd });
+                                  const uj = await up.json();
+                                  if (uj.url) uploaded.push(uj.url);
+                                }
+                                if (uploaded.length === 0) throw new Error("Upload failed");
+                                const allPhotos = [...invAiPhotos, ...uploaded];
+                                setInvAiPhotos(allPhotos);
+                                const scan = await fetch("/api/inventory/ai-scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrls: uploaded }) });
+                                const sj = await scan.json();
+                                if (!scan.ok) throw new Error(sj.error || "Scan failed");
+                                const newItems = (sj.items || []).map((it: any) => ({ ...it, sectionId: "", keep: true }));
+                                setInvAiItems(prev => [...prev, ...newItems]);
+                              } catch (e: any) {
+                                setInvAiError(e?.message || "Failed");
+                              } finally {
+                                setInvAiBusy(false);
+                                e.target.value = "";
+                              }
+                            }}
+                          />
+                        </label>
+                        {invAiPhotos.length > 0 && (
+                          <button
+                            onClick={() => { setInvAiItems([]); setInvAiPhotos([]); setInvAiError(null); }}
+                            style={{ padding: "12px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", cursor: "pointer", fontFamily: "inherit" }}
+                          >Reset</button>
+                        )}
+                      </div>
+
                       {invAiBusy && <div style={{ marginTop: 12, fontSize: 12, color: "var(--text3)" }}>Analyzing photo{invAiPhotos.length > 1 ? "s" : ""}…</div>}
                       {invAiError && <div style={{ marginTop: 12, padding: 12, background: "var(--red-s)", border: "1px solid var(--red)", borderRadius: 8, fontSize: 12, color: "var(--red)" }}>{invAiError}</div>}
 
                       {invAiPhotos.length > 0 && (
-                        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" as const }}>
-                          {invAiPhotos.map((u, i) => <img key={i} src={u} alt="" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />)}
+                        <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" as const }}>
+                          {invAiPhotos.map((u, i) => <img key={i} src={u} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />)}
                         </div>
                       )}
 
                       {invAiItems.length > 0 && (
                         <>
-                          <div style={{ marginTop: 16, fontSize: 12, color: "var(--text3)" }}>Detected {invAiItems.length} item{invAiItems.length === 1 ? "" : "s"}. Review, adjust, then import.</div>
-                          <div style={{ marginTop: 8, border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-                            <table style={{ width: "100%", borderCollapse: "collapse" as const, fontSize: 12 }}>
-                              <thead><tr style={{ background: "var(--bg3)" }}><th style={{ ...thS, fontSize: 9 }}>Keep</th><th style={{ ...thS, fontSize: 9 }}>Item</th><th style={{ ...thS, fontSize: 9 }}>Category</th><th style={{ ...thS, fontSize: 9 }}>Section</th><th style={{ ...thS, fontSize: 9 }}>Stock</th><th style={{ ...thS, fontSize: 9 }}>Unit</th></tr></thead>
-                              <tbody>
-                                {invAiItems.map((it, i) => (
-                                  <tr key={i}>
-                                    <td style={{ ...tdS, padding: "6px 10px" }}><input type="checkbox" checked={it.keep} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, keep: e.target.checked } : x))} /></td>
-                                    <td style={{ ...tdS, padding: "6px 10px" }}><input value={it.item} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, item: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }} /></td>
-                                    <td style={{ ...tdS, padding: "6px 10px" }}><select value={it.category} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }}>{invCats.map(c => <option key={c}>{c}</option>)}</select></td>
-                                    <td style={{ ...tdS, padding: "6px 10px" }}><select value={it.sectionId} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, sectionId: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }}><option value="">—</option>{propSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></td>
-                                    <td style={{ ...tdS, padding: "6px 10px", width: 80 }}><input type="number" value={it.currentStock} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, currentStock: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }} /></td>
-                                    <td style={{ ...tdS, padding: "6px 10px", width: 90 }}><input value={it.unit} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} style={{ ...inp, padding: "4px 8px", fontSize: 12 }} /></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                          <div style={{ marginTop: 18, fontSize: 12, color: "var(--text3)" }}>Detected {invAiItems.length} item{invAiItems.length === 1 ? "" : "s"}. Review, adjust, then import.</div>
+                          <div style={{ marginTop: 10, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--bg2)" }}>
+                            {invAiItems.map((it, i) => (
+                              <div key={i} className="ai-item-card" style={{ opacity: it.keep ? 1 : 0.5 }}>
+                                <div className="ai-item-keep"><input type="checkbox" checked={it.keep} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, keep: e.target.checked } : x))} style={{ width: 18, height: 18, cursor: "pointer" }} /></div>
+                                <div className="ai-item-field">
+                                  <div className="ai-item-field-label">Item</div>
+                                  <input value={it.item} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, item: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                </div>
+                                <div className="ai-item-field ai-item-row2">
+                                  <div>
+                                    <div className="ai-item-field-label">Category</div>
+                                    <select value={it.category} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }}>{invCats.map(c => <option key={c}>{c}</option>)}</select>
+                                  </div>
+                                  <div>
+                                    <div className="ai-item-field-label">Section</div>
+                                    <select value={it.sectionId} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, sectionId: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }}><option value="">—</option>{propSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+                                  </div>
+                                </div>
+                                <div className="ai-item-field ai-item-row3">
+                                  <div>
+                                    <div className="ai-item-field-label">Stock</div>
+                                    <input type="number" value={it.currentStock} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, currentStock: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                  </div>
+                                  <div>
+                                    <div className="ai-item-field-label">Unit</div>
+                                    <input value={it.unit} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
-                            <button onClick={() => { setInvAiItems([]); setInvAiPhotos([]); setInvAiError(null); }} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
+                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14, flexWrap: "wrap" as const }}>
+                            <button onClick={() => { setInvAiItems([]); setInvAiPhotos([]); setInvAiError(null); }} style={{ padding: "10px 20px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
                             <button
                               disabled={invAiBusy}
                               onClick={async () => {
@@ -6302,7 +6347,7 @@ export default function AdminDashboard() {
                                   setInvAiBusy(false);
                                 }
                               }}
-                              style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: invAiBusy ? "default" : "pointer", fontFamily: "inherit" }}
+                              style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: invAiBusy ? "default" : "pointer", fontFamily: "inherit" }}
                             >{invAiBusy ? "Importing…" : `Import ${invAiItems.filter(x => x.keep).length} item${invAiItems.filter(x => x.keep).length === 1 ? "" : "s"}`}</button>
                           </div>
                         </>
