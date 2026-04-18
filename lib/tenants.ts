@@ -31,6 +31,9 @@ export type TenantConfig = {
     maintenanceConfig: string;
     help: string;
     activityLogs: string;
+    sections: string;
+    assets: string;
+    inventory: string;
   };
 };
 
@@ -57,6 +60,9 @@ const demo: TenantConfig = {
     maintenanceConfig: process.env.AIRTABLE_TABLE_MAINTENANCE_CONFIG!,
     help: process.env.AIRTABLE_TABLE_HELP!,
     activityLogs: process.env.AIRTABLE_TABLE_ACTIVITY_LOGS!,
+    sections: process.env.AIRTABLE_TABLE_SECTIONS!,
+    assets: process.env.AIRTABLE_TABLE_ASSETS!,
+    inventory: process.env.AIRTABLE_TABLE_INVENTORY!,
   },
 };
 
@@ -84,6 +90,9 @@ const demo: TenantConfig = {
 //     maintenanceConfig: "tblTODO",
 //     help: "tblTODO",
 //     activityLogs: "tblTODO",
+//     sections: "tblTODO",
+//     assets: "tblTODO",
+//     inventory: "tblTODO",
 //   },
 // };
 
