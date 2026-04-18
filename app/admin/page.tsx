@@ -1204,6 +1204,15 @@ export default function AdminDashboard() {
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {enabledModules.includes("expenses") && (
+              <button
+                aria-label="Add receipt"
+                onClick={() => { setActivePage("expenses"); setExpTab("add"); }}
+                style={{ width: 34, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid var(--accent-line)", background: "var(--accent-s)", color: "var(--accent)", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </button>
+            )}
             <button aria-label="Toggle theme" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ padding: "0 10px", height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>{theme === "dark" ? "☀" : "🌙"}</button>
             <UserButton appearance={{ elements: { avatarBox: { width: 28, height: 28 } } }} />
           </div>
