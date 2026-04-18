@@ -3481,6 +3481,7 @@ export default function AdminDashboard() {
                       <option value="admin">Admin</option>
                       <option value="owner">Owner</option>
                       <option value="house_manager">House Manager</option>
+                      <option value="receipt_uploader">Receipt Uploader</option>
                     </select>
                   </div>
                   {newUserRole === "owner" && (
@@ -3529,6 +3530,7 @@ export default function AdminDashboard() {
                         <option value="admin">Admin</option>
                         <option value="owner">Owner</option>
                         <option value="house_manager">House Mgr</option>
+                        <option value="receipt_uploader">Receipts</option>
                         <option value="none">None</option>
                       </select>
                     </div>
@@ -3545,7 +3547,7 @@ export default function AdminDashboard() {
                     <div style={{ padding: "12px 20px", background: "var(--accent-s)", borderBottom: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
                       <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>First Name</div><input value={editUserForm.firstName} onChange={e => setEditUserForm(f => ({ ...f, firstName: e.target.value }))} style={{ ...inp, padding: "5px 8px", fontSize: 12 }} /></div>
                       <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Last Name</div><input value={editUserForm.lastName} onChange={e => setEditUserForm(f => ({ ...f, lastName: e.target.value }))} style={{ ...inp, padding: "5px 8px", fontSize: 12 }} /></div>
-                      <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Role</div><select value={editUserForm.role} onChange={e => setEditUserForm(f => ({ ...f, role: e.target.value }))} style={{ ...sel, padding: "5px 8px", fontSize: 12 }}><option value="admin">Admin</option><option value="owner">Owner</option><option value="house_manager">House Mgr</option></select></div>
+                      <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Role</div><select value={editUserForm.role} onChange={e => setEditUserForm(f => ({ ...f, role: e.target.value }))} style={{ ...sel, padding: "5px 8px", fontSize: 12 }}><option value="admin">Admin</option><option value="owner">Owner</option><option value="house_manager">House Mgr</option><option value="receipt_uploader">Receipt Uploader</option></select></div>
                       <div><div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>Linked Property</div><select value={editUserForm.linkedProperty} onChange={e => setEditUserForm(f => ({ ...f, linkedProperty: e.target.value }))} style={{ ...sel, padding: "5px 8px", fontSize: 12 }}><option value="">— None —</option>{active.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button onClick={() => saveUserEdit(u.id)} style={{ padding: "5px 12px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
