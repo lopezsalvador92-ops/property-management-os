@@ -29,6 +29,8 @@ export async function GET(request: Request) {
     params.append("fields[]", "House");
     params.append("fields[]", "Supplier");
     params.append("fields[]", "Currency");
+    params.append("fields[]", "FX Rate");
+    params.append("fields[]", "Hide Receipt from Owner");
     params.set("sort[0][field]", "Date");
     params.set("sort[0][direction]", "desc");
     params.set("pageSize", "100");
@@ -59,6 +61,8 @@ export async function GET(request: Request) {
         house: Array.isArray(f["House Name"]) ? f["House Name"].join(", ") : f["House Name"] || "",
         houseId: (f["House"] || [])[0] || "",
         supplier: f["Supplier"] || "",
+        fxRate: f["FX Rate"] || 0,
+        hideReceipt: !!f["Hide Receipt from Owner"],
       };
     });
 
@@ -73,7 +77,7 @@ export async function POST(request: Request) {
   try {
     const tenant = await getTenant();
     const body = await request.json();
-    const { propertyId, date, category, amount, currency, description, supplier, receiptUrl, rentalId } = body;
+    const { propertyId, date, category, amount, currency, description, supplier, receiptUrl, rentalId, fxRate, hideReceipt } = body;
 
     if (!propertyId || !date || !category || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -90,6 +94,11 @@ export async function POST(request: Request) {
     if (supplier) fields["Supplier"] = supplier;
     if (receiptUrl) fields["Receipt URL"] = receiptUrl;
     if (rentalId) fields["Guest Rentals"] = [rentalId];
+    if (fxRate !== undefined && fxRate !== null && fxRate !== "") {
+      const rate = parseFloat(fxRate);
+      if (isFinite(rate) && rate > 0) fields["FX Rate"] = rate;
+    }
+    if (hideReceipt) fields["Hide Receipt from Owner"] = true;
 
     const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.expenses}`, {
       method: "POST",
@@ -115,7 +124,7 @@ export async function PATCH(request: Request) {
   try {
     const tenant = await getTenant();
     const body = await request.json();
-    const { id, date, category, amount, currency, description, supplier, propertyId } = body;
+    const { id, date, category, amount, currency, description, supplier, propertyId, fxRate, hideReceipt } = body;
     if (!id) return NextResponse.json({ error: "Missing record id" }, { status: 400 });
 
     const fields: Record<string, any> = {};
@@ -126,6 +135,15 @@ export async function PATCH(request: Request) {
     if (description !== undefined) fields["Description"] = description;
     if (supplier !== undefined) fields["Supplier"] = supplier;
     if (propertyId) fields["House"] = [propertyId];
+    if (fxRate !== undefined) {
+      if (fxRate === null || fxRate === "") {
+        fields["FX Rate"] = null;
+      } else {
+        const rate = parseFloat(fxRate);
+        if (isFinite(rate) && rate > 0) fields["FX Rate"] = rate;
+      }
+    }
+    if (hideReceipt !== undefined) fields["Hide Receipt from Owner"] = !!hideReceipt;
 
     const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.expenses}`, {
       method: "PATCH",

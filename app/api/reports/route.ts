@@ -51,6 +51,7 @@ export async function GET(request: Request) {
       "Total Miscellaneous MXN", "Total Miscellaneous USD",
       "Total Utilities MXN", "Total Utilities USD",
       "Total Villa Staff MXN", "Total Villa Staff USD",
+      "Summary",
     ];
     fields.forEach(f => repParams.append("fields[]", f));
     repParams.set("pageSize", "100");
@@ -99,6 +100,7 @@ export async function GET(request: Request) {
         totalExpenses: safeNum(isUSD ? record.fields["Total Expenses USD"] : record.fields["Total Expenses MXN"]),
         totalDeposits: safeNum(record.fields["Total Deposits"]),
         finalBalance: safeNum(isUSD ? record.fields["Final Balance USD"] : record.fields["Final Balance MXN"]),
+        summary: record.fields["Summary"] || "",
         categories: {
           cleaningSupplies: safeNum(isUSD ? record.fields["Total Cleaning Supplies USD"] : record.fields["Total Cleaning Supplies MXN"]),
           groceries: safeNum(isUSD ? record.fields["Total Groceries USD"] : record.fields["Total Groceries MXN"]),
@@ -259,6 +261,17 @@ export async function PATCH(request: Request) {
       });
       if (!res.ok) return NextResponse.json({ error: "Failed to update starting balance" }, { status: 500 });
       return NextResponse.json({ success: true, previousMonth: prevMonthStr, startingBalance: prevFinalBalance });
+    }
+
+    // Handle summary update (single record)
+    if (action === "updateSummary" && recordId) {
+      const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.monthlyReports}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ records: [{ id: recordId, fields: { "Summary": body.summary || "" } }] }),
+      });
+      if (!res.ok) return NextResponse.json({ error: "Failed to update summary" }, { status: 500 });
+      return NextResponse.json({ success: true });
     }
 
     // Handle exchange rate update (single record)

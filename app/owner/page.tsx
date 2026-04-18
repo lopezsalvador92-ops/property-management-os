@@ -7,7 +7,7 @@ import FirstLoginGate from "@/components/FirstLoginGate";
 type Report = {
   id: string; month: string; status: string; startingBalance: number;
   totalExpenses: number; totalDeposits: number; finalBalance: number;
-  exchangeRate: number;
+  exchangeRate: number; summary?: string;
   categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number };
 };
 type Expense = { id: string; description: string; amount: number; category: string; date: string; receiptUrl: string; monthYear: string };
@@ -396,6 +396,13 @@ export default function OwnerPortal() {
               </div>
 
               {report ? (<>
+                {/* Summary note from property manager */}
+                {report.summary && (
+                  <div className="stat-card" style={{ padding: "18px 22px", background: "var(--bg2)", border: "1px solid var(--accent-line)", borderRadius: 12, marginBottom: 16, boxShadow: "var(--shadow-sm)" }}>
+                    <div style={{ fontSize: 9, textTransform: "uppercase" as const, letterSpacing: "0.16em", color: "var(--accent)", marginBottom: 8, fontWeight: 700 }}>Note from your property manager</div>
+                    <div style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.55, whiteSpace: "pre-wrap" as const }}>{report.summary}</div>
+                  </div>
+                )}
                 {/* KPI strip */}
                 <div className="fin-stats" style={{ display: "grid", gridTemplateColumns: cur === "USD" ? "repeat(4, 1fr)" : "repeat(3, 1fr)", gap: 14, marginBottom: 22 }}>
                   <div className="stat-card" style={{ padding: "16px 20px", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-sm)" }}>

@@ -35,7 +35,7 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ roles });
+    return NextResponse.json({ roles, fxMode: tenant.fxMode });
   } catch (error) {
     console.error("Platform config error:", error);
     return NextResponse.json({ error: "Failed to fetch config" }, { status: 500 });

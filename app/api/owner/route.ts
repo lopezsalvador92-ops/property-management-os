@@ -83,7 +83,7 @@ export async function GET(request: Request) {
       "Total Miscellaneous MXN", "Total Miscellaneous USD",
       "Total Utilities MXN", "Total Utilities USD",
       "Total Villa Staff MXN", "Total Villa Staff USD",
-      "Monthly Exchange Rate",
+      "Monthly Exchange Rate", "Summary",
     ];
     repFields.forEach(f => repParams.append("fields[]", f));
     repParams.set("filterByFormula", `FIND("${propertyName}", {Report Name})`);
@@ -102,6 +102,7 @@ export async function GET(request: Request) {
         totalDeposits: safeNum(f["Total Deposits"]),
         finalBalance: safeNum(isUSD ? f["Final Balance USD"] : f["Final Balance MXN"]),
         exchangeRate: safeNum(f["Monthly Exchange Rate"]),
+        summary: f["Summary"] || "",
         categories: {
           cleaningSupplies: safeNum(isUSD ? f["Total Cleaning Supplies USD"] : f["Total Cleaning Supplies MXN"]),
           groceries: safeNum(isUSD ? f["Total Groceries USD"] : f["Total Groceries MXN"]),
@@ -127,6 +128,7 @@ export async function GET(request: Request) {
     expParams.append("fields[]", "Receipt URL");
     expParams.append("fields[]", "House Name");
     expParams.append("fields[]", "Month and Year");
+    expParams.append("fields[]", "Hide Receipt from Owner");
     expParams.set("filterByFormula", `FIND("${propertyName}", ARRAYJOIN({House Name}, ","))`);
     expParams.set("sort[0][field]", "Date");
     expParams.set("sort[0][direction]", "asc");
@@ -137,13 +139,14 @@ export async function GET(request: Request) {
       const f = r.fields;
       const catRaw = f["Expense Category"];
       const category = typeof catRaw === "string" ? catRaw : catRaw?.name || "";
+      const hideReceipt = !!f["Hide Receipt from Owner"];
       return {
         id: r.id,
         description: f["Description"] || "",
         amount: safeNum(isUSD ? f["Total Amount (USD)"] : f["Total"]),
         category,
         date: f["Date"] || "",
-        receiptUrl: f["Receipt URL"] || "",
+        receiptUrl: hideReceipt ? "" : (f["Receipt URL"] || ""),
         monthYear: f["Month and Year"] || "",
       };
     });

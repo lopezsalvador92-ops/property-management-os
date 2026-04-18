@@ -12,6 +12,9 @@ export type TenantConfig = {
   slug: string;
   displayName: string;
   baseId: string;
+  // "monthly": single FX rate per monthly report, applied to all MXN expenses in that month.
+  // "per-expense": each expense carries its own FX Rate; monthly report shows a blended rate for context.
+  fxMode: "monthly" | "per-expense";
   tables: {
     properties: string;
     expenses: string;
@@ -37,6 +40,7 @@ const demo: TenantConfig = {
   slug: "demo",
   displayName: "Demo (Axvia)",
   baseId: process.env.AIRTABLE_BASE_ID!,
+  fxMode: "per-expense",
   tables: {
     properties: process.env.AIRTABLE_TABLE_PROPERTIES!,
     expenses: process.env.AIRTABLE_TABLE_EXPENSES!,
@@ -63,6 +67,7 @@ const demo: TenantConfig = {
 //   slug: "tenant2",
 //   displayName: "TODO Rename",
 //   baseId: "appTODO",
+//   fxMode: "per-expense",
 //   tables: {
 //     properties: "tblTODO",
 //     expenses: "tblTODO",

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import FirstLoginGate from "@/components/FirstLoginGate";
 
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number; pmFeeUSD: number; pmFeeMXN: number };
-type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; houseId: string; total: number; currency: string; description: string; receiptUrl: string; owner: string };
+type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; houseId: string; total: number; currency: string; description: string; receiptUrl: string; owner: string; fxRate?: number; hideReceipt?: boolean };
 type Deposit = { id: string; date: string; house: string; houseId: string; owner: string; currency: string; amount: number; notes: string; month: string };
 type AppUser = { id: string; firstName: string; lastName: string; email: string; role: string; linkedProperty: string; createdAt: number; lastSignInAt: number | null; imageUrl: string; mustChangePassword?: boolean };
 type ActivityLog = { id: string; summary: string; timestamp: string; actorEmail: string; actorRole: string; action: string; targetEmail: string; targetRole: string; details: string };
@@ -14,7 +14,7 @@ type PropertyDetail = { id: string; name: string; owner: string; email: string; 
 type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 type HskLog = { id: string; housekeeper: string; housekeeperId: string; weekStart: string; days: { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string }; dayIds: { mon: string[]; tue: string[]; wed: string[]; thu: string[]; fri: string[]; sat: string[]; sun: string[] }; status: string; expensesCreated: boolean; comments: string; approvedAt: string };
 type HskSummary = { property: string; totalCleans: number; includedPerWeek: number; includedMonthly: number; extraCleans: number; cadence: string; weeksInMonth: number; weeklyBreakdown: { weekStart: string; cleans: number; included: number; extra: number }[] };
-type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
+type Report = { id: string; reportName: string; house: string; houseId: string; owner: string; month: string; status: string; chargeStatus: string; currency: string; exchangeRate: number; startingBalance: number; totalExpenses: number; totalDeposits: number; finalBalance: number; summary: string; categories: { cleaningSupplies: number; groceries: number; maintenance: number; miscellaneous: number; utilities: number; villaStaff: number } };
 type Balance = { house: string; houseId: string; month: string; status: string; currency: string; startingBalance: number; totalDeposits: number; totalExpenses: number; finalBalance: number };
 type ReportStatus = { pending: number; reviewed: number; sent: number; total: number; month: string };
 type MaintenanceTask = { id: string; title: string; type: string; status: string; priority: string; propertyId: string; propertyName: string; vendorId: string; vendorName: string; scheduledDate: string; completedDate: string; cost: number; notes: string; expenseCreated: boolean; attachments: { url: string; filename: string }[]; photos: { url: string; filename: string }[]; approvalStatus: string; approvedBy: string; approvalDate: string };
@@ -137,6 +137,9 @@ export default function AdminDashboard() {
   const [newExpCur, setNewExpCur] = useState("MXN");
   const [newExpDesc, setNewExpDesc] = useState("");
   const [newExpSupplier, setNewExpSupplier] = useState("");
+  const [newExpFxRate, setNewExpFxRate] = useState("");
+  const [newExpHideReceipt, setNewExpHideReceipt] = useState(false);
+  const [fxMode, setFxMode] = useState<"monthly" | "per-expense">("monthly");
   const [addingExp, setAddingExp] = useState(false);
   const [expSuccess, setExpSuccess] = useState(false);
   const [expSort, setExpSort] = useState<{ col: string; dir: "asc" | "desc" }>({ col: "date", dir: "desc" });
@@ -349,6 +352,13 @@ export default function AdminDashboard() {
     } catch (e) { console.error(e); }
   }
 
+  async function updateReportSummary(recordId: string, summary: string) {
+    try {
+      await fetch("/api/reports", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "updateSummary", recordId, summary }) });
+      setReports(prev => prev.map(r => r.id === recordId ? { ...r, summary } : r));
+    } catch (e) { console.error(e); }
+  }
+
   const monthOptions = getMonthOptions();
 
   const repMonthOptions = (() => {
@@ -367,6 +377,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (userRole === "system_admin") { setEnabledModules(allModuleIds); return; }
     fetch("/api/platform-config").then(r => r.json()).then(d => {
+      if (d.fxMode) setFxMode(d.fxMode);
       const roles: { roleId: string; modules: string[]; active: boolean }[] = d.roles || [];
       const myRole = roles.find(r => r.roleId === userRole);
       if (myRole && myRole.active) {
@@ -564,11 +575,11 @@ export default function AdminDashboard() {
       const res = await fetch("/api/expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId: newExpProp, date: newExpDate, category: newExpCat, amount: newExpAmt, currency: newExpCur, description: newExpDesc, supplier: newExpSupplier }),
+        body: JSON.stringify({ propertyId: newExpProp, date: newExpDate, category: newExpCat, amount: newExpAmt, currency: newExpCur, description: newExpDesc, supplier: newExpSupplier, fxRate: newExpFxRate, hideReceipt: newExpHideReceipt }),
       });
       if (res.ok) {
         setExpSuccess(true);
-        setNewExpAmt(""); setNewExpDesc(""); setNewExpSupplier("");
+        setNewExpAmt(""); setNewExpDesc(""); setNewExpSupplier(""); setNewExpFxRate(""); setNewExpHideReceipt(false);
         setTimeout(() => setExpSuccess(false), 3000);
         fetch("/api/expenses").then(r => r.json()).then(d => setExpenses(d.expenses || []));
       }
@@ -1295,6 +1306,13 @@ export default function AdminDashboard() {
                   <div><label style={lbl}>Supplier</label><input value={newExpSupplier} onChange={e => setNewExpSupplier(e.target.value)} placeholder="e.g. CFE, Telmex" style={inp} /></div>
                 </div>
                 <div style={{ marginBottom: 16 }}><label style={lbl}>Description</label><input value={newExpDesc} onChange={e => setNewExpDesc(e.target.value)} placeholder="Brief description of the expense" style={inp} /></div>
+                {fxMode === "per-expense" && newExpCur === "MXN" && (
+                  <div style={{ marginBottom: 16 }}><label style={lbl}>FX Rate (MXN → USD)</label><input type="number" step="0.0001" value={newExpFxRate} onChange={e => setNewExpFxRate(e.target.value)} placeholder="e.g. 17.25" style={inp} /><div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>Optional. Leave blank to use the monthly report rate.</div></div>
+                )}
+                <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" id="newExpHideReceipt" checked={newExpHideReceipt} onChange={e => setNewExpHideReceipt(e.target.checked)} style={{ cursor: "pointer" }} />
+                  <label htmlFor="newExpHideReceipt" style={{ fontSize: 13, color: "var(--text2)", cursor: "pointer" }}>Hide receipt from owner</label>
+                </div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <button onClick={() => setExpTab("list")} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
                   <button onClick={createExpense} disabled={addingExp || !newExpProp || !newExpAmt || !newExpDate} style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: (!newExpProp || !newExpAmt || !newExpDate) ? "var(--bg2)" : "linear-gradient(135deg, var(--teal), #2A6B7C)", color: (!newExpProp || !newExpAmt || !newExpDate) ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: (!newExpProp || !newExpAmt || !newExpDate) ? "default" : "pointer", fontFamily: "inherit" }}>{addingExp ? "Creating..." : "Create Expense"}</button>
@@ -1330,11 +1348,21 @@ export default function AdminDashboard() {
                             <td style={tdS}><input value={ef.supplier || ""} onChange={ev => setEditExpForm(f => ({ ...f, supplier: ev.target.value }))} style={{ ...inp, padding: "5px 8px", fontSize: 12, width: 100 }} /></td>
                             <td style={tdS}><input value={ef.description || ""} onChange={ev => setEditExpForm(f => ({ ...f, description: ev.target.value }))} style={{ ...inp, padding: "5px 8px", fontSize: 12, width: 140 }} /></td>
                             <td style={{ ...tdS, textAlign: "right" as const }}><input type="number" value={ef.total ?? ""} onChange={ev => setEditExpForm(f => ({ ...f, total: ev.target.value }))} style={{ ...inp, padding: "5px 8px", fontSize: 12, width: 90, textAlign: "right" as const }} /></td>
-                            <td style={tdS}><select value={ef.currency || ""} onChange={ev => setEditExpForm(f => ({ ...f, currency: ev.target.value }))} style={{ ...sel, padding: "5px 8px", fontSize: 12 }}><option>MXN</option><option>USD</option></select></td>
-                            <td style={tdS}></td>
+                            <td style={tdS}>
+                              <select value={ef.currency || ""} onChange={ev => setEditExpForm(f => ({ ...f, currency: ev.target.value }))} style={{ ...sel, padding: "5px 8px", fontSize: 12 }}><option>MXN</option><option>USD</option></select>
+                              {fxMode === "per-expense" && ef.currency === "MXN" && (
+                                <input type="number" step="0.0001" value={ef.fxRate ?? ""} onChange={ev => setEditExpForm(f => ({ ...f, fxRate: ev.target.value }))} placeholder="FX" style={{ ...inp, padding: "5px 8px", fontSize: 11, width: 70, marginTop: 4 }} />
+                              )}
+                            </td>
+                            <td style={tdS}>
+                              <label title="Hide receipt from owner" style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 10, color: "var(--text3)" }}>
+                                <input type="checkbox" checked={!!ef.hideReceipt} onChange={ev => setEditExpForm(f => ({ ...f, hideReceipt: ev.target.checked }))} />
+                                Hide
+                              </label>
+                            </td>
                             <td style={{ ...tdS, fontSize: 11, color: "var(--text3)", fontFamily: "monospace" }}>{e.receiptNo}</td>
                             <td style={{ ...tdS, whiteSpace: "nowrap" as const }}>
-                              <button onClick={async () => { setSavingExp(true); await fetch("/api/expenses", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: e.id, date: ef.date, category: ef.category, amount: ef.total, currency: ef.currency, description: ef.description, supplier: ef.supplier, propertyId: ef.houseId }) }); const d = await fetch(expFilter === "all" ? "/api/expenses" : `/api/expenses?house=${encodeURIComponent(expFilter)}`).then(r => r.json()); setExpenses(d.expenses || []); setEditExpId(null); setSavingExp(false); }} disabled={savingExp} style={{ padding: "3px 10px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginRight: 4 }}>{savingExp ? "..." : "Save"}</button>
+                              <button onClick={async () => { setSavingExp(true); await fetch("/api/expenses", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: e.id, date: ef.date, category: ef.category, amount: ef.total, currency: ef.currency, description: ef.description, supplier: ef.supplier, propertyId: ef.houseId, fxRate: ef.fxRate, hideReceipt: !!ef.hideReceipt }) }); const d = await fetch(expFilter === "all" ? "/api/expenses" : `/api/expenses?house=${encodeURIComponent(expFilter)}`).then(r => r.json()); setExpenses(d.expenses || []); setEditExpId(null); setSavingExp(false); }} disabled={savingExp} style={{ padding: "3px 10px", borderRadius: 100, background: "var(--teal)", color: "#fff", border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginRight: 4 }}>{savingExp ? "..." : "Save"}</button>
                               <button onClick={() => setEditExpId(null)} style={{ padding: "3px 10px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>✕</button>
                             </td>
                           </tr>
@@ -1349,9 +1377,12 @@ export default function AdminDashboard() {
                           <td style={{ ...tdS, color: "var(--text2)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }} title={e.description}>{e.description}</td>
                           <td className="a-num" style={{ ...tdS, color: "var(--text)", fontWeight: 600, whiteSpace: "nowrap" as const, textAlign: "right" as const }}>${(e.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td style={tdS}><span style={{ fontSize: 9, padding: "3px 9px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.06em", background: e.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: e.currency === "USD" ? "var(--blue)" : "var(--teal)" }}>{e.currency}</span></td>
-                          <td style={tdS}>{e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" className="receipt-link" style={{ color: "var(--teal)", textDecoration: "none", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 4, background: "var(--teal-s)" }}>View</a>}</td>
+                          <td style={tdS}>
+                            {e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" className="receipt-link" style={{ color: "var(--teal)", textDecoration: "none", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 4, background: "var(--teal-s)" }}>View</a>}
+                            {e.hideReceipt && <span title="Hidden from owner" style={{ marginLeft: 4, fontSize: 10, color: "var(--text3)" }}>🚫</span>}
+                          </td>
                           <td className="a-num" style={{ ...tdS, fontSize: 11, color: "var(--text3)", fontFamily: "monospace" }}>{e.receiptNo}</td>
-                          <td style={{ ...tdS, whiteSpace: "nowrap" as const }}><button className="a-pill-btn" onClick={() => { setEditExpId(e.id); setEditExpForm({ date: e.date, houseId: e.houseId, category: e.category, supplier: e.supplier, description: e.description, total: e.total, currency: e.currency }); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button></td>
+                          <td style={{ ...tdS, whiteSpace: "nowrap" as const }}><button className="a-pill-btn" onClick={() => { setEditExpId(e.id); setEditExpForm({ date: e.date, houseId: e.houseId, category: e.category, supplier: e.supplier, description: e.description, total: e.total, currency: e.currency, fxRate: e.fxRate || "", hideReceipt: !!e.hideReceipt }); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button></td>
                         </tr>
                       );
                     })}
@@ -1555,6 +1586,13 @@ export default function AdminDashboard() {
                           <button onClick={() => { setExpFilter(r.house); setMonthFilter(monthToFilterValue(r.month)); setActivePage("expenses"); }}
                             className="a-pill-btn"
                             style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border2)", background: "var(--bg2)", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" as const }}>View Expenses →</button>
+                        </div>
+                        {/* Owner summary note */}
+                        <div onClick={e => e.stopPropagation()} style={{ marginBottom: 18 }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 8 }}>Summary for Owner (optional)</div>
+                          <textarea defaultValue={r.summary || ""} onBlur={e => { if (e.target.value !== (r.summary || "")) updateReportSummary(r.id, e.target.value); }}
+                            placeholder="Highlight anything notable this month — unusual expenses, upcoming maintenance, etc."
+                            style={{ width: "100%", minHeight: 72, padding: "10px 12px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--text)", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "vertical" as const }} />
                         </div>
                         {/* Report preview */}
                         <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "var(--text3)", marginBottom: 12 }}>Report Preview</div>
