@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 
@@ -14,6 +14,14 @@ type Asset = {
 type Section = { id: string; name: string };
 
 export default function PrintLabelsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 60, textAlign: "center", color: "#999", fontFamily: "sans-serif", fontSize: 13 }}>Loading…</div>}>
+      <PrintLabelsInner />
+    </Suspense>
+  );
+}
+
+function PrintLabelsInner() {
   const params = useSearchParams();
   const propertyId = params.get("propertyId") || "";
   const idsParam = params.get("ids") || "";
