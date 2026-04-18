@@ -16,6 +16,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const house = searchParams.get("house") || "";
     const month = searchParams.get("month") || "";
+    // status: "Approved" (default, what reports/balances see), "Pending" (approval queue), "all"
+    const status = searchParams.get("status") || "Approved";
 
     const params = new URLSearchParams();
     params.append("fields[]", "Receipt No");
@@ -31,15 +33,27 @@ export async function GET(request: Request) {
     params.append("fields[]", "Currency");
     params.append("fields[]", "FX Rate");
     params.append("fields[]", "Hide Receipt from Owner");
+    params.append("fields[]", "Approval Status");
     params.set("sort[0][field]", "Date");
     params.set("sort[0][direction]", "desc");
     params.set("pageSize", "100");
 
-    if (house && month && month !== "all") {
-      params.set("filterByFormula", `AND(FIND("${house}", ARRAYJOIN({House Name}, ",")), {Month and Year}="${month}")`);
-    } else if (house) {
-      params.set("filterByFormula", `FIND("${house}", ARRAYJOIN({House Name}, ","))`);
-    }
+    // Status filter: treat blank/missing as Approved so legacy rows continue to surface.
+    // "all" skips the status clause entirely.
+    const statusClause =
+      status === "all"
+        ? ""
+        : status === "Approved"
+          ? `OR({Approval Status}="Approved", {Approval Status}="", NOT({Approval Status}))`
+          : `{Approval Status}="${status}"`;
+
+    const clauses: string[] = [];
+    if (statusClause) clauses.push(statusClause);
+    if (house) clauses.push(`FIND("${house}", ARRAYJOIN({House Name}, ","))`);
+    if (house && month && month !== "all") clauses.push(`{Month and Year}="${month}"`);
+
+    if (clauses.length === 1) params.set("filterByFormula", clauses[0]);
+    else if (clauses.length > 1) params.set("filterByFormula", `AND(${clauses.join(",")})`);
 
     const data = await airtableGet(tenant.baseId, tenant.tables.expenses, params);
 
@@ -47,6 +61,7 @@ export async function GET(request: Request) {
       const f = r.fields;
       const catRaw = f["Expense Category"];
       const curRaw = f["Currency"];
+      const statusRaw = f["Approval Status"];
       return {
         id: r.id,
         receiptNo: f["Receipt No"] || "",
@@ -63,6 +78,7 @@ export async function GET(request: Request) {
         supplier: f["Supplier"] || "",
         fxRate: f["FX Rate"] || 0,
         hideReceipt: !!f["Hide Receipt from Owner"],
+        status: (typeof statusRaw === "string" ? statusRaw : statusRaw?.name) || "Approved",
       };
     });
 
@@ -77,11 +93,15 @@ export async function POST(request: Request) {
   try {
     const tenant = await getTenant();
     const body = await request.json();
-    const { propertyId, date, category, amount, currency, description, supplier, receiptUrl, rentalId, fxRate, hideReceipt } = body;
+    const { propertyId, date, category, amount, currency, description, supplier, receiptUrl, rentalId, fxRate, hideReceipt, status } = body;
 
     if (!propertyId || !date || !category || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    // Tenant auto-approve override: if configured, force Approved even when caller requested Pending.
+    let resolvedStatus: "Approved" | "Pending" = status === "Pending" ? "Pending" : "Approved";
+    if (resolvedStatus === "Pending" && tenant.autoApproveExpenses) resolvedStatus = "Approved";
 
     const fields: Record<string, any> = {
       "House": [propertyId],
@@ -89,6 +109,7 @@ export async function POST(request: Request) {
       "Expense Category": category,
       "Total": parseFloat(amount),
       "Currency": currency || "MXN",
+      "Approval Status": resolvedStatus,
     };
     if (description) fields["Description"] = description;
     if (supplier) fields["Supplier"] = supplier;
@@ -124,7 +145,7 @@ export async function PATCH(request: Request) {
   try {
     const tenant = await getTenant();
     const body = await request.json();
-    const { id, date, category, amount, currency, description, supplier, propertyId, fxRate, hideReceipt } = body;
+    const { id, date, category, amount, currency, description, supplier, propertyId, fxRate, hideReceipt, status } = body;
     if (!id) return NextResponse.json({ error: "Missing record id" }, { status: 400 });
 
     const fields: Record<string, any> = {};
@@ -135,6 +156,7 @@ export async function PATCH(request: Request) {
     if (description !== undefined) fields["Description"] = description;
     if (supplier !== undefined) fields["Supplier"] = supplier;
     if (propertyId) fields["House"] = [propertyId];
+    if (status === "Approved" || status === "Pending" || status === "Rejected") fields["Approval Status"] = status;
     if (fxRate !== undefined) {
       if (fxRate === null || fxRate === "") {
         fields["FX Rate"] = null;
@@ -161,5 +183,24 @@ export async function PATCH(request: Request) {
   } catch (error) {
     console.error("Update expense error:", error);
     return NextResponse.json({ error: "Failed to update expense" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const tenant = await getTenant();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    const res = await fetch(`https://api.airtable.com/v0/${tenant.baseId}/${tenant.tables.expenses}/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` },
+    });
+    if (!res.ok) return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete expense error:", error);
+    return NextResponse.json({ error: "Failed to delete expense" }, { status: 500 });
   }
 }

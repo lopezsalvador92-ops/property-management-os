@@ -5,6 +5,7 @@ import { useUser, UserButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import FirstLoginGate from "@/components/FirstLoginGate";
 import QRScanModal from "@/components/QRScanModal";
+import PendingExpenseCard from "@/components/PendingExpenseCard";
 
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number; pmFeeUSD: number; pmFeeMXN: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; houseId: string; total: number; currency: string; description: string; receiptUrl: string; owner: string; fxRate?: number; hideReceipt?: boolean };
@@ -134,7 +135,13 @@ export default function AdminDashboard() {
   const [newUserRole, setNewUserRole] = useState("owner");
   const [newUserProp, setNewUserProp] = useState("");
   const [addingUser, setAddingUser] = useState(false);
-  const [expTab, setExpTab] = useState<"list" | "add">("list");
+  const [expTab, setExpTab] = useState<"list" | "approve" | "add">("list");
+  const [pendingExpenses, setPendingExpenses] = useState<any[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [tenantInfo, setTenantInfo] = useState<{ autoApproveExpenses: boolean } | null>(null);
+  const [scanHouseId, setScanHouseId] = useState("");
+  const [scanCategory, setScanCategory] = useState("Miscellaneous");
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [newExpProp, setNewExpProp] = useState("");
   const [newExpDate, setNewExpDate] = useState(new Date().toISOString().split("T")[0]);
   const [newExpCat, setNewExpCat] = useState("Utilities");
@@ -144,6 +151,10 @@ export default function AdminDashboard() {
   const [newExpSupplier, setNewExpSupplier] = useState("");
   const [newExpFxRate, setNewExpFxRate] = useState("");
   const [newExpHideReceipt, setNewExpHideReceipt] = useState(false);
+  const [newExpReceiptUrl, setNewExpReceiptUrl] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState("");
+  const [scanConfidence, setScanConfidence] = useState<"" | "high" | "medium" | "low">("");
   const [fxMode, setFxMode] = useState<"monthly" | "per-expense">("monthly");
   const [addingExp, setAddingExp] = useState(false);
   const [expSuccess, setExpSuccess] = useState(false);
@@ -396,6 +407,26 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetch("/api/properties").then(r => r.json()).then(d => { setProperties(d.properties || []); setLoading(false); }).catch(() => setLoading(false)); }, []);
 
+  useEffect(() => { fetch("/api/tenant-info").then(r => r.json()).then(d => setTenantInfo({ autoApproveExpenses: !!d.autoApproveExpenses })).catch(() => {}); }, []);
+
+  // Default the scan-picker property when only one active property exists (single-house tenants).
+  useEffect(() => {
+    if (scanHouseId) return;
+    const act = properties.filter(p => p.status === "Active");
+    if (act.length === 1) setScanHouseId(act[0].id);
+  }, [properties, scanHouseId]);
+
+  async function loadPendingExpenses() {
+    setPendingLoading(true);
+    try {
+      const d = await fetch("/api/expenses?status=Pending").then(r => r.json());
+      setPendingExpenses(d.expenses || []);
+    } catch {}
+    setPendingLoading(false);
+  }
+
+  useEffect(() => { if (activePage === "expenses") loadPendingExpenses(); }, [activePage]);
+
   // Fetch feature flags — system_admin sees everything
   useEffect(() => {
     if (userRole === "system_admin") { setEnabledModules(allModuleIds); return; }
@@ -614,6 +645,103 @@ export default function AdminDashboard() {
     }
   }, [activePage, concTab]);
 
+  async function scanReceipt(file: File) {
+    if (!scanHouseId) { setScanError("Select a property first."); return; }
+    setScanning(true); setScanError(""); setScanConfidence("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const up = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!up.ok) throw new Error("Upload failed");
+      const upData = await up.json();
+      const imageUrl = upData.url;
+
+      const ocr = await fetch("/api/expenses/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (!ocr.ok) {
+        const err = await ocr.json().catch(() => ({}));
+        throw new Error(err.error || "OCR failed");
+      }
+      const data = await ocr.json();
+
+      // Prefill the form and switch status to Pending (or Approved if tenant auto-approves).
+      setNewExpProp(scanHouseId);
+      // User picked a category before scanning — respect it. OCR category becomes a fallback only.
+      if (scanCategory) setNewExpCat(scanCategory);
+      else if (data.category) setNewExpCat(data.category);
+      setNewExpReceiptUrl(imageUrl);
+      if (data.vendor) setNewExpSupplier(data.vendor);
+      if (data.description) setNewExpDesc(data.description);
+      if (data.date) setNewExpDate(data.date);
+      if (typeof data.total === "number" && data.total > 0) setNewExpAmt(String(data.total));
+      if (data.currency === "USD" || data.currency === "MXN") setNewExpCur(data.currency);
+      if (data.confidence) setScanConfidence(data.confidence);
+
+      // Auto-submit to queue. User approves later from the "To Approve" tab.
+      const submitStatus = tenantInfo?.autoApproveExpenses ? "Approved" : "Pending";
+      const payload = {
+        propertyId: scanHouseId,
+        date: data.date || new Date().toISOString().split("T")[0],
+        category: scanCategory || data.category || "Miscellaneous",
+        amount: typeof data.total === "number" && data.total > 0 ? data.total : 0,
+        currency: data.currency === "USD" ? "USD" : "MXN",
+        description: data.description || "",
+        supplier: data.vendor || "",
+        receiptUrl: imageUrl,
+        status: submitStatus,
+      };
+      const post = await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!post.ok) throw new Error("Failed to save expense");
+
+      // Clear the form inputs and send the user to the approval queue (or list, if auto-approve).
+      setNewExpReceiptUrl(""); setNewExpAmt(""); setNewExpDesc(""); setNewExpSupplier("");
+      setScanConfidence("");
+      if (submitStatus === "Pending") {
+        await loadPendingExpenses();
+        setExpTab("approve");
+      } else {
+        setExpSuccess(true);
+        setTimeout(() => setExpSuccess(false), 3000);
+        fetch("/api/expenses").then(r => r.json()).then(d => setExpenses(d.expenses || []));
+        setExpTab("list");
+      }
+    } catch (e: any) {
+      setScanError(e?.message || "Scan failed");
+    }
+    setScanning(false);
+  }
+
+  async function approveExpense(id: string, fields?: Record<string, any>) {
+    setApprovingId(id);
+    try {
+      await fetch("/api/expenses", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...(fields || {}), status: "Approved" }),
+      });
+      await loadPendingExpenses();
+      fetch("/api/expenses").then(r => r.json()).then(d => setExpenses(d.expenses || []));
+    } catch (e) { console.error(e); }
+    setApprovingId(null);
+  }
+
+  async function rejectExpense(id: string) {
+    if (!confirm("Reject and delete this expense?")) return;
+    setApprovingId(id);
+    try {
+      await fetch(`/api/expenses?id=${id}`, { method: "DELETE" });
+      await loadPendingExpenses();
+    } catch (e) { console.error(e); }
+    setApprovingId(null);
+  }
+
   async function createExpense() {
     if (!newExpProp || !newExpAmt || !newExpDate) return;
     setAddingExp(true);
@@ -621,11 +749,11 @@ export default function AdminDashboard() {
       const res = await fetch("/api/expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId: newExpProp, date: newExpDate, category: newExpCat, amount: newExpAmt, currency: newExpCur, description: newExpDesc, supplier: newExpSupplier, fxRate: newExpFxRate, hideReceipt: newExpHideReceipt }),
+        body: JSON.stringify({ propertyId: newExpProp, date: newExpDate, category: newExpCat, amount: newExpAmt, currency: newExpCur, description: newExpDesc, supplier: newExpSupplier, fxRate: newExpFxRate, hideReceipt: newExpHideReceipt, receiptUrl: newExpReceiptUrl }),
       });
       if (res.ok) {
         setExpSuccess(true);
-        setNewExpAmt(""); setNewExpDesc(""); setNewExpSupplier(""); setNewExpFxRate(""); setNewExpHideReceipt(false);
+        setNewExpAmt(""); setNewExpDesc(""); setNewExpSupplier(""); setNewExpFxRate(""); setNewExpHideReceipt(false); setNewExpReceiptUrl(""); setScanConfidence(""); setScanError("");
         setTimeout(() => setExpSuccess(false), 3000);
         fetch("/api/expenses").then(r => r.json()).then(d => setExpenses(d.expenses || []));
       }
@@ -1336,6 +1464,12 @@ export default function AdminDashboard() {
               </div>
               <div style={{ display: "flex", gap: 0, background: "var(--bg2)", borderRadius: 100, padding: 4, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
                 <button onClick={() => setExpTab("list")} style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: expTab === "list" ? "var(--accent-s)" : "transparent", color: expTab === "list" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>All Expenses</button>
+                <button onClick={() => { setExpTab("approve"); loadPendingExpenses(); }} style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: expTab === "approve" ? "var(--accent-s)" : "transparent", color: expTab === "approve" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                  To Approve
+                  {pendingExpenses.length > 0 && (
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 18, height: 18, padding: "0 6px", borderRadius: 100, background: expTab === "approve" ? "var(--accent)" : "var(--red)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 0 }}>{pendingExpenses.length}</span>
+                  )}
+                </button>
                 <button onClick={() => setExpTab("add")} style={{ padding: "9px 20px", borderRadius: 100, border: "none", background: expTab === "add" ? "var(--accent-s)" : "transparent", color: expTab === "add" ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit", transition: "all var(--dur) var(--ease)" }}>+ Add Expense</button>
               </div>
             </div>
@@ -1344,6 +1478,39 @@ export default function AdminDashboard() {
             {expTab === "add" && (
               <div style={{ ...card, maxWidth: 700 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>Record a new expense</div>
+
+                <div style={{ marginBottom: 20, padding: 14, background: "var(--accent-s)", border: "1px dashed var(--accent)", borderRadius: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 3 }}>Scan receipt</div>
+                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>
+                    {tenantInfo?.autoApproveExpenses
+                      ? "Pick the property + category, then snap a photo. The expense posts immediately."
+                      : "Pick the property + category, then snap a photo. The expense will land in the approval queue for review."}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: active.length > 1 ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 12 }}>
+                    {active.length > 1 && (
+                      <div>
+                        <label style={lbl}>Property</label>
+                        <select value={scanHouseId} onChange={e => setScanHouseId(e.target.value)} style={inp}>
+                          <option value="">Select property...</option>
+                          {active.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <label style={lbl}>Category {active.length === 1 && <span style={{ color: "var(--text3)", fontWeight: 400 }}> — {active[0]?.name}</span>}</label>
+                      <select value={scanCategory} onChange={e => setScanCategory(e.target.value)} style={inp}>
+                        {["Utilities", "Villa Staff", "Maintenance", "Cleaning Supplies", "Groceries", "Miscellaneous", "Others", "Rental Expenses"].map(c => <option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <label style={{ padding: "10px 18px", borderRadius: 100, background: scanning || !scanHouseId ? "var(--bg2)" : "var(--accent)", color: scanning || !scanHouseId ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: scanning ? "wait" : !scanHouseId ? "not-allowed" : "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {scanning ? "Scanning…" : "📷 Scan Receipt"}
+                    <input type="file" accept="image/*,application/pdf" capture="environment" disabled={scanning || !scanHouseId} onChange={e => { const f = e.target.files?.[0]; if (f) scanReceipt(f); e.currentTarget.value = ""; }} style={{ display: "none" }} />
+                  </label>
+                  {scanError && <div style={{ marginTop: 10, fontSize: 12, color: "var(--red)", padding: 8, background: "var(--red-s)", borderRadius: 6 }}>{scanError}</div>}
+                </div>
+                <div style={{ textAlign: "center", fontSize: 10, color: "var(--text3)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>— or enter manually —</div>
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
                   <div><label style={lbl}>Property</label><select value={newExpProp} onChange={e => setNewExpProp(e.target.value)} style={inp}><option value="">Select property...</option>{active.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                   <div><label style={lbl}>Date</label><input type="date" value={newExpDate} onChange={e => setNewExpDate(e.target.value)} style={inp} /></div>
@@ -1364,6 +1531,28 @@ export default function AdminDashboard() {
                   <button onClick={() => setExpTab("list")} style={{ padding: "8px 18px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text3)", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
                   <button onClick={createExpense} disabled={addingExp || !newExpProp || !newExpAmt || !newExpDate} style={{ padding: "8px 18px", borderRadius: 100, border: "none", background: (!newExpProp || !newExpAmt || !newExpDate) ? "var(--bg2)" : "linear-gradient(135deg, var(--teal), #2A6B7C)", color: (!newExpProp || !newExpAmt || !newExpDate) ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: (!newExpProp || !newExpAmt || !newExpDate) ? "default" : "pointer", fontFamily: "inherit" }}>{addingExp ? "Creating..." : "Create Expense"}</button>
                 </div>
+              </div>
+            )}
+
+            {expTab === "approve" && (
+              <div>
+                <div style={{ ...card, marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Awaiting approval</div>
+                  <div style={{ fontSize: 12, color: "var(--text3)" }}>Scanned receipts land here. Review, edit if needed, then approve or reject.</div>
+                </div>
+                {pendingLoading && <div style={{ padding: 40, textAlign: "center" as const, color: "var(--text3)", fontSize: 13 }}>Loading…</div>}
+                {!pendingLoading && pendingExpenses.length === 0 && (
+                  <div style={{ padding: 60, textAlign: "center" as const, color: "var(--text3)", fontSize: 13, background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 14 }}>
+                    No expenses awaiting approval.
+                  </div>
+                )}
+                {!pendingLoading && pendingExpenses.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {pendingExpenses.map(e => (
+                      <PendingExpenseCard key={e.id} expense={e} active={active} onApprove={approveExpense} onReject={rejectExpense} approving={approvingId === e.id} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

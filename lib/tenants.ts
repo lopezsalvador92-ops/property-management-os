@@ -15,6 +15,10 @@ export type TenantConfig = {
   // "monthly": single FX rate per monthly report, applied to all MXN expenses in that month.
   // "per-expense": each expense carries its own FX Rate; monthly report shows a blended rate for context.
   fxMode: "monthly" | "per-expense";
+  // When true, scanned/submitted expenses skip the approval queue and land as Approved.
+  // Use for single-operator tenants (e.g. one owner managing their own house) where
+  // review would be pointless. Default false — all scanned receipts await approval.
+  autoApproveExpenses?: boolean;
   tables: {
     properties: string;
     expenses: string;
@@ -44,6 +48,7 @@ const demo: TenantConfig = {
   displayName: "Demo (Axvia)",
   baseId: process.env.AIRTABLE_BASE_ID!,
   fxMode: "per-expense",
+  autoApproveExpenses: false,
   tables: {
     properties: process.env.AIRTABLE_TABLE_PROPERTIES!,
     expenses: process.env.AIRTABLE_TABLE_EXPENSES!,
