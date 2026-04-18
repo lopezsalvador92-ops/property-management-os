@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
 import FirstLoginGate from "@/components/FirstLoginGate";
+import ReceiptThumb from "@/components/ReceiptThumb";
 
 type Report = {
   id: string; month: string; status: string; startingBalance: number;
@@ -483,7 +484,7 @@ export default function OwnerPortal() {
                         <div style={{ fontSize: 13, color: "var(--text)", paddingRight: 12 }}>{e.description || "Expense"}</div>
                         <div className="fin-num" style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", textAlign: "right" as const }}>{fmt(e.amount)}</div>
                         <div className="exp-cat-cell" style={{ textAlign: "center" as const }}><span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 4, background: "var(--bg4)", color: "var(--text2)", fontWeight: 600, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 116, display: "inline-block" }}>{e.category}</span></div>
-                        <div className="exp-receipt-cell" style={{ textAlign: "center" as const }}>{e.receiptUrl ? <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" className="receipt-link" style={{ color: "var(--teal)", textDecoration: "none", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>View</a> : <span style={{ fontSize: 11, color: "var(--text3)" }}>—</span>}</div>
+                        <div className="exp-receipt-cell" style={{ textAlign: "center" as const }}><ReceiptThumb url={e.receiptUrl} size={36} /></div>
                       </div>
                     ))}
                     {monthExpenses.length === 0 && <div style={{ padding: "26px 0", color: "var(--text3)", fontSize: 13, textAlign: "center" as const }}>No expenses for this month.</div>}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import FirstLoginGate from "@/components/FirstLoginGate";
 import QRScanModal from "@/components/QRScanModal";
 import PendingExpenseCard from "@/components/PendingExpenseCard";
+import ReceiptThumb from "@/components/ReceiptThumb";
 
 type Property = { id: string; name: string; owner: string; status: string; currency: string; pmFee: number; pmFeeUSD: number; pmFeeMXN: number };
 type Expense = { id: string; receiptNo: string; date: string; category: string; supplier: string; house: string; houseId: string; total: number; currency: string; description: string; receiptUrl: string; owner: string; fxRate?: number; hideReceipt?: boolean };
@@ -1504,8 +1505,8 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <label style={{ padding: "10px 18px", borderRadius: 100, background: scanning || !scanHouseId ? "var(--bg2)" : "var(--accent)", color: scanning || !scanHouseId ? "var(--text3)" : "#fff", fontSize: 12, fontWeight: 600, cursor: scanning ? "wait" : !scanHouseId ? "not-allowed" : "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    {scanning ? "Scanning…" : "📷 Scan Receipt"}
-                    <input type="file" accept="image/*,application/pdf" capture="environment" disabled={scanning || !scanHouseId} onChange={e => { const f = e.target.files?.[0]; if (f) scanReceipt(f); e.currentTarget.value = ""; }} style={{ display: "none" }} />
+                    {scanning ? "Scanning…" : "📷 Take Photo or Upload"}
+                    <input type="file" accept="image/*,application/pdf" disabled={scanning || !scanHouseId} onChange={e => { const f = e.target.files?.[0]; if (f) scanReceipt(f); e.currentTarget.value = ""; }} style={{ display: "none" }} />
                   </label>
                   {scanError && <div style={{ marginTop: 10, fontSize: 12, color: "var(--red)", padding: 8, background: "var(--red-s)", borderRadius: 6 }}>{scanError}</div>}
                 </div>
@@ -1614,8 +1615,8 @@ export default function AdminDashboard() {
                           <td className="a-num" style={{ ...tdS, color: "var(--text)", fontWeight: 600, whiteSpace: "nowrap" as const, textAlign: "right" as const }}>${(e.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td style={tdS}><span style={{ fontSize: 9, padding: "3px 9px", borderRadius: 100, fontWeight: 700, letterSpacing: "0.06em", background: e.currency === "USD" ? "var(--blue-s)" : "var(--teal-s)", color: e.currency === "USD" ? "var(--blue)" : "var(--teal)" }}>{e.currency}</span></td>
                           <td style={tdS}>
-                            {e.receiptUrl && <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" className="receipt-link" style={{ color: "var(--teal)", textDecoration: "none", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 4, background: "var(--teal-s)" }}>View</a>}
-                            {e.hideReceipt && <span title="Hidden from owner" style={{ marginLeft: 4, fontSize: 10, color: "var(--text3)" }}>🚫</span>}
+                            <ReceiptThumb url={e.receiptUrl} size={36} />
+                            {e.hideReceipt && <span title="Hidden from owner — admin only" style={{ marginLeft: 6, fontSize: 10, color: "var(--text3)" }}>🚫</span>}
                           </td>
                           <td className="a-num" style={{ ...tdS, fontSize: 11, color: "var(--text3)", fontFamily: "monospace" }}>{e.receiptNo}</td>
                           <td style={{ ...tdS, whiteSpace: "nowrap" as const }}><button className="a-pill-btn" onClick={() => { setEditExpId(e.id); setEditExpForm({ date: e.date, houseId: e.houseId, category: e.category, supplier: e.supplier, description: e.description, total: e.total, currency: e.currency, fxRate: e.fxRate || "", hideReceipt: !!e.hideReceipt }); }} style={{ padding: "5px 12px", borderRadius: 100, border: "1px solid var(--border2)", background: "transparent", color: "var(--text2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}>✎ Edit</button></td>
