@@ -13,16 +13,22 @@ Return ONLY a JSON object (no prose, no markdown fences) with this exact shape:
   "items": [
     {
       "item": string,           // Title Case noun phrase, e.g. "Pool Towels", "Hand Soap", "Gas Water Heater". Capitalize every significant word.
+      "trackingType": "asset" | "inventory",  // See rules below — asset = individually tracked with its own repair history + QR; inventory = fungible consumable counted in bulk.
       "category": string,       // Be specific. Prefer these when they fit: ${SUGGESTED_CATEGORIES.join(", ")}. If none fits, propose your own 1-2 word category (e.g. "HVAC", "Plumbing", "Safety").
       "brand": string,          // Visible brand name if clearly readable on the item (e.g. "Samsung", "Bosch", "Flux"). Empty string if not visible.
       "model": string,          // Visible model name/number if readable (e.g. "TL-18", "WF45T6000AW"). Empty string if not visible.
-      "currentStock": number,   // your best visible count. If unclear, estimate conservatively. For single large items (a heater, a TV), use 1.
-      "unit": string,           // Use descriptive words: "roll", "bottle", "pack", "bar", "pair", "box", "bag", "tube", "set". Use "unit" for generic countable items. NEVER return "each".
+      "count": number,          // How many of this exact item are visible. For assets, each gets its own record. For inventory, this is the stock level.
+      "unit": string,           // Only meaningful for inventory. Use: "roll", "bottle", "pack", "bar", "pair", "box", "bag", "tube", "set". Use "unit" generically. NEVER return "each".
       "notes": string           // optional short descriptor (color, size, material) — empty string if nothing useful to add. Don't duplicate brand/model here.
     }
   ],
   "confidence": "high" | "medium" | "low"
 }
+
+Tracking type rules (critical — this decides the data model):
+- "asset": durable, individually-tracked, repairable items that deserve their own repair history and QR code. Examples: water heaters, A/C units, TVs, washers, dryers, microwaves, fridges, pool pumps, routers, furniture, tools. If there are 4 water heaters, the user wants 4 separate asset records.
+- "inventory": fungible consumables counted in bulk. Examples: towels, sheets, soap, toilet paper, pool chlorine, kitchen supplies, cleaning chemicals, batteries, pantry items. 24 pool towels is ONE inventory row with count 24, not 24 rows.
+- When in doubt for high-value or branded items (>$100 and individually identifiable), prefer "asset".
 
 Category guidance:
 - Linens: sheets, pillowcases, duvet covers, blankets
@@ -103,15 +109,27 @@ export async function POST(request: Request) {
       .join("")
       .replace(/^./, c => c.toUpperCase());
 
+    const ASSET_HINTS = /heater|hvac|a\/c|air cond|fridge|refriger|washer|dryer|oven|microwave|dishwasher|tv|television|speaker|router|modem|pump|sofa|couch|chair|desk|bed frame|mattress|lamp|fan|grill|bbq/i;
+    const INVENTORY_HINTS = /towel|sheet|linen|pillow|soap|shampoo|conditioner|lotion|toilet paper|tissue|paper towel|detergent|chlorine|battery|bulb|sponge|glove|wipe|trash bag|napkin/i;
+
     parsed.items = parsed.items.map((it: any) => {
       let unit = String(it.unit || "").trim();
       if (!unit || unit.toLowerCase() === "each") unit = "unit";
+      const rawCount = Number(it.count ?? it.currentStock);
+      const count = Number.isFinite(rawCount) && rawCount > 0 ? Math.round(rawCount) : 1;
+      const name = titleCase(String(it.item || "").trim());
+      let trackingType: "asset" | "inventory" = it.trackingType === "asset" ? "asset" : it.trackingType === "inventory" ? "inventory" : "inventory";
+      if (!it.trackingType) {
+        if (ASSET_HINTS.test(name)) trackingType = "asset";
+        else if (INVENTORY_HINTS.test(name)) trackingType = "inventory";
+      }
       return {
-        item: titleCase(String(it.item || "").trim()),
+        item: name,
+        trackingType,
         category: String(it.category || "").trim(),
         brand: String(it.brand || "").trim(),
         model: String(it.model || "").trim(),
-        currentStock: Number.isFinite(Number(it.currentStock)) ? Number(it.currentStock) : 1,
+        count,
         unit,
         notes: String(it.notes || "").trim(),
       };

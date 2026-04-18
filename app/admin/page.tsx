@@ -6337,6 +6337,18 @@ export default function AdminDashboard() {
                                 <div className="ai-item-field">
                                   <div className="ai-item-field-label">Item</div>
                                   <input value={it.item} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, item: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                  <div style={{ display: "flex", gap: 4, marginTop: 6, padding: 3, background: "var(--bg3)", borderRadius: 100, width: "fit-content", border: "1px solid var(--border)" }}>
+                                    {(["asset", "inventory"] as const).map(t => (
+                                      <button
+                                        key={t}
+                                        onClick={() => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, trackingType: t } : x))}
+                                        style={{ padding: "4px 11px", borderRadius: 100, border: "none", background: it.trackingType === t ? (t === "asset" ? "var(--teal)" : "var(--accent)") : "transparent", color: it.trackingType === t ? "#fff" : "var(--text3)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" }}
+                                      >{t === "asset" ? "Asset · QR" : "Inventory"}</button>
+                                    ))}
+                                  </div>
+                                  {it.trackingType === "asset" && Number(it.count) > 1 && (
+                                    <div style={{ marginTop: 6, fontSize: 11, color: "var(--teal)" }}>Will create {Number(it.count)} tracked records ({it.item} #1–#{Number(it.count)}), each with its own QR.</div>
+                                  )}
                                 </div>
                                 <div className="ai-item-field ai-item-row2">
                                   <div>
@@ -6419,17 +6431,21 @@ export default function AdminDashboard() {
                                 </div>
                                 <div className="ai-item-field ai-item-row4">
                                   <div>
-                                    <div className="ai-item-field-label">Stock</div>
-                                    <input type="number" value={it.currentStock} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, currentStock: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                    <div className="ai-item-field-label">{it.trackingType === "asset" ? "How many?" : "Count"}</div>
+                                    <input type="number" min={1} value={it.count ?? 1} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, count: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
                                   </div>
                                   <div>
                                     <div className="ai-item-field-label">Unit</div>
-                                    <Combobox
-                                      value={it.unit || ""}
-                                      onChange={v => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, unit: v } : x))}
-                                      options={["unit", "pair", "set", "pack", "bottle", "roll", "bar", "box", "bag", "tube", "can"]}
-                                      placeholder="unit, roll, bottle…"
-                                    />
+                                    {it.trackingType === "asset" ? (
+                                      <div style={{ padding: "7px 10px", fontSize: 13, color: "var(--text3)", border: "1px dashed var(--border2)", borderRadius: 8, background: "transparent" }}>N/A</div>
+                                    ) : (
+                                      <Combobox
+                                        value={it.unit || ""}
+                                        onChange={v => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, unit: v } : x))}
+                                        options={["unit", "pair", "set", "pack", "bottle", "roll", "bar", "box", "bag", "tube", "can"]}
+                                        placeholder="unit, roll, bottle…"
+                                      />
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -6440,19 +6456,54 @@ export default function AdminDashboard() {
                             <button
                               disabled={invAiBusy}
                               onClick={async () => {
-                                const rows = invAiItems.filter(x => x.keep && x.item).map(x => {
-                                  const parts: string[] = [];
-                                  if (x.brand) parts.push(`Brand: ${x.brand}`);
-                                  if (x.model) parts.push(`Model: ${x.model}`);
-                                  if (x.notes) parts.push(x.notes);
-                                  return { item: x.item, sectionId: x.sectionId, category: x.category, currentStock: x.currentStock, unit: x.unit, notes: parts.join(" · ") };
-                                });
-                                if (rows.length === 0) return;
+                                const kept = invAiItems.filter(x => x.keep && x.item);
+                                if (kept.length === 0) return;
+
+                                const assetRows: any[] = [];
+                                const invRows: any[] = [];
+                                for (const x of kept) {
+                                  const count = Math.max(1, Math.round(Number(x.count) || 1));
+                                  if (x.trackingType === "asset") {
+                                    for (let n = 1; n <= count; n++) {
+                                      assetRows.push({
+                                        name: count > 1 ? `${x.item} #${n}` : x.item,
+                                        sectionId: x.sectionId,
+                                        category: x.category,
+                                        brand: x.brand,
+                                        model: x.model,
+                                        notes: x.notes,
+                                      });
+                                    }
+                                  } else {
+                                    const parts: string[] = [];
+                                    if (x.brand) parts.push(`Brand: ${x.brand}`);
+                                    if (x.model) parts.push(`Model: ${x.model}`);
+                                    if (x.notes) parts.push(x.notes);
+                                    invRows.push({
+                                      item: x.item,
+                                      sectionId: x.sectionId,
+                                      category: x.category,
+                                      currentStock: count,
+                                      unit: x.unit,
+                                      notes: parts.join(" · "),
+                                    });
+                                  }
+                                }
+
                                 setInvAiBusy(true);
+                                let totalCreated = 0;
                                 try {
-                                  const r = await fetch("/api/inventory/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId: catPropertyId, rows }) });
-                                  const j = await r.json();
-                                  if (j.created > 0) { setInvAiItems([]); setInvAiPhotos([]); reloadCatalog(); }
+                                  if (assetRows.length > 0) {
+                                    const r = await fetch("/api/assets/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId: catPropertyId, rows: assetRows }) });
+                                    const j = await r.json();
+                                    totalCreated += j.created || 0;
+                                  }
+                                  if (invRows.length > 0) {
+                                    const r = await fetch("/api/inventory/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId: catPropertyId, rows: invRows }) });
+                                    const j = await r.json();
+                                    totalCreated += j.created || 0;
+                                  }
+                                  if (totalCreated > 0) { setInvAiItems([]); setInvAiPhotos([]); reloadCatalog(); }
                                 } catch (e: any) {
                                   setInvAiError(e?.message || "Import failed");
                                 } finally {
@@ -6460,7 +6511,11 @@ export default function AdminDashboard() {
                                 }
                               }}
                               style={{ padding: "10px 22px", borderRadius: 100, border: "none", background: "linear-gradient(135deg, var(--teal), #2A6B7C)", color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: invAiBusy ? "default" : "pointer", fontFamily: "inherit" }}
-                            >{invAiBusy ? "Importing…" : `Import ${invAiItems.filter(x => x.keep).length} item${invAiItems.filter(x => x.keep).length === 1 ? "" : "s"}`}</button>
+                            >{(() => {
+                                if (invAiBusy) return "Importing…";
+                                const total = invAiItems.filter(x => x.keep && x.item).reduce((sum, x) => sum + (x.trackingType === "asset" ? Math.max(1, Math.round(Number(x.count) || 1)) : 1), 0);
+                                return `Import ${total} record${total === 1 ? "" : "s"}`;
+                              })()}</button>
                           </div>
                         </>
                       )}
