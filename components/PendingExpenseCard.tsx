@@ -59,14 +59,27 @@ export default function PendingExpenseCard({
           .pec-edit-grid { grid-template-columns: 1fr; }
         }
       `}</style>
-      <div className="pec-thumb" style={{ width: 96, height: 96, borderRadius: 8, overflow: "hidden", background: "var(--bg2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div className="pec-thumb" style={{ position: "relative", width: 96, height: 96, borderRadius: 8, overflow: "hidden", background: "var(--bg2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {expense.receiptUrl ? (
           isImage ? (
-            <a href={expense.receiptUrl} target="_blank" rel="noopener">
+            <a href={expense.receiptUrl} target="_blank" rel="noopener" style={{ display: "block", width: "100%", height: "100%" }}>
               <img src={expense.receiptUrl} alt="Receipt" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </a>
           ) : (
-            <a href={expense.receiptUrl} target="_blank" rel="noopener" style={{ fontSize: 11, color: "var(--teal-l)", textAlign: "center", padding: 6 }}>View PDF</a>
+            <>
+              <iframe
+                src={`${expense.receiptUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                style={{ width: "100%", height: "100%", border: 0, pointerEvents: "none", background: "#fff" }}
+                title="Receipt preview"
+              />
+              <a
+                href={expense.receiptUrl}
+                target="_blank"
+                rel="noopener"
+                aria-label="Open PDF"
+                style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 4, background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 40%)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", textDecoration: "none" }}
+              >PDF</a>
+            </>
           )
         ) : (
           <span style={{ fontSize: 10, color: "var(--text3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>No receipt</span>
