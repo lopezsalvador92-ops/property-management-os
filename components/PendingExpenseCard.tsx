@@ -43,22 +43,23 @@ export default function PendingExpenseCard({
     currency: expense.currency || "MXN",
   });
 
-  const card: React.CSSProperties = {
-    background: "var(--bg3)",
-    border: "1px solid var(--border)",
-    borderRadius: 14,
-    padding: 16,
-    display: "grid",
-    gridTemplateColumns: "96px 1fr auto",
-    gap: 16,
-    alignItems: "flex-start",
-  };
-
   const isImage = expense.receiptUrl && !/\.pdf($|\?)/i.test(expense.receiptUrl);
 
   return (
-    <div style={card}>
-      <div style={{ width: 96, height: 96, borderRadius: 8, overflow: "hidden", background: "var(--bg2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div className="pec-card">
+      <style>{`
+        .pec-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: grid; grid-template-columns: 96px 1fr auto; gap: 16px; align-items: flex-start; }
+        .pec-actions { display: flex; flex-direction: column; gap: 6px; min-width: 130px; }
+        .pec-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        @media (max-width: 640px) {
+          .pec-card { grid-template-columns: 1fr; gap: 14px; padding: 14px; }
+          .pec-thumb { width: 100% !important; height: 140px !important; }
+          .pec-actions { flex-direction: row; flex-wrap: wrap; min-width: 0; }
+          .pec-actions button { flex: 1 1 auto; }
+          .pec-edit-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
+      <div className="pec-thumb" style={{ width: 96, height: 96, borderRadius: 8, overflow: "hidden", background: "var(--bg2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {expense.receiptUrl ? (
           isImage ? (
             <a href={expense.receiptUrl} target="_blank" rel="noopener">
@@ -89,7 +90,7 @@ export default function PendingExpenseCard({
             </div>
           </>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div className="pec-edit-grid">
             <Field label="Date"><input type="date" value={draft.date} onChange={e => setDraft(d => ({ ...d, date: e.target.value }))} style={inp} /></Field>
             <Field label="Property">
               <select value={draft.propertyId} onChange={e => setDraft(d => ({ ...d, propertyId: e.target.value }))} style={inp}>
@@ -115,7 +116,7 @@ export default function PendingExpenseCard({
         )}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "stretch", minWidth: 130 }}>
+      <div className="pec-actions">
         {!editing ? (
           <>
             <button onClick={() => onApprove(expense.id)} disabled={approving} style={btn("approve")}>
