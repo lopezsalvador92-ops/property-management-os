@@ -155,6 +155,37 @@ const sel: React.CSSProperties = { padding: "10px 34px 10px 14px", background: "
 const inp: React.CSSProperties = { width: "100%", padding: "11px 14px", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--text)", fontFamily: "inherit", fontSize: 14, outline: "none", transition: "border-color var(--dur) var(--ease), background var(--dur) var(--ease)" };
 const eyebrow: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 10 };
 
+function Combobox({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
+  const [open, setOpen] = useState(false);
+  const filtered = options.filter(o => !value || o.toLowerCase().includes(value.toLowerCase()));
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 180)}
+        placeholder={placeholder}
+        style={{ ...inp, padding: "7px 10px", fontSize: 13 }}
+      />
+      {open && filtered.length > 0 && (
+        <div style={{ position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 20, background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.18)", maxHeight: 200, overflow: "auto" }}>
+          {filtered.map(o => (
+            <div
+              key={o}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { onChange(o); setOpen(false); }}
+              style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, color: "var(--text)", borderBottom: "1px solid var(--border)" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "var(--bg3)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+            >{o}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const { user } = useUser();
   const router = useRouter();
@@ -6226,16 +6257,17 @@ export default function AdminDashboard() {
                     <div style={{ ...card, marginBottom: 20 }}>
                       <style>{`
                         .ai-upload-row { display: flex; gap: 10px; flex-wrap: wrap; }
-                        .ai-item-card { display: grid; grid-template-columns: 28px 1.2fr 1fr 1fr 80px 90px; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+                        .ai-item-card { display: grid; grid-template-columns: 28px 1.4fr 1fr 1fr 1fr 1fr 80px 90px; gap: 8px; align-items: end; padding: 12px 14px; border-bottom: 1px solid var(--border); }
                         .ai-item-card:last-child { border-bottom: none; }
-                        .ai-item-field-label { display: none; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); margin-bottom: 3px; }
-                        @media (max-width: 720px) {
-                          .ai-item-card { grid-template-columns: 28px 1fr; grid-template-rows: auto auto auto auto; gap: 10px 8px; padding: 14px; }
+                        .ai-item-field-label { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+                        .ai-item-row2 { display: contents; }
+                        .ai-item-row3 { display: contents; }
+                        .ai-item-row4 { display: contents; }
+                        @media (max-width: 900px) {
+                          .ai-item-card { grid-template-columns: 28px 1fr; grid-template-rows: auto auto auto auto; gap: 10px 8px; padding: 14px; align-items: start; }
                           .ai-item-field { grid-column: 2; }
-                          .ai-item-keep { grid-column: 1; grid-row: 1 / span 4; align-self: start; padding-top: 6px; }
-                          .ai-item-field-label { display: block; }
-                          .ai-item-row2 { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-                          .ai-item-row3 { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+                          .ai-item-keep { grid-column: 1; grid-row: 1 / span 4; align-self: start; padding-top: 22px; }
+                          .ai-item-row2, .ai-item-row3, .ai-item-row4 { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
                         }
                       `}</style>
                       <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>AI Photo Scan</div>
@@ -6298,13 +6330,7 @@ export default function AdminDashboard() {
                       {invAiItems.length > 0 && (
                         <>
                           <div style={{ marginTop: 18, fontSize: 12, color: "var(--text3)" }}>Detected {invAiItems.length} item{invAiItems.length === 1 ? "" : "s"}. Review, adjust, then import.</div>
-                          <datalist id="inv-cat-suggest">
-                            {["Linens", "Towels", "Bath Amenities", "Kitchen", "Cleaning Supplies", "Pool", "Office", "Appliance", "Electronics", "Tools", "Outdoor", "Pantry", "HVAC", "Plumbing", "Safety", "Decor", "Other"].map(c => <option key={c} value={c} />)}
-                          </datalist>
-                          <datalist id="inv-unit-suggest">
-                            {["unit", "pair", "set", "pack", "bottle", "roll", "bar", "box", "bag", "tube", "can"].map(u => <option key={u} value={u} />)}
-                          </datalist>
-                          <div style={{ marginTop: 10, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--bg2)" }}>
+                          <div style={{ marginTop: 10, border: "1px solid var(--border)", borderRadius: 10, overflow: "visible", background: "var(--bg2)" }}>
                             {invAiItems.map((it, i) => (
                               <div key={i} className="ai-item-card" style={{ opacity: it.keep ? 1 : 0.5 }}>
                                 <div className="ai-item-keep"><input type="checkbox" checked={it.keep} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, keep: e.target.checked } : x))} style={{ width: 18, height: 18, cursor: "pointer" }} /></div>
@@ -6315,7 +6341,12 @@ export default function AdminDashboard() {
                                 <div className="ai-item-field ai-item-row2">
                                   <div>
                                     <div className="ai-item-field-label">Category</div>
-                                    <input list="inv-cat-suggest" value={it.category} placeholder="Type or pick…" onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                    <Combobox
+                                      value={it.category || ""}
+                                      onChange={v => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, category: v } : x))}
+                                      options={["Linens", "Towels", "Bath Amenities", "Kitchen", "Cleaning Supplies", "Pool", "Office", "Appliance", "Electronics", "Tools", "Outdoor", "Pantry", "HVAC", "Plumbing", "Safety", "Decor", "Other"]}
+                                      placeholder="Type or pick…"
+                                    />
                                   </div>
                                   <div>
                                     <div className="ai-item-field-label">Section</div>
@@ -6378,12 +6409,27 @@ export default function AdminDashboard() {
                                 </div>
                                 <div className="ai-item-field ai-item-row3">
                                   <div>
+                                    <div className="ai-item-field-label">Brand</div>
+                                    <input value={it.brand || ""} placeholder="Optional" onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, brand: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                  </div>
+                                  <div>
+                                    <div className="ai-item-field-label">Model</div>
+                                    <input value={it.model || ""} placeholder="Optional" onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, model: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                  </div>
+                                </div>
+                                <div className="ai-item-field ai-item-row4">
+                                  <div>
                                     <div className="ai-item-field-label">Stock</div>
                                     <input type="number" value={it.currentStock} onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, currentStock: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
                                   </div>
                                   <div>
                                     <div className="ai-item-field-label">Unit</div>
-                                    <input list="inv-unit-suggest" value={it.unit} placeholder="unit, roll, bottle…" onChange={e => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} style={{ ...inp, padding: "7px 10px", fontSize: 13 }} />
+                                    <Combobox
+                                      value={it.unit || ""}
+                                      onChange={v => setInvAiItems(arr => arr.map((x, j) => j === i ? { ...x, unit: v } : x))}
+                                      options={["unit", "pair", "set", "pack", "bottle", "roll", "bar", "box", "bag", "tube", "can"]}
+                                      placeholder="unit, roll, bottle…"
+                                    />
                                   </div>
                                 </div>
                               </div>
@@ -6394,7 +6440,13 @@ export default function AdminDashboard() {
                             <button
                               disabled={invAiBusy}
                               onClick={async () => {
-                                const rows = invAiItems.filter(x => x.keep && x.item);
+                                const rows = invAiItems.filter(x => x.keep && x.item).map(x => {
+                                  const parts: string[] = [];
+                                  if (x.brand) parts.push(`Brand: ${x.brand}`);
+                                  if (x.model) parts.push(`Model: ${x.model}`);
+                                  if (x.notes) parts.push(x.notes);
+                                  return { item: x.item, sectionId: x.sectionId, category: x.category, currentStock: x.currentStock, unit: x.unit, notes: parts.join(" · ") };
+                                });
                                 if (rows.length === 0) return;
                                 setInvAiBusy(true);
                                 try {

@@ -12,11 +12,13 @@ Return ONLY a JSON object (no prose, no markdown fences) with this exact shape:
 {
   "items": [
     {
-      "item": string,           // short noun phrase, e.g. "Pool towels", "Hand soap", "Gas water heater"
+      "item": string,           // Title Case noun phrase, e.g. "Pool Towels", "Hand Soap", "Gas Water Heater". Capitalize every significant word.
       "category": string,       // Be specific. Prefer these when they fit: ${SUGGESTED_CATEGORIES.join(", ")}. If none fits, propose your own 1-2 word category (e.g. "HVAC", "Plumbing", "Safety").
+      "brand": string,          // Visible brand name if clearly readable on the item (e.g. "Samsung", "Bosch", "Flux"). Empty string if not visible.
+      "model": string,          // Visible model name/number if readable (e.g. "TL-18", "WF45T6000AW"). Empty string if not visible.
       "currentStock": number,   // your best visible count. If unclear, estimate conservatively. For single large items (a heater, a TV), use 1.
       "unit": string,           // Use descriptive words: "roll", "bottle", "pack", "bar", "pair", "box", "bag", "tube", "set". Use "unit" for generic countable items. NEVER return "each".
-      "notes": string           // optional short descriptor (color, brand/model visible, size) — empty string if nothing to add
+      "notes": string           // optional short descriptor (color, size, material) — empty string if nothing useful to add. Don't duplicate brand/model here.
     }
   ],
   "confidence": "high" | "medium" | "low"
@@ -91,12 +93,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to parse AI response", raw }, { status: 502 });
     }
 
+    const titleCase = (s: string) => s
+      .split(/(\s+)/)
+      .map(tok => {
+        if (/^\s+$/.test(tok)) return tok;
+        if (/^(a|an|and|or|the|of|for|in|on|to|by|with)$/i.test(tok)) return tok.toLowerCase();
+        return tok.charAt(0).toUpperCase() + tok.slice(1).toLowerCase();
+      })
+      .join("")
+      .replace(/^./, c => c.toUpperCase());
+
     parsed.items = parsed.items.map((it: any) => {
       let unit = String(it.unit || "").trim();
       if (!unit || unit.toLowerCase() === "each") unit = "unit";
       return {
-        item: String(it.item || "").trim(),
+        item: titleCase(String(it.item || "").trim()),
         category: String(it.category || "").trim(),
+        brand: String(it.brand || "").trim(),
+        model: String(it.model || "").trim(),
         currentStock: Number.isFinite(Number(it.currentStock)) ? Number(it.currentStock) : 1,
         unit,
         notes: String(it.notes || "").trim(),
