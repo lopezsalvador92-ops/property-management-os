@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import FirstLoginGate from "@/components/FirstLoginGate";
@@ -104,6 +104,7 @@ export default function AdminDashboard() {
   const [monthFilter, setMonthFilter] = useState("all");
   const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activePage, setActivePage] = useState("dashboard");
+  const mobileRailRef = useRef<HTMLDivElement | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [depProperty, setDepProperty] = useState("");
   const [depAmount, setDepAmount] = useState("");
@@ -444,6 +445,15 @@ export default function AdminDashboard() {
       }
     }).catch(() => {});
   }, [userRole]);
+
+  useEffect(() => {
+    const rail = mobileRailRef.current;
+    if (!rail) return;
+    const btn = rail.querySelector<HTMLButtonElement>(`button[data-nav-id="${activePage}"]`);
+    if (!btn) return;
+    const left = btn.offsetLeft - (rail.clientWidth - btn.offsetWidth) / 2;
+    rail.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+  }, [activePage]);
 
   useEffect(() => {
     if (activePage === "expenses") {
@@ -1133,11 +1143,14 @@ export default function AdminDashboard() {
       @media(max-width:900px){
         .admin-shell{grid-template-columns:1fr !important;}
         .admin-sidebar-wrap{display:none !important;}
-        .admin-mobile-bar{display:flex !important;padding:14px 18px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:10;}
+        .admin-mobile-bar{display:flex !important;padding:12px 0 10px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:10;}
         .admin-main{padding:24px 18px !important;}
         .admin-stats-4{grid-template-columns:repeat(2,1fr) !important;gap:12px !important;}
         .admin-2col{grid-template-columns:1fr !important;gap:14px !important;}
       }
+      .admin-mobile-rail{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;width:100%;padding:2px 18px 4px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);}
+      .admin-mobile-rail::-webkit-scrollbar{display:none;}
+      .admin-mobile-rail > button{flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;}
       .a-card{transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease);}
       .a-card:hover{transform:translateY(-1px);border-color:var(--border2);box-shadow:var(--shadow-md);}
       .a-row{transition:background var(--dur) var(--ease);}
@@ -1179,7 +1192,7 @@ export default function AdminDashboard() {
       
         {/* Mobile top bar */}
         <div className="admin-mobile-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "0 18px" }}>
             <img src="/axvia-icon.svg" alt="Property Management OS" style={{ height: 22 }} />
             <span style={{ fontSize: 13, fontWeight: 500 }}>Property Management OS</span>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
@@ -1187,9 +1200,9 @@ export default function AdminDashboard() {
               <UserButton appearance={{ elements: { avatarBox: { width: 24, height: 24 } } }} />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+          <div className="admin-mobile-rail" ref={mobileRailRef}>
             {navItems.filter(item => enabledModules.includes(item.id)).map(item => (
-              <button key={item.id + "-mob"} onClick={() => setActivePage(item.id)} style={{ padding: "4px 10px", borderRadius: 6, border: activePage === item.id ? "1px solid var(--accent)" : "1px solid var(--border)", background: activePage === item.id ? "var(--accent-s)" : "transparent", color: activePage === item.id ? "var(--accent)" : "var(--text3)", fontSize: 10, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>{item.label}</button>
+              <button key={item.id + "-mob"} data-nav-id={item.id} onClick={() => setActivePage(item.id)} style={{ padding: "6px 12px", borderRadius: 999, border: activePage === item.id ? "1px solid var(--accent)" : "1px solid var(--border)", background: activePage === item.id ? "var(--accent-s)" : "transparent", color: activePage === item.id ? "var(--accent)" : "var(--text2)", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", lineHeight: 1.4 }}>{item.label}</button>
             ))}
           </div>
         </div>
