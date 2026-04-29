@@ -71,39 +71,37 @@ const demo: TenantConfig = {
   },
 };
 
-// Placeholder for the second customer. Fill in once their Airtable base is cloned.
-// Until all fields are populated, any request resolving to this tenant will error loudly
-// (which is what we want — better than silently reading the demo base).
-// const tenant2: TenantConfig = {
-//   slug: "tenant2",
-//   displayName: "TODO Rename",
-//   baseId: "appTODO",
-//   fxMode: "per-expense",
-//   tables: {
-//     properties: "tblTODO",
-//     expenses: "tblTODO",
-//     deposits: "tblTODO",
-//     monthlyReports: "tblTODO",
-//     housekeeping: "tblTODO",
-//     housekeepers: "tblTODO",
-//     rentals: "tblTODO",
-//     roles: "tblTODO",
-//     visits: "tblTODO",
-//     vendors: "tblTODO",
-//     itinerary: "tblTODO",
-//     maintenance: "tblTODO",
-//     maintenanceConfig: "tblTODO",
-//     help: "tblTODO",
-//     activityLogs: "tblTODO",
-//     sections: "tblTODO",
-//     assets: "tblTODO",
-//     inventory: "tblTODO",
-//   },
-// };
+const signature: TenantConfig = {
+  slug: "signature",
+  displayName: "Signature PM Cabo",
+  baseId: "appCEQ4qXfOOgzFj9",
+  fxMode: "per-expense",
+  autoApproveExpenses: false,
+  tables: {
+    properties: "tblCTRtMtVNv0F63W",
+    expenses: "tblHeiBjXhsKW9Opj",
+    deposits: "tblVrgidgJKKfdFQ2",
+    monthlyReports: "tblBei4KzIMDMT87X",
+    housekeeping: "tblG8udG0Wdo6Wms6",
+    housekeepers: "tblHxw0Mqcs5X76cL",
+    rentals: "tblAG4GqV5jCgAC7x",
+    roles: "tblsc0oGX6dygiY3U",
+    visits: "tblJ1iEgHCeJy2CnR",
+    vendors: "tblqm6eBgSSYcGcyl",
+    itinerary: "tblppsIgEI1hrM3wR",
+    maintenance: "tblC5Muegq8fVfuQf",
+    maintenanceConfig: "tbl94Yp43rz6nLhLW",
+    help: "tbliXqbGd7o02HnMY",
+    activityLogs: "tblr0LqK8DMptTnDN",
+    sections: "tbltEtTFDPxEVXQXj",
+    assets: "tbl9GVSjmUT3Q2lem",
+    inventory: "tblVrmAsEW9o4tcPR",
+  },
+};
 
 export const TENANTS: Record<string, TenantConfig> = {
   demo,
-  // tenant2,
+  signature,
 };
 
 export const DEFAULT_TENANT_SLUG = "demo";
