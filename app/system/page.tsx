@@ -49,12 +49,44 @@ export default function SystemSettings() {
   const [saved, setSaved] = useState<string | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("light");
 
+  const [tenants, setTenants] = useState<{ slug: string; displayName: string }[]>([]);
+  const [activeTenant, setActiveTenant] = useState<string>("");
+  const [homeSlug, setHomeSlug] = useState<string>("");
+  const [switchingTenant, setSwitchingTenant] = useState(false);
+
   useEffect(() => {
     fetch("/api/platform-config")
       .then(r => r.json())
       .then(d => { setRoles(d.roles || []); setLoading(false); })
       .catch(() => setLoading(false));
+
+    fetch("/api/tenant-override")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        setTenants(d.tenants || []);
+        setActiveTenant(d.active || "");
+        setHomeSlug(d.homeSlug || "");
+      })
+      .catch(() => {});
   }, []);
+
+  async function switchTenant(slug: string) {
+    setSwitchingTenant(true);
+    try {
+      const body = slug === homeSlug ? { slug: "" } : { slug };
+      const res = await fetch("/api/tenant-override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        window.location.reload();
+        return;
+      }
+    } catch (e) { console.error(e); }
+    setSwitchingTenant(false);
+  }
 
   if (role !== "system_admin") {
     return (
@@ -131,6 +163,36 @@ export default function SystemSettings() {
       </div>
 
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "44px 32px 56px" }}>
+        {tenants.length > 1 && (
+          <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 12, padding: "20px 24px", marginBottom: 32, boxShadow: "var(--shadow-sm)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" as const, color: "var(--accent)", marginBottom: 4 }}>Tenant Switcher</div>
+                <div style={{ fontSize: 13, color: "var(--text2)" }}>
+                  Currently viewing: <strong style={{ color: "var(--text)" }}>{tenants.find(t => t.slug === activeTenant)?.displayName || activeTenant}</strong>
+                  {activeTenant !== homeSlug && <span style={{ color: "var(--text3)", marginLeft: 8 }}>(impersonation — your home tenant is {tenants.find(t => t.slug === homeSlug)?.displayName || homeSlug})</span>}
+                </div>
+              </div>
+              <select
+                value={activeTenant}
+                disabled={switchingTenant}
+                onChange={(e) => switchTenant(e.target.value)}
+                style={{
+                  padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border2)",
+                  background: "var(--bg2)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
+                  cursor: switchingTenant ? "wait" : "pointer", minWidth: 220,
+                }}
+              >
+                {tenants.map(t => (
+                  <option key={t.slug} value={t.slug}>
+                    {t.displayName}{t.slug === homeSlug ? " (home)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
         <div style={{ marginBottom: 32 }}>
           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase" as const, color: "var(--accent)", marginBottom: 10, display: "block" }}>Platform Configuration</span>
           <h1 style={{ fontFamily: "var(--fd)", fontSize: 38, fontWeight: 400, marginBottom: 8, lineHeight: 1.05, letterSpacing: "-0.005em" }}>Roles &amp; Modules</h1>
